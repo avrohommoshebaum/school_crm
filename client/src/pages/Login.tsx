@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import api from "../utils/api"
 
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
@@ -13,46 +14,72 @@ import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 
 import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input"; // TextField wrapper
+import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { AppCheckbox } from "../components/ui/checkbox";
+
 import { Alert, AlertDescription } from "../components/ui/alert";
 
 import nachlasLogo from "../assets/nachlasLogo.png";
 
 export default function Login() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState("");
+  const [authMessage, setAuthMessage] = useState<string | null>(null);
   const [fadeIn, setFadeIn] = useState(false);
+
+  // ------------------------------
+  // Handle ?message=session_expired / forbidden
+  // ------------------------------
+  useEffect(() => {
+    const message = params.get("message");
+
+    if (message === "session_expired") {
+      setAuthMessage("You were logged out due to inactivity. Please sign in again.");
+    }
+    if (message === "forbidden") {
+      setAuthMessage("You no longer have permission to access that page. Please sign in.");
+    }
+  }, [params]);
 
   useEffect(() => {
     const timer = setTimeout(() => setFadeIn(true), 100);
     return () => clearTimeout(timer);
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
+  // ------------------------------
+  // Handle Submit
+  // ------------------------------
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setError("");
 
-    if (!email || !password) {
-      setError("Both fields are required.");
+  try {
+    const res = await api.post("/auth/login", {
+      email,
+      password,
+    });
+
+    if (res.data.mfaRequired) {
+      // redirect to MFA page if needed
+      navigate("/mfa");
       return;
     }
 
-    if (!/\S+@\S+\.\S+/.test(email)) {
-      setError("Invalid email address.");
-      return;
-    }
-
-    // TODO: Replace with actual authentication (e.g., Passport.js)
-    localStorage.setItem("user", JSON.stringify({ email, rememberMe }));
+    // Login success
+    await api.get("/auth/me"); // optional sanity check
     navigate("/");
-  };
+  } catch (err: any) {
+    setError(err.response?.data?.message || "Login failed");
+  }
+};
+
 
   return (
     <Box
@@ -67,7 +94,7 @@ export default function Login() {
         overflow: "hidden",
       }}
     >
-      {/* Back to site link */}
+      {/* Back to site */}
       <Box
         sx={{
           position: "absolute",
@@ -94,7 +121,6 @@ export default function Login() {
         </Link>
       </Box>
 
-      {/* Login Card */}
       <Paper
         elevation={8}
         sx={{
@@ -107,14 +133,10 @@ export default function Login() {
           transform: fadeIn ? "translateY(0)" : "translateY(16px)",
         }}
       >
-        {/* Logo & header */}
+        {/* Logo & Titles */}
         <Box sx={{ textAlign: "center", mb: 4 }}>
           <Box sx={{ mb: 2 }}>
-            <img
-              src={nachlasLogo}
-              alt="Nachlas Bais Yaakov Logo"
-              style={{ height: 120, margin: "0 auto" }}
-            />
+            <img src={nachlasLogo} alt="Nachlas Bais Yaakov Logo" style={{ height: 120 }} />
           </Box>
           <Typography variant="h5" color="primary" sx={{ mb: 0.5 }}>
             Nachlas Bais Yaakov
@@ -130,6 +152,13 @@ export default function Login() {
             213 Newport Ave, Lakewood, NJ 08701
           </Typography>
         </Box>
+
+        {/* AUTH MESSAGES (session expired / forbidden) */}
+        {authMessage && (
+          <Alert variant="default" sx={{ mb: 2 }}>
+            <AlertDescription>{authMessage}</AlertDescription>
+          </Alert>
+        )}
 
         <Box component="form" onSubmit={handleSubmit} sx={{ display: "grid", gap: 2.5 }}>
           {/* Email */}
@@ -162,7 +191,6 @@ export default function Login() {
                   <IconButton
                     edge="end"
                     onClick={() => setShowPassword((prev) => !prev)}
-                    aria-label={showPassword ? "Hide password" : "Show password"}
                   >
                     {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
                   </IconButton>
@@ -171,13 +199,12 @@ export default function Login() {
             />
           </Box>
 
-          {/* Remember me / Forgot password */}
+          {/* Remember / Forgot Password */}
           <Box
             sx={{
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              mt: 1,
             }}
           >
             <FormControlLabel
@@ -187,9 +214,7 @@ export default function Login() {
                   onChange={(e) => setRememberMe(e.target.checked)}
                 />
               }
-              label={
-                <Typography variant="body2">Remember me</Typography>
-              }
+              label={<Typography variant="body2">Remember me</Typography>}
             />
 
             <Link href="#" variant="body2" sx={{ color: "primary.main" }}>
@@ -204,12 +229,8 @@ export default function Login() {
             </Alert>
           )}
 
-          {/* Submit button */}
-          <Button
-            type="submit"
-            fullWidth
-            sx={{ mt: 1 }}
-          >
+          {/* Submit */}
+          <Button type="submit" fullWidth sx={{ mt: 1 }}>
             Sign In
           </Button>
         </Box>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { MouseEvent } from 'react';
 import {
   AppBar,
@@ -62,6 +62,8 @@ import type { OverridableComponent } from '@mui/material/OverridableComponent';
 import type { SvgIconTypeMap } from '@mui/material/SvgIcon';
 
 import nachlasLogo from '../assets/nachlasLogo.png';
+
+import api from '../utils/api';
 
 const DRAWER_WIDTH_OPEN = 250;
 const DRAWER_WIDTH_CLOSED = 72;
@@ -160,6 +162,18 @@ export default function LayoutMUI() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({});
   const [profileMenuAnchor, setProfileMenuAnchor] = useState<null | HTMLElement>(null);
+  const [currentUser, setCurrentUser] = useState<null | {
+  name: string;
+  roles: { displayName: string; name: string }[];
+}>(null);
+
+useEffect(() => {
+  api.get("/auth/me")
+    .then(res => setCurrentUser(res.data.user))
+    .catch(() => navigate("/login"));
+}, []);
+
+
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -198,10 +212,17 @@ export default function LayoutMUI() {
     setProfileMenuAnchor(null);
   };
 
-  const handleLogout = () => {
-    handleProfileMenuClose();
-    navigate('/login');
-  };
+const handleLogout = async () => {
+  handleProfileMenuClose();
+
+  try {
+    await api.post("/auth/logout");   
+  } catch (err) {
+    console.error("Logout error:", err);
+  }
+
+  navigate("/login");
+};
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -269,7 +290,7 @@ export default function LayoutMUI() {
           {/* Right Side Icons */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <IconButton sx={{ display: { xs: 'none', sm: 'inline-flex' } }} aria-label="Notifications">
-              <Badge badgeContent={3} color="error">
+              <Badge badgeContent={0} color="error">
                 <NotificationsIcon />
               </Badge>
             </IconButton>
@@ -289,14 +310,26 @@ export default function LayoutMUI() {
             anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
             transformOrigin={{ vertical: 'top', horizontal: 'right' }}
           >
-            <MenuItem onClick={handleProfileMenuClose}>
-              <AccountCircleIcon sx={{ mr: 1 }} fontSize="small" />
-              Profile
-            </MenuItem>
-            <MenuItem onClick={handleProfileMenuClose}>
-              <SettingsIcon sx={{ mr: 1 }} fontSize="small" />
-              Settings
-            </MenuItem>
+           <MenuItem
+  onClick={() => {
+    handleProfileMenuClose();
+    navigate("/profile");
+  }}
+>
+  <AccountCircleIcon sx={{ mr: 1 }} fontSize="small" />
+  Profile
+</MenuItem>
+
+<MenuItem
+  onClick={() => {
+    handleProfileMenuClose();
+    navigate("/settings");
+  }}
+>
+  <SettingsIcon sx={{ mr: 1 }} fontSize="small" />
+  Settings
+
+          </MenuItem>
             <Divider />
             <MenuItem onClick={handleLogout}>
               <LogoutIcon sx={{ mr: 1 }} fontSize="small" />
@@ -453,23 +486,54 @@ export default function LayoutMUI() {
         </List>
 
         {/* User Info at Bottom */}
-        {drawerOpen && (
-          <Box sx={{ mt: 'auto', p: 2, borderTop: '1px solid #e0e0e0' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              <Avatar sx={{ width: 40, height: 40, bgcolor: '#1976d2' }}>
-                <AccountCircleIcon />
-              </Avatar>
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
-                  Admin User
-                </Typography>
-                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                  Principal
-                </Typography>
-              </Box>
-            </Box>
-          </Box>
-        )}
+        {drawerOpen && currentUser && (
+  <Box sx={{ mt: "auto", p: 2, borderTop: "1px solid #e0e0e0" }}>
+    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+      <Avatar
+        sx={{
+          width: 40,
+          height: 40,
+          bgcolor: "#1976d2",
+          fontWeight: "bold",
+        }}
+      >
+        {currentUser.name
+          .split(" ")
+          .map((n) => n[0])
+          .join("")
+          .toUpperCase()}
+      </Avatar>
+
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            fontWeight: 600,
+            lineHeight: 1.2,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {currentUser.name}
+        </Typography>
+
+        <Typography
+          variant="caption"
+          sx={{
+            color: "text.secondary",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {currentUser.roles?.map((r) => r.displayName).join(", ") || "—"}
+        </Typography>
+      </Box>
+    </Box>
+  </Box>
+)}
+
       </Drawer>
 
       {/* Main Content */}

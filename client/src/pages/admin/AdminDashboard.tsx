@@ -24,6 +24,9 @@ import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive";
 import StorageIcon from "@mui/icons-material/Storage";
 import SecurityIcon from "@mui/icons-material/Security";
 
+
+import SamplePageOverlay from "../../components/samplePageOverlay"
+
 type Stat = {
   label: string;
   value: string;
@@ -396,6 +399,7 @@ const AdminDashboard: React.FC = () => {
           </Card>
         </Box>
       </Paper>
+         <SamplePageOverlay text="SAMPLE PAGE" />
     </Box>
   );
 };

@@ -1,4 +1,6 @@
-import React, { useState } from "react";
+// src/pages/admin/UserManagement.tsx
+
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Paper,
@@ -36,6 +38,8 @@ import {
   CardContent,
   useMediaQuery,
   useTheme,
+  CircularProgress,
+  Checkbox,
 } from "@mui/material";
 
 import SearchIcon from "@mui/icons-material/Search";
@@ -54,7 +58,13 @@ import FamilyRestroomIcon from "@mui/icons-material/FamilyRestroom";
 import SupervisorAccountIcon from "@mui/icons-material/SupervisorAccount";
 import CloseIcon from "@mui/icons-material/Close";
 
-type UserRole =
+import api from "../../utils/api";
+
+// -----------------------------
+// TYPES
+// -----------------------------
+
+type CoreRoleName =
   | "admin"
   | "principal"
   | "teacher"
@@ -63,13 +73,29 @@ type UserRole =
 
 type UserStatus = "active" | "inactive" | "pending";
 
-interface User {
+interface RoleOption {
+  _id: string;
+  name: string;
+  displayName: string;
+  color: string;
+  isSystem: boolean;
+}
+
+interface UserRoleEntry {
   id: string;
+  _id: string;
+  name: string;
+  displayName: string;
+  color: string;
+}
+
+interface User {
+  _id: string;
   name: string;
   email: string;
-  role: UserRole;
   status: UserStatus;
-  lastLogin: string;
+  roles: UserRoleEntry[];
+  lastLogin: string | null;
   createdAt: string;
 }
 
@@ -79,67 +105,14 @@ interface SnackbarState {
   severity: "success" | "error";
 }
 
-const mockUsers: User[] = [
-  {
-    id: "1",
-    name: "Rabbi David Schwartz",
-    email: "dschwartz@nachlasbaisyaakov.org",
-    role: "admin",
-    status: "active",
-    lastLogin: "2024-12-01 09:30 AM",
-    createdAt: "2024-01-15",
-  },
-  {
-    id: "2",
-    name: "Mrs. Rachel Cohen",
-    email: "rcohen@nachlasbaisyaakov.org",
-    role: "teacher",
-    status: "active",
-    lastLogin: "2024-12-01 08:15 AM",
-    createdAt: "2024-02-20",
-  },
-  {
-    id: "3",
-    name: "Mrs. Sarah Goldstein",
-    email: "sgoldstein@nachlasbaisyaakov.org",
-    role: "principal",
-    status: "active",
-    lastLogin: "2024-11-30 04:45 PM",
-    createdAt: "2024-01-10",
-  },
-  {
-    id: "4",
-    name: "Mr. Moshe Klein",
-    email: "mklein@gmail.com",
-    role: "parent",
-    status: "active",
-    lastLogin: "2024-11-29 07:20 PM",
-    createdAt: "2024-03-05",
-  },
-  {
-    id: "5",
-    name: "Mrs. Leah Friedman",
-    email: "lfriedman@nachlasbaisyaakov.org",
-    role: "business_office",
-    status: "active",
-    lastLogin: "2024-11-28 10:00 AM",
-    createdAt: "2024-01-20",
-  },
-  {
-    id: "6",
-    name: "Mrs. Devorah Weiss",
-    email: "dweiss@nachlasbaisyaakov.org",
-    role: "teacher",
-    status: "inactive",
-    lastLogin: "2024-10-15 03:30 PM",
-    createdAt: "2023-09-01",
-  },
-];
+// -----------------------------
+// STATIC ROLE META
+// -----------------------------
 
-const roleOptions: {
-  value: UserRole;
+const coreRoleMeta: {
+  value: CoreRoleName;
   label: string;
-  icon: React.ReactNode;
+  icon: React.ReactElement;
   color: string;
 }[] = [
   {
@@ -173,11 +146,40 @@ const roleOptions: {
     color: "#7b1fa2",
   },
 ];
-    
-const UserManagement = () => {
-  const [users, setUsers] = useState<User[]>(mockUsers);
+
+function getCoreRoleMetaByName(name: string) {
+  const match = coreRoleMeta.find((r) => r.value === name);
+  if (!match) return undefined;
+  return {
+    label: match.label,
+    icon: match.icon,
+    color: match.color,
+  };
+}
+
+function getRoleDisplayFromEntry(role: UserRoleEntry) {
+  const core = getCoreRoleMetaByName(role.name);
+  if (core) return core;
+
+  return {
+    label: role.displayName || role.name,
+    icon: <SupervisorAccountIcon fontSize="small" />,
+    color: role.color || "#546e7a",
+  };
+}
+
+// -----------------------------
+// MAIN COMPONENT
+// -----------------------------
+
+const UserManagement: React.FC = () => {
+  const [users, setUsers] = useState<User[]>([]);
+  const [roles, setRoles] = useState<RoleOption[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [currentTab, setCurrentTab] = useState(0);
+
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
@@ -193,93 +195,194 @@ const UserManagement = () => {
 
   const [searchExpanded, setSearchExpanded] = useState(false);
 
-  const [inviteForm, setInviteForm] = useState<{
-    name: string;
-    email: string;
-    role: UserRole;
-  }>({
+  const [inviteForm, setInviteForm] = useState({
     name: "",
     email: "",
-    role: "teacher",
+    roleIds: [] as string[],
   });
 
-  const [editForm, setEditForm] = useState<{
-    name: string;
-    email: string;
-    role: UserRole | "";
-    status: UserStatus | "";
-  }>({
+  const [editForm, setEditForm] = useState({
     name: "",
     email: "",
-    role: "",
-    status: "",
+    status: "" as UserStatus | "",
+    roleIds: [] as string[],
   });
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, user: User) => {
-    setAnchorEl(event.currentTarget);
+  // -----------------------------
+  // SNACKBAR
+  // -----------------------------
+
+  const showSnackbar = (message: string, severity: "success" | "error") =>
+    setSnackbar({ open: true, message, severity });
+
+  const handleSnackbarClose = () =>
+    setSnackbar((prev) => ({ ...prev, open: false }));
+
+  // -----------------------------
+  // LOADERS
+  // -----------------------------
+
+  const loadUsers = async () => {
+    try {
+      setLoading(true);
+
+      const { data } = await api.get<{ users: any[] }>("/users");
+      console.log("RAW users from backend:", data.users);
+
+      const formatted: User[] = data.users.map((u) => ({
+        _id: u.id,
+        name: u.name,
+        email: u.email,
+        status: u.status,
+roles: (u.roles || []).map((r: { _id: any; id: any; name: any; displayName: any; color: any; }) => ({
+  _id: r._id || r.id,  
+  name: r.name,
+  displayName: r.displayName,
+  color: r.color,
+})),
+
+
+        lastLogin: u.lastLogin ? new Date(u.lastLogin).toLocaleString() : null,
+        createdAt: new Date(u.createdAt).toLocaleDateString(),
+      }));
+
+      setUsers(formatted);
+    } catch (err: any) {
+      console.error(err);
+      showSnackbar(err?.response?.data?.message || "Failed to load users", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadRoles = async () => {
+    try {
+      const { data } = await api.get<{ roles: any[] }>("/roles");
+
+      setRoles(
+        data.roles.map((r) => ({
+          _id: r._id,
+          name: r.name,
+          displayName: r.displayName,
+          color: r.color || "#546e7a",
+          isSystem: !!r.isSystem,
+        }))
+      );
+    } catch (err: any) {
+      console.error(err);
+      showSnackbar(err?.response?.data?.message || "Failed to load roles", "error");
+    }
+  };
+
+  useEffect(() => {
+    (async () => {
+      await Promise.all([loadUsers(), loadRoles()]);
+    })();
+  }, []);
+
+  // -----------------------------
+  // MENU HANDLING
+  // -----------------------------
+
+  const handleMenuOpen = (e: React.MouseEvent<HTMLElement>, user: User) => {
+    setAnchorEl(e.currentTarget);
     setSelectedUser(user);
   };
 
-  const handleMenuClose = () => {
-    setAnchorEl(null);
+  const handleMenuClose = () => setAnchorEl(null);
+
+ 
+
+    // -----------------------------
+  // INVITE USER
+  // -----------------------------
+
+  const handleInviteUser = async () => {
+    if (!inviteForm.email.trim()) {
+      showSnackbar("Email is required", "error");
+      return;
+    }
+    if (inviteForm.roleIds.length === 0) {
+      showSnackbar("Select at least one role", "error");
+      return;
+    }
+
+    try {
+      await api.post("/invite", {
+        email: inviteForm.email,
+        roleIds: inviteForm.roleIds,
+      });
+
+      showSnackbar("Invitation sent!", "success");
+      setInviteDialogOpen(false);
+      setInviteForm({ name: "", email: "", roleIds: [] });
+      await loadUsers();
+    } catch (err: any) {
+      console.error(err);
+      showSnackbar(
+        err?.response?.data?.message || "Error sending invite",
+        "error"
+      );
+    }
   };
 
-  const showSnackbar = (message: string, severity: "success" | "error") => {
-    setSnackbar({ open: true, message, severity });
-  };
-
-  const handleInviteUser = () => {
-    const newUser: User = {
-      id: Date.now().toString(),
-      name: inviteForm.name,
-      email: inviteForm.email,
-      role: inviteForm.role,
-      status: "pending",
-      lastLogin: "Never",
-      createdAt: new Date().toISOString().split("T")[0],
-    };
-
-    setUsers((prev) => [...prev, newUser]);
-    setInviteDialogOpen(false);
-    setInviteForm({ name: "", email: "", role: "teacher" });
-    showSnackbar("Invitation sent successfully!", "success");
-  };
+  // -----------------------------
+  // EDIT USER
+  // -----------------------------
 
   const handleEditUser = () => {
     if (!selectedUser) return;
 
     setEditForm({
-      name: selectedUser.name,
-      email: selectedUser.email,
-      role: selectedUser.role,
-      status: selectedUser.status,
-    });
+  name: selectedUser.name,
+  email: selectedUser.email,
+  status: selectedUser.status,
+  roleIds: selectedUser.roles.map((r) => r._id || r.id),
+});
+
     setEditDialogOpen(true);
     handleMenuClose();
   };
 
-  const handleSaveEdit = () => {
-    if (!selectedUser || !editForm.role || !editForm.status) return;
+  const handleSaveEdit = async () => {
+    if (!selectedUser) return;
 
-    setUsers((prev) =>
-      prev.map((u) =>
-        u.id === selectedUser.id
-          ? {
-              ...u,
-              name: editForm.name,
-              email: editForm.email,
-              role: editForm.role as UserRole,
-              status: editForm.status as UserStatus,
-            }
-          : u
-      )
-    );
-    setEditDialogOpen(false);
-    showSnackbar("User updated successfully!", "success");
+    if (!editForm.name.trim() || !editForm.email.trim() || !editForm.status) {
+      showSnackbar("Please fill in all required fields", "error");
+      return;
+    }
+
+    if (editForm.roleIds.length === 0) {
+      showSnackbar("Select at least one role", "error");
+      return;
+    }
+
+    try {
+      await api.put(`/users/${selectedUser._id}`, {
+        name: editForm.name,
+        email: editForm.email,
+        status: editForm.status,
+        roleIds: editForm.roleIds,
+      });
+
+      showSnackbar("User updated!", "success");
+      setEditDialogOpen(false);
+      await loadUsers();
+    } catch (err: any) {
+      console.error(err);
+      showSnackbar(
+        err?.response?.data?.message || "Error updating user",
+        "error"
+      );
+    }
   };
+
+  // -----------------------------
+  // DELETE USER
+  // -----------------------------
 
   const handleDeleteUser = () => {
     if (!selectedUser) return;
@@ -287,47 +390,76 @@ const UserManagement = () => {
     handleMenuClose();
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!selectedUser) return;
-    setUsers((prev) => prev.filter((u) => u.id !== selectedUser.id));
-    setDeleteDialogOpen(false);
-    showSnackbar("User deleted successfully!", "success");
+
+    try {
+      await api.delete(`/users/${selectedUser._id}`);
+      showSnackbar("User deleted!", "success");
+      setDeleteDialogOpen(false);
+      setSelectedUser(null);
+      await loadUsers();
+    } catch (err: any) {
+      console.error(err);
+      showSnackbar(
+        err?.response?.data?.message || "Unable to delete user",
+        "error"
+      );
+    }
   };
 
-  const handleToggleStatus = () => {
+  // -----------------------------
+  // TOGGLE STATUS
+  // -----------------------------
+
+  const handleToggleStatus = async () => {
     if (!selectedUser) return;
 
     const newStatus: UserStatus =
       selectedUser.status === "active" ? "inactive" : "active";
 
-    setUsers((prev) =>
-      prev.map((u) =>
-        u.id === selectedUser.id ? { ...u, status: newStatus } : u
-      )
-    );
-    handleMenuClose();
-    showSnackbar(
-      `User ${
-        newStatus === "active" ? "activated" : "deactivated"
-      } successfully!`,
-      "success"
-    );
+    try {
+      await api.put(`/users/${selectedUser._id}`, {
+        name: selectedUser.name,
+        email: selectedUser.email,
+        status: newStatus,
+        roleIds: selectedUser.roles.map((r) => r._id),
+      });
+
+      showSnackbar(
+        `User ${
+          newStatus === "active" ? "activated" : "deactivated"
+        } successfully!`,
+        "success"
+      );
+      handleMenuClose();
+      await loadUsers();
+    } catch (err: any) {
+      console.error(err);
+      showSnackbar(
+        err?.response?.data?.message || "Failed to update user status",
+        "error"
+      );
+    }
   };
 
+  // -----------------------------
+  // RESET / RESEND PLACEHOLDERS
+  // -----------------------------
+
   const handleResetPassword = () => {
-    if (!selectedUser) return;
     handleMenuClose();
-    showSnackbar("Password reset email sent!", "success");
+    showSnackbar("Password reset flow not implemented yet", "error");
   };
 
   const handleResendInvite = () => {
-    if (!selectedUser) return;
     handleMenuClose();
-    showSnackbar("Invitation resent successfully!", "success");
+    showSnackbar("Resend invite not implemented yet", "error");
   };
 
-  const getRoleConfig = (role: UserRole) =>
-    roleOptions.find((r) => r.value === role) ?? roleOptions[0];
+  // -----------------------------
+  // HELPERS
+  // -----------------------------
 
   const filteredUsers = users.filter((user) => {
     const q = searchQuery.toLowerCase();
@@ -335,15 +467,14 @@ const UserManagement = () => {
       user.name.toLowerCase().includes(q) ||
       user.email.toLowerCase().includes(q);
 
-    if (currentTab === 0) return matchesSearch;
-    if (currentTab === 1) return matchesSearch && user.role === "admin";
-    if (currentTab === 2) return matchesSearch && user.role === "principal";
-    if (currentTab === 3) return matchesSearch && user.role === "teacher";
-    if (currentTab === 4)
-      return matchesSearch && user.role === "business_office";
-    if (currentTab === 5) return matchesSearch && user.role === "parent";
+    if (!matchesSearch) return false;
 
-    return matchesSearch;
+    if (currentTab === 0) return true; // All
+
+    const coreRole = coreRoleMeta[currentTab - 1]?.value;
+    if (!coreRole) return true;
+
+    return user.roles.some((r) => r.name === coreRole);
   });
 
   const getInitials = (name: string) =>
@@ -354,8 +485,12 @@ const UserManagement = () => {
       .join("")
       .toUpperCase();
 
-  const countByRole = (role: UserRole) =>
-    users.filter((u) => u.role === role).length;
+  const countByCoreRole = (roleName: CoreRoleName) =>
+    users.filter((u) => u.roles.some((r) => r.name === roleName)).length;
+
+  // -----------------------------
+  // RENDER
+  // -----------------------------
 
   return (
     <Box>
@@ -363,10 +498,14 @@ const UserManagement = () => {
       <Snackbar
         open={snackbar.open}
         autoHideDuration={4000}
-        onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+        onClose={handleSnackbarClose}
         anchorOrigin={{ vertical: "top", horizontal: "center" }}
       >
-        <Alert severity={snackbar.severity} variant="filled">
+        <Alert
+          severity={snackbar.severity}
+          variant="filled"
+          onClose={handleSnackbarClose}
+        >
           {snackbar.message}
         </Alert>
       </Snackbar>
@@ -507,125 +646,128 @@ const UserManagement = () => {
           <Tab label={isMobile ? "All" : `All (${users.length})`} />
           <Tab
             label={
-              isMobile
-                ? "Admin"
-                : `Admins (${countByRole("admin")})`
+              isMobile ? "Admin" : `Admins (${countByCoreRole("admin")})`
             }
           />
           <Tab
             label={
               isMobile
                 ? "Principal"
-                : `Principals (${countByRole("principal")})`
+                : `Principals (${countByCoreRole("principal")})`
             }
           />
           <Tab
             label={
               isMobile
                 ? "Teacher"
-                : `Teachers (${countByRole("teacher")})`
+                : `Teachers (${countByCoreRole("teacher")})`
             }
           />
           <Tab
             label={
               isMobile
                 ? "Business"
-                : `Business (${countByRole("business_office")})`
+                : `Business (${countByCoreRole("business_office")})`
             }
           />
           <Tab
             label={
-              isMobile
-                ? "Parent"
-                : `Parents (${countByRole("parent")})`
+              isMobile ? "Parent" : `Parents (${countByCoreRole("parent")})`
             }
           />
         </Tabs>
       </Paper>
 
       {/* Users list: mobile cards or desktop table */}
-      {isMobile ? (
+      {loading ? (
+        <Box sx={{ display: "flex", justifyContent: "center", mt: 6 }}>
+          <CircularProgress />
+        </Box>
+      ) : isMobile ? (
         <Stack spacing={2}>
           {filteredUsers.length === 0 ? (
             <Paper elevation={2} sx={{ p: 4, textAlign: "center" }}>
               <Typography color="text.secondary">No users found</Typography>
             </Paper>
           ) : (
-            filteredUsers.map((user) => {
-              const roleConfig = getRoleConfig(user.role);
-
-              return (
-                <Card key={user.id} elevation={2}>
-                  <CardContent sx={{ pb: 1 }}>
-                    <Stack spacing={2}>
-                      <Stack direction="row" spacing={2} alignItems="center">
-                        <Avatar
-                          sx={{
-                            bgcolor: roleConfig.color,
-                            width: 48,
-                            height: 48,
-                          }}
+            filteredUsers.map((user) => (
+              <Card key={user._id} elevation={2}>
+                <CardContent sx={{ pb: 1 }}>
+                  <Stack spacing={2}>
+                    <Stack direction="row" spacing={2} alignItems="center">
+                      <Avatar
+                        sx={{
+                          bgcolor:
+                            user.roles[0]?.color || coreRoleMeta[0].color,
+                          width: 48,
+                          height: 48,
+                        }}
+                      >
+                        {getInitials(user.name)}
+                      </Avatar>
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography
+                          sx={{ fontWeight: 600, fontSize: "1rem" }}
                         >
-                          {getInitials(user.name)}
-                        </Avatar>
-                        <Box sx={{ flex: 1, minWidth: 0 }}>
-                          <Typography
-                            sx={{ fontWeight: 600, fontSize: "1rem" }}
-                          >
-                            {user.name}
-                          </Typography>
-                          <Typography
-                            variant="body2"
-                            color="text.secondary"
-                            sx={{
-                              fontSize: "0.8125rem",
-                              wordBreak: "break-all",
-                            }}
-                          >
-                            {user.email}
-                          </Typography>
-                        </Box>
-                        <IconButton
-                          size="small"
-                          onClick={(e) => handleMenuOpen(e, user)}
-                        >
-                          <MoreVertIcon />
-                        </IconButton>
-                      </Stack>
-
-                      <Stack direction="row" spacing={1} flexWrap="wrap" gap={1}>
-                        <Chip
-                          icon={roleConfig.icon}
-                          label={roleConfig.label}
-                          size="small"
-                          sx={{
-                            bgcolor: `${roleConfig.color}15`,
-                            color: roleConfig.color,
-                            fontWeight: 500,
-                          }}
-                        />
-                        {user.status === "active" ? (
-                          <Chip label="Active" color="success" size="small" />
-                        ) : user.status === "inactive" ? (
-                          <Chip label="Inactive" color="error" size="small" />
-                        ) : (
-                          <Chip label="Pending" color="warning" size="small" />
-                        )}
-                      </Stack>
-
-                      <Box>
-                        <Typography variant="caption" color="text.secondary">
-                          Last Login
+                          {user.name}
                         </Typography>
-                        <Typography variant="body2">
-                          {user.lastLogin}
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{
+                            fontSize: "0.8125rem",
+                            wordBreak: "break-all",
+                          }}
+                        >
+                          {user.email}
                         </Typography>
                       </Box>
+                      <IconButton
+                        size="small"
+                        onClick={(e) => handleMenuOpen(e, user)}
+                      >
+                        <MoreVertIcon />
+                      </IconButton>
                     </Stack>
-                  </CardContent>
-                </Card>
-              );
-            })
+
+                    <Stack direction="row" spacing={1} flexWrap="wrap" gap={1}>
+                      {user.roles.map((role) => {
+                        const meta = getRoleDisplayFromEntry(role);
+                        return (
+                          <Chip
+                            key={role._id}
+                            icon={meta.icon}
+                            label={meta.label}
+                            size="small"
+                            sx={{
+                              bgcolor: `${meta.color}15`,
+                              color: meta.color,
+                              fontWeight: 500,
+                            }}
+                          />
+                        );
+                      })}
+                      {user.status === "active" ? (
+                        <Chip label="Active" color="success" size="small" />
+                      ) : user.status === "inactive" ? (
+                        <Chip label="Inactive" color="error" size="small" />
+                      ) : (
+                        <Chip label="Pending" color="warning" size="small" />
+                      )}
+                    </Stack>
+
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Last Login
+                      </Typography>
+                      <Typography variant="body2">
+                        {user.lastLogin || "—"}
+                      </Typography>
+                    </Box>
+                  </Stack>
+                </CardContent>
+              </Card>
+            ))
           )}
         </Stack>
       ) : (
@@ -663,7 +805,7 @@ const UserManagement = () => {
                     borderBottom: "none",
                   }}
                 >
-                  Role
+                  Roles
                 </TableCell>
                 <TableCell
                   sx={{
@@ -717,145 +859,157 @@ const UserManagement = () => {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredUsers.map((user, index) => {
-                  const roleConfig = getRoleConfig(user.role);
-
-                  return (
-                    <TableRow
-                      key={user.id}
-                      hover
-                      sx={{
-                        bgcolor: index % 2 === 0 ? "white" : "#fafafa",
-                      }}
-                    >
-                      <TableCell>
-                        <Stack
-                          direction="row"
-                          spacing={{ xs: 1, sm: 2 }}
-                          alignItems="center"
+                filteredUsers.map((user, index) => (
+                  <TableRow
+                    key={user._id}
+                    hover
+                    sx={{
+                      bgcolor: index % 2 === 0 ? "white" : "#fafafa",
+                    }}
+                  >
+                    <TableCell>
+                      <Stack
+                        direction="row"
+                        spacing={{ xs: 1, sm: 2 }}
+                        alignItems="center"
+                      >
+                        <Avatar
+                          sx={{
+                            bgcolor:
+                              user.roles[0]?.color || coreRoleMeta[0].color,
+                            width: { xs: 32, sm: 40 },
+                            height: { xs: 32, sm: 40 },
+                            fontSize: { xs: "0.875rem", sm: "1rem" },
+                          }}
                         >
-                          <Avatar
+                          {getInitials(user.name)}
+                        </Avatar>
+                        <Box>
+                          <Typography
                             sx={{
-                              bgcolor: roleConfig.color,
-                              width: { xs: 32, sm: 40 },
-                              height: { xs: 32, sm: 40 },
+                              fontWeight: 500,
                               fontSize: { xs: "0.875rem", sm: "1rem" },
                             }}
                           >
-                            {getInitials(user.name)}
-                          </Avatar>
-                          <Box>
-                            <Typography
-                              sx={{
-                                fontWeight: 500,
-                                fontSize: { xs: "0.875rem", sm: "1rem" },
-                              }}
-                            >
-                              {user.name}
-                            </Typography>
-                            <Typography
-                              variant="body2"
-                              sx={{
-                                color: "text.secondary",
-                                display: { xs: "block", md: "none" },
-                                fontSize: "0.75rem",
-                              }}
-                            >
-                              {user.email}
-                            </Typography>
-                          </Box>
-                        </Stack>
-                      </TableCell>
-                      <TableCell
-                        sx={{
-                          color: "text.secondary",
-                          display: { xs: "none", md: "table-cell" },
-                        }}
+                            {user.name}
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              color: "text.secondary",
+                              display: { xs: "block", md: "none" },
+                              fontSize: "0.75rem",
+                            }}
+                          >
+                            {user.email}
+                          </Typography>
+                        </Box>
+                      </Stack>
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        color: "text.secondary",
+                        display: { xs: "none", md: "table-cell" },
+                      }}
+                    >
+                      {user.email}
+                    </TableCell>
+                    <TableCell>
+                      <Stack
+                        direction="row"
+                        spacing={0.5}
+                        flexWrap="wrap" gap={1}
                       >
-                        {user.email}
-                      </TableCell>
-                      <TableCell>
+                        {user.roles.map((role) => {
+                          const meta = getRoleDisplayFromEntry(role);
+                          return (
+                            <Chip
+                              key={role._id}
+                              icon={meta.icon}
+                              label={meta.label}
+                              size="small"
+                              sx={{
+                                bgcolor: `${meta.color}15`,
+                                color: meta.color,
+                                fontWeight: 500,
+                                fontSize: {
+                                  xs: "0.7rem",
+                                  sm: "0.8125rem",
+                                },
+                                height: { xs: 24, sm: 28 },
+                                "& .MuiChip-icon": {
+                                  fontSize: { xs: 14, sm: 18 },
+                                },
+                              }}
+                            />
+                          );
+                        })}
+                      </Stack>
+                    </TableCell>
+                    <TableCell align="center">
+                      {user.status === "active" ? (
                         <Chip
-                          icon={roleConfig.icon}
-                          label={roleConfig.label}
+                          label="Active"
+                          color="success"
                           size="small"
                           sx={{
-                            bgcolor: `${roleConfig.color}15`,
-                            color: roleConfig.color,
-                            fontWeight: 500,
                             fontSize: { xs: "0.7rem", sm: "0.8125rem" },
-                            height: { xs: 24, sm: 28 },
-                            "& .MuiChip-icon": {
-                              fontSize: { xs: 14, sm: 18 },
-                            },
                           }}
                         />
-                      </TableCell>
-                      <TableCell align="center">
-                        {user.status === "active" ? (
-                          <Chip
-                            label="Active"
-                            color="success"
-                            size="small"
-                            sx={{
-                              fontSize: { xs: "0.7rem", sm: "0.8125rem" },
-                            }}
-                          />
-                        ) : user.status === "inactive" ? (
-                          <Chip
-                            label="Inactive"
-                            color="error"
-                            size="small"
-                            sx={{
-                              fontSize: { xs: "0.7rem", sm: "0.8125rem" },
-                            }}
-                          />
-                        ) : (
-                          <Chip
-                            label="Pending"
-                            color="warning"
-                            size="small"
-                            sx={{
-                              fontSize: { xs: "0.7rem", sm: "0.8125rem" },
-                            }}
-                          />
-                        )}
-                      </TableCell>
-                      <TableCell
-                        sx={{ display: { xs: "none", sm: "table-cell" } }}
-                      >
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            fontSize: { xs: "0.75rem", sm: "0.875rem" },
-                          }}
-                        >
-                          {user.lastLogin}
-                        </Typography>
-                      </TableCell>
-                      <TableCell
-                        sx={{ display: { xs: "none", lg: "table-cell" } }}
-                      >
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            fontSize: { xs: "0.75rem", sm: "0.875rem" },
-                          }}
-                        >
-                          {user.createdAt}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="center">
-                        <IconButton
+                      ) : user.status === "inactive" ? (
+                        <Chip
+                          label="Inactive"
+                          color="error"
                           size="small"
-                          onClick={(e) => handleMenuOpen(e, user)}
-                        >
-                          <MoreVertIcon fontSize="small" />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
+                          sx={{
+                            fontSize: { xs: "0.7rem", sm: "0.8125rem" },
+                          }}
+                        />
+                      ) : (
+                        <Chip
+                          label="Pending"
+                          color="warning"
+                          size="small"
+                          sx={{
+                            fontSize: { xs: "0.7rem", sm: "0.8125rem" },
+                          }}
+                        />
+                      )}
+                    </TableCell>
+                    <TableCell
+                      sx={{ display: { xs: "none", sm: "table-cell" } }}
+                    >
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                        }}
+                      >
+                        {user.lastLogin || "—"}
+                      </Typography>
+                    </TableCell>
+                    <TableCell
+                      sx={{ display: { xs: "none", lg: "table-cell" } }}
+                    >
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontSize: { xs: "0.75rem", sm: "0.875rem" },
+                        }}
+                      >
+                        {user.createdAt}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="center">
+                      <IconButton
+                        size="small"
+                        onClick={(e) => handleMenuOpen(e, user)}
+                      >
+                        <MoreVertIcon fontSize="small" />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                ))
               )}
             </TableBody>
           </Table>
@@ -902,10 +1056,7 @@ const UserManagement = () => {
 
         <Divider />
 
-        <MenuItem
-          onClick={handleDeleteUser}
-          sx={{ color: "error.main" }}
-        >
+        <MenuItem onClick={handleDeleteUser} sx={{ color: "error.main" }}>
           <ListItemIcon>
             <DeleteIcon fontSize="small" color="error" />
           </ListItemIcon>
@@ -933,7 +1084,7 @@ const UserManagement = () => {
           <Stack spacing={3} sx={{ mt: 2 }}>
             <TextField
               fullWidth
-              label="Full Name"
+              label="Full Name (optional)"
               value={inviteForm.name}
               onChange={(e) =>
                 setInviteForm((prev) => ({
@@ -961,29 +1112,38 @@ const UserManagement = () => {
             />
 
             <FormControl fullWidth size="small">
-              <InputLabel>Role</InputLabel>
+              <InputLabel>Roles</InputLabel>
               <Select
-                value={inviteForm.role}
-                label="Role"
+                multiple
+                value={inviteForm.roleIds}
+                label="Roles"
                 onChange={(e) =>
                   setInviteForm((prev) => ({
                     ...prev,
-                    role: e.target.value as UserRole,
+                    roleIds:
+                      typeof e.target.value === "string"
+                        ? e.target.value.split(",")
+                        : (e.target.value as string[]),
                   }))
                 }
+                renderValue={(selected) => {
+                  const labels = roles
+                    .filter((r) => selected.includes(r._id))
+                    .map((r) => r.displayName);
+                  return labels.join(", ");
+                }}
               >
-                {roleOptions.map((role) => (
-                  <MenuItem key={role.value} value={role.value}>
-                    <Stack
-                      direction="row"
-                      spacing={1}
-                      alignItems="center"
-                    >
-                      {role.icon}
+                {roles.map((role) => (
+                  <MenuItem key={role._id} value={role._id}>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Checkbox
+                        checked={inviteForm.roleIds.includes(role._id)}
+                        sx={{ padding: 0, mr: 1 }}
+                      />
                       <Typography
                         sx={{ fontSize: { xs: "0.875rem", sm: "1rem" } }}
                       >
-                        {role.label}
+                        {role.displayName}
                       </Typography>
                     </Stack>
                   </MenuItem>
@@ -1017,7 +1177,7 @@ const UserManagement = () => {
           <Button
             onClick={handleInviteUser}
             variant="contained"
-            disabled={!inviteForm.name || !inviteForm.email}
+            disabled={!inviteForm.email}
             sx={{ width: { xs: "100%", sm: "auto" } }}
           >
             Send Invitation
@@ -1071,37 +1231,6 @@ const UserManagement = () => {
             />
 
             <FormControl fullWidth size="small">
-              <InputLabel>Role</InputLabel>
-              <Select
-                value={editForm.role}
-                label="Role"
-                onChange={(e) =>
-                  setEditForm((prev) => ({
-                    ...prev,
-                    role: e.target.value as UserRole,
-                  }))
-                }
-              >
-                {roleOptions.map((role) => (
-                  <MenuItem key={role.value} value={role.value}>
-                    <Stack
-                      direction="row"
-                      spacing={1}
-                      alignItems="center"
-                    >
-                      {role.icon}
-                      <Typography
-                        sx={{ fontSize: { xs: "0.875rem", sm: "1rem" } }}
-                      >
-                        {role.label}
-                      </Typography>
-                    </Stack>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <FormControl fullWidth size="small">
               <InputLabel>Status</InputLabel>
               <Select
                 value={editForm.status}
@@ -1115,6 +1244,47 @@ const UserManagement = () => {
               >
                 <MenuItem value="active">Active</MenuItem>
                 <MenuItem value="inactive">Inactive</MenuItem>
+                <MenuItem value="pending">Pending</MenuItem>
+              </Select>
+            </FormControl>
+
+            <FormControl fullWidth size="small">
+              <InputLabel>Roles</InputLabel>
+              <Select
+                multiple
+                value={editForm.roleIds}
+                label="Roles"
+                onChange={(e) =>
+                  setEditForm((prev) => ({
+                    ...prev,
+                    roleIds:
+                      typeof e.target.value === "string"
+                        ? e.target.value.split(",")
+                        : (e.target.value as string[]),
+                  }))
+                }
+                renderValue={(selected) => {
+                  const labels = roles
+                    .filter((r) => selected.includes(r._id))
+                    .map((r) => r.displayName);
+                  return labels.join(", ");
+                }}
+              >
+                {roles.map((role) => (
+                  <MenuItem key={role._id} value={role._id}>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Checkbox
+                        checked={editForm.roleIds.includes(role._id)}
+                        sx={{ padding: 0, mr: 1 }}
+                      />
+                      <Typography
+                        sx={{ fontSize: { xs: "0.875rem", sm: "1rem" } }}
+                      >
+                        {role.displayName}
+                      </Typography>
+                    </Stack>
+                  </MenuItem>
+                ))}
               </Select>
             </FormControl>
           </Stack>
@@ -1203,5 +1373,6 @@ const UserManagement = () => {
       </Dialog>
     </Box>
   );
-}
+};
+
 export default UserManagement;
