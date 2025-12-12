@@ -71,6 +71,21 @@ export default function ProtectedRoute({
     );
   }
 
+
+  //force password change
+  if (
+  authUser.mustChangePassword &&
+  location.pathname !== "/force-password-change"
+) {
+  return (
+    <Navigate
+      to="/force-password-change"
+      replace
+      state={{ from: location }}
+    />
+  );
+}
+
   // ----------------------------------------
   // ✅ ROLE NAME CHECK
   // ----------------------------------------

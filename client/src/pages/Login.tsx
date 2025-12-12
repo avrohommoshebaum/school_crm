@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, Link as RouterLink } from "react-router-dom";
 import api from "../utils/api"
 
 import Box from "@mui/material/Box";
@@ -65,6 +65,12 @@ const handleSubmit = async (e: React.FormEvent) => {
       email,
       password,
     });
+
+    if (res.data.requiresPasswordChange) {
+  navigate("/force-password-change");
+  return;
+}
+
 
     if (res.data.mfaRequired) {
       // redirect to MFA page if needed
@@ -217,9 +223,10 @@ const handleSubmit = async (e: React.FormEvent) => {
               label={<Typography variant="body2">Remember me</Typography>}
             />
 
-            <Link href="#" variant="body2" sx={{ color: "primary.main" }}>
-              Forgot password?
-            </Link>
+           <Link component={RouterLink} to="/forgot-password" variant="body2">
+  Forgot password?
+</Link>
+
           </Box>
 
           {/* Error alert */}

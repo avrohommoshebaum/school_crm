@@ -1,5 +1,7 @@
 import User from "../db/models/user.js";
 import Role from "../db/models/role.js";
+import crypto from "crypto";
+import sendResetEmail from "../utils/email/sendResetEmail.js";
 
 export const getAllUsers = async (req, res) => {
   const users = await User.find().populate("roles");
@@ -48,4 +50,35 @@ export const deleteUser = async (req, res) => {
   await user.deleteOne();
 
   res.json({ message: "User deleted" });
+};
+
+export const adminSetPassword = async (req, res) => {
+  const { tempPassword, requireChange } = req.body;
+  const user = await User.findById(req.params.id);
+
+  if (!user) return res.status(404).json({ message: "User not found" });
+
+  await user.setPassword(tempPassword);
+
+  user.mustChangePassword = !!requireChange;
+  await user.save();
+
+  res.json({ message: "Password updated" });
+};
+
+
+export const adminSendPasswordReset = async (req, res) => {
+  const user = await User.findById(req.params.id);
+  if (!user) return res.status(404).json({ message: "User not found" });
+
+  const token = crypto.randomBytes(32).toString("hex");
+
+  user.passwordResetToken = token;
+  user.passwordResetExpires = Date.now() + 1000 * 60 * 60; // 1 hour
+  await user.save();
+
+  const link = `${process.env.CLIENT_URL}/reset-password?token=${token}`;
+  await sendResetEmail({ to: user.email, resetLink: link });
+
+  res.json({ message: "Reset email sent" });
 };

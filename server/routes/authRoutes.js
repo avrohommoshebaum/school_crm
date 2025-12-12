@@ -4,7 +4,10 @@ import {
   loginLocal,
   verifyMfa,
   logoutUser,
-  getMe
+  getMe, 
+  forgotPassword, 
+  resetPassword, 
+  changePassword
 } from "../controllers/authController.js";
 
 import {
@@ -40,5 +43,12 @@ router.get("/google/failure", googleFailure);
 // SESSION
 router.get("/me", getMe);
 router.post("/logout", logoutUser);
+
+// PASSWORD RESET
+router.post("/forgot-password", forgotPassword);
+router.post("/reset-password/:token", resetPassword);
+router.post("/change-password", requireAuth, changePassword);
+
+
 
 export default router;

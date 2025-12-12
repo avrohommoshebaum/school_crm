@@ -16,7 +16,9 @@ function sanitizeUser(user) {
     })),
     mfaEnabled: user.mfaEnabled,
     createdAt: user.createdAt,
-    lastLogin: user.lastLogin
+    lastLogin: user.lastLogin,
+    mustChangePassword: user.mustChangePassword,
+
   };
 }
 
@@ -26,6 +28,21 @@ export const loginLocal = (req, res, next) => {
   passport.authenticate("local", async (err, user, info) => {
     if (err) return next(err);
     if (!user) return res.status(400).json({ message: info.message });
+
+
+  if (user.mustChangePassword) {
+  return req.login(user, async (err) => {
+    if (err) return next(err);
+
+    await user.populate("roles");
+
+    return res.json({
+      requiresPasswordChange: true,
+      user: sanitizeUser(user),
+    });
+  });
+}
+
 
     if (user.mfaEnabled) {
       req.session.mfaUserId = user._id.toString();
@@ -101,4 +118,62 @@ export const getMe = async (req, res) => {
 
   res.json({ user: sanitizeUser(user) });
 };
+
+export const forgotPassword = async (req, res) => {
+  const { email } = req.body;
+  const user = await User.findOne({ email });
+
+  if (!user) return res.json({ message: "If account exists, email sent." });
+
+  const token = crypto.randomBytes(32).toString("hex");
+
+  user.passwordResetToken = token;
+  user.passwordResetExpires = Date.now() + 1000 * 60 * 60;  
+  await user.save();
+
+  const link = `${process.env.CLIENT_URL}/reset-password?token=${token}`;
+  await sendResetEmail({ to: email, resetLink: link });
+
+  res.json({ message: "Check your email for a reset link." });
+};
+
+
+export const resetPassword = async (req, res) => {
+  const { password } = req.body;
+
+  const user = await User.findOne({
+    passwordResetToken: req.params.token,
+    passwordResetExpires: { $gt: Date.now() },
+  });
+
+  if (!user)
+    return res.status(400).json({ message: "Invalid or expired token" });
+
+  await user.setPassword(password);
+
+  user.passwordResetToken = undefined;
+  user.passwordResetExpires = undefined;
+  user.mustChangePassword = false;
+
+  await user.save();
+
+ res.json({ message: "Password reset successful" });
+};
+
+export const changePassword = async (req, res) => {
+  const { password } = req.body;
+
+  if (!password || password.length < 8) {
+    return res.status(400).json({ message: "Password too short" });
+  }
+
+  const user = await User.findById(req.user._id);
+
+  await user.setPassword(password);
+  user.mustChangePassword = false;
+  await user.save();
+
+  res.json({ message: "Password updated" });
+};
+
 

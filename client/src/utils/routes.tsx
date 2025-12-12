@@ -13,6 +13,11 @@ import UserManagement from "../pages/admin/UserManagement";
 import RoleManagement from "../pages/admin/RoleManagement";
 import ProfilePage from "../pages/profile/ProfilePage";
 import SettingsPage from "../pages/profile/SettingsPage";
+import ResetPassword from "../pages/ResetPassword";
+import ForgotPassword from "../pages/ForgotPassword";
+import ForcePasswordChange from "../pages/ForcePasswordChange";
+
+
 
 import ProtectedRoute from "../components/ProtectedRoute";
 
@@ -40,19 +45,23 @@ const router = createBrowserRouter([
 
   { path: "/login", Component: Login },
 
+  { path: "/forgot-password", Component: ForgotPassword },
+{ path: "/reset-password", Component: ResetPassword },
+
 {
   path: "/",
   element: <ProtectedRoute />,
+  
   children: [
     {
-      path: "/",              // <-- This line MUST be added!
+      path: "/",              
       element: <LayoutMUI />,
       children: [
         {
           index: true,
           Component: AdminDashboard,
         },
-
+        { path: "force-password-change", Component: ForcePasswordChange },
         { path: "profile", Component: ProfilePage },
         { path: "settings", Component: SettingsPage },
 

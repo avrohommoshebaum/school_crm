@@ -40,6 +40,7 @@ import {
   useTheme,
   CircularProgress,
   Checkbox,
+  FormControlLabel,
 } from "@mui/material";
 
 import SearchIcon from "@mui/icons-material/Search";
@@ -186,6 +187,12 @@ const UserManagement: React.FC = () => {
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+
+
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+const [tempPassword, setTempPassword] = useState("");
+const [requireChange, setRequireChange] = useState(true);
+
 
   const [snackbar, setSnackbar] = useState<SnackbarState>({
     open: false,
@@ -447,10 +454,11 @@ roles: (u.roles || []).map((r: { _id: any; id: any; name: any; displayName: any;
   // RESET / RESEND PLACEHOLDERS
   // -----------------------------
 
-  const handleResetPassword = () => {
-    handleMenuClose();
-    showSnackbar("Password reset flow not implemented yet", "error");
-  };
+const handleResetPassword = () => {
+  setResetDialogOpen(true);
+  handleMenuClose();
+};
+
 
   const handleResendInvite = () => {
     handleMenuClose();
@@ -1371,6 +1379,76 @@ roles: (u.roles || []).map((r: { _id: any; id: any; name: any; displayName: any;
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Dialog open={resetDialogOpen} onClose={() => setResetDialogOpen(false)}>
+  <DialogTitle>Reset Password</DialogTitle>
+
+  <DialogContent>
+    <Stack spacing={2} mt={1}>
+      <Alert severity="info">
+        You can either email a reset link or set a temporary password.
+      </Alert>
+
+      <TextField
+        label="Temporary Password"
+        type="password"
+        value={tempPassword}
+        onChange={e => setTempPassword(e.target.value)}
+        fullWidth
+        size="small"
+      />
+
+      <FormControlLabel
+        control={
+          <Checkbox
+            checked={requireChange}
+            onChange={e => setRequireChange(e.target.checked)}
+          />
+        }
+        label="Require user to change password on next login"
+      />
+    </Stack>
+  </DialogContent>
+
+  <DialogActions>
+    <Button onClick={() => setResetDialogOpen(false)}>Cancel</Button>
+
+    <Button
+      onClick={async () => {
+        try {
+          await api.post(`/users/${selectedUser!._id}/reset-password`, {
+            tempPassword,
+            requireChange,
+          });
+          showSnackbar("Password reset successfully", "success");
+          setResetDialogOpen(false);
+        } catch {
+          showSnackbar("Failed to reset password", "error");
+        }
+      }}
+      variant="contained"
+      disabled={!tempPassword}
+    >
+      Set Password
+    </Button>
+
+    <Button
+      onClick={async () => {
+        try {
+          await api.post(`/users/${selectedUser!._id}/send-reset-email`);
+          showSnackbar("Reset email sent", "success");
+          setResetDialogOpen(false);
+        } catch {
+          showSnackbar("Failed to send reset email", "error");
+        }
+      }}
+      color="secondary"
+    >
+      Email Reset Link
+    </Button>
+  </DialogActions>
+</Dialog>
+
     </Box>
   );
 };
