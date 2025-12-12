@@ -2,8 +2,7 @@ import User from "../db/models/user.js";
 import UserSettings from "../db/models/userSettings.js";
 
 export const getMe = async (req, res) => {
-  const user = await User.findById(req.user._id)
-    .populate("roles", "name displayName color");
+  const user = await User.findById(req.user._id).populate("roles")
 
   const settings = await UserSettings.findOne({ user: req.user._id });
 

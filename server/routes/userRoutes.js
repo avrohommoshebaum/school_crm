@@ -1,5 +1,5 @@
 import express from "express";
-import { requireAuth, requireRole } from "../middleware/auth.js";
+import { requireAuth, requireRole, requirePermission } from "../middleware/auth.js";
 import {
   getAllUsers,
   updateUser,
@@ -9,8 +9,8 @@ import {
 const router = express.Router();
 
 // ADMIN ONLY
-router.get("/", requireAuth, requireRole("admin"), getAllUsers);
-router.put("/:id", requireAuth, requireRole("admin"), updateUser);
-router.delete("/:id", requireAuth, requireRole("admin"), deleteUser);
+router.get("/", requireAuth, requirePermission("users", "view"), getAllUsers);
+router.put("/:id", requireAuth, requirePermission("users", "edit"), updateUser);
+router.delete("/:id", requireAuth, requirePermission("users", "delete"), deleteUser);
 
 export default router;

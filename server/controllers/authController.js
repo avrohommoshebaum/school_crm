@@ -2,7 +2,6 @@ import passport from "passport";
 import User from "../db/models/user.js";
 
 function sanitizeUser(user) {
-  if (!user) return null;
   return {
     id: user._id,
     name: user.name,
@@ -11,13 +10,16 @@ function sanitizeUser(user) {
     roles: (user.roles || []).map(r => ({
       id: r._id,
       name: r.name,
-      displayName: r.displayName
+      displayName: r.displayName,
+      color: r.color,
+      permissions: r.permissions, // critical
     })),
     mfaEnabled: user.mfaEnabled,
     createdAt: user.createdAt,
     lastLogin: user.lastLogin
   };
 }
+
 
 // LOCAL LOGIN
 export const loginLocal = (req, res, next) => {
@@ -91,7 +93,12 @@ export const logoutUser = (req, res) => {
 };
 
 // GET CURRENT USER
-export const getMe = (req, res) => {
+export const getMe = async (req, res) => {
   if (!req.user) return res.json({ user: null });
-  res.json({ user: sanitizeUser(req.user) });
+
+  const user = await User.findById(req.user._id)
+    .populate("roles"); 
+
+  res.json({ user: sanitizeUser(user) });
 };
+

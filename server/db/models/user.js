@@ -42,9 +42,14 @@ const userSchema = new mongoose.Schema(
     },
 
     lastLogin: Date,
+ 
+  mustChangePassword: { type: Boolean, default: false },
+  passwordResetToken: String,
+  passwordResetExpires: Date,
+
     invitedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 
