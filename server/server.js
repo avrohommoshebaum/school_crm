@@ -22,6 +22,7 @@ import mongooseConnect from "./db/mongooseconnect.js";
 // Passport + session configuration
 import configureSession from "./config/session.js";
 import configurePassport from "./config/passport.js";
+import sessionTimout from "./middleware/sessionTimeout.js"
 
 // Routes
 import userRoutes from "./routes/userRoutes.js";
@@ -112,6 +113,15 @@ configureSession(app);
 // 7. PASSPORT INITIALIZATION
 // ------------------------------
 configurePassport(app);
+
+// ------------------------------
+// 7.5 SESSION IDLE TIMEOUT
+// ------------------------------
+app.use(
+  sessionTimout({
+    idleTimeoutMs: 30 * 60 * 1000, // 30 minutes
+  })
+);
 
 // ------------------------------
 // 8. ROUTES
