@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
   Box,
-  Grid,
   Card,
   CardContent,
   CardActions,
@@ -17,6 +16,7 @@ import ScheduleIcon from '@mui/icons-material/Schedule';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { useNavigate } from 'react-router-dom';
+import SamplePageOverlay from '../../components/samplePageOverlay';
 
 interface Student {
   id: string;
@@ -46,7 +46,8 @@ interface MyClassesProps {
   teacherId: string;
 }
 
-// Mock data - replace with actual API call
+/* ---------------- Mock Data ---------------- */
+
 const mockClasses: Class[] = [
   {
     id: '2',
@@ -65,10 +66,11 @@ const mockClasses: Class[] = [
       { id: 's1', name: 'Sarah Goldstein', hebrewName: 'שרה' },
       { id: 's2', name: 'Rivka Schwartz', hebrewName: 'רבקה' },
       { id: 's3', name: 'Chaya Klein', hebrewName: 'חיה' },
-      // ... more students
     ],
   },
 ];
+
+/* ---------------- Component ---------------- */
 
 export default function MyClasses({ teacherId }: MyClassesProps) {
   const [classes, setClasses] = useState<Class[]>([]);
@@ -76,58 +78,31 @@ export default function MyClasses({ teacherId }: MyClassesProps) {
   const navigate = useNavigate();
 
   useEffect(() => {
-    let isMounted = true;
+    let mounted = true;
+    setLoading(true);
 
-    const fetchClasses = async () => {
-      setLoading(true);
-
-      // Simulate API call to fetch teacher's classes
-      setTimeout(() => {
-        if (!isMounted) return;
-        const teacherClasses = mockClasses.filter(
-          (c) => c.teacherId === teacherId
-        );
-        setClasses(teacherClasses);
-        setLoading(false);
-      }, 500);
-
-      // In real code, you might do:
-      // try {
-      //   const res = await fetch(`/api/teachers/${teacherId}/classes`);
-      //   const data: Class[] = await res.json();
-      //   if (isMounted) setClasses(data);
-      // } catch (e) {
-      //   // handle error
-      // } finally {
-      //   if (isMounted) setLoading(false);
-      // }
-    };
-
-    fetchClasses();
+    setTimeout(() => {
+      if (!mounted) return;
+      setClasses(mockClasses.filter(c => c.teacherId === teacherId));
+      setLoading(false);
+    }, 500);
 
     return () => {
-      isMounted = false;
+      mounted = false;
     };
   }, [teacherId]);
 
   if (loading) {
     return (
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          minHeight: 400,
-        }}
-      >
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight={400}>
         <CircularProgress />
       </Box>
     );
   }
 
-  if (classes.length === 0) {
+  if (!classes.length) {
     return (
-      <Box sx={{ textAlign: 'center', py: 8 }}>
+      <Box textAlign="center" py={8}>
         <Typography variant="h6" color="text.secondary">
           No classes assigned
         </Typography>
@@ -136,24 +111,27 @@ export default function MyClasses({ teacherId }: MyClassesProps) {
   }
 
   return (
-    <Grid container spacing={3}>
-      {classes.map((classItem) => {
-        const capacityPercentage =
-          classItem.maxCapacity > 0
-            ? (classItem.studentCount / classItem.maxCapacity) * 100
-            : 0;
-        const capacityColor =
-          capacityPercentage >= 100
-            ? 'error'
-            : capacityPercentage >= 80
-            ? 'warning'
-            : 'success';
+    <>
+      <SamplePageOverlay />
 
-        return (
-          <Grid item xs={12} md={6} lg={4} key={classItem.id}>
+      <Stack spacing={3}>
+        {classes.map(classItem => {
+          const capacityPercentage =
+            classItem.maxCapacity > 0
+              ? (classItem.studentCount / classItem.maxCapacity) * 100
+              : 0;
+
+          const capacityColor =
+            capacityPercentage >= 100
+              ? 'error'
+              : capacityPercentage >= 80
+              ? 'warning'
+              : 'success';
+
+          return (
             <Card
+              key={classItem.id}
               sx={{
-                height: '100%',
                 display: 'flex',
                 flexDirection: 'column',
                 transition: 'all 0.3s ease',
@@ -164,20 +142,10 @@ export default function MyClasses({ teacherId }: MyClassesProps) {
               }}
             >
               <CardContent sx={{ flexGrow: 1 }}>
-                {/* Class Header */}
-                <Box
-                  sx={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'flex-start',
-                    mb: 2,
-                  }}
-                >
+                {/* Header */}
+                <Stack direction="row" justifyContent="space-between" mb={2}>
                   <Box>
-                    <Typography
-                      variant="h6"
-                      sx={{ fontWeight: 'bold', mb: 0.5 }}
-                    >
+                    <Typography variant="h6" fontWeight="bold">
                       {classItem.className}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
@@ -189,24 +157,19 @@ export default function MyClasses({ teacherId }: MyClassesProps) {
                     color={classItem.status === 'active' ? 'success' : 'default'}
                     size="small"
                   />
-                </Box>
+                </Stack>
 
-                {/* Class Details */}
+                {/* Details */}
                 <Stack spacing={1.5}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <RoomIcon sx={{ fontSize: 20, color: 'text.secondary' }} />
-                    <Typography variant="body2">
-                      Room {classItem.room}
-                    </Typography>
-                  </Box>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <RoomIcon fontSize="small" color="disabled" />
+                    <Typography variant="body2">Room {classItem.room}</Typography>
+                  </Stack>
 
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <PeopleIcon
-                      sx={{ fontSize: 20, color: 'text.secondary' }}
-                    />
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <PeopleIcon fontSize="small" color="disabled" />
                     <Typography variant="body2">
-                      {classItem.studentCount} / {classItem.maxCapacity}{' '}
-                      students
+                      {classItem.studentCount} / {classItem.maxCapacity} students
                     </Typography>
                     <Chip
                       label={`${Math.round(capacityPercentage)}%`}
@@ -214,32 +177,23 @@ export default function MyClasses({ teacherId }: MyClassesProps) {
                       size="small"
                       variant="outlined"
                     />
-                  </Box>
+                  </Stack>
 
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <ScheduleIcon
-                      sx={{ fontSize: 20, color: 'text.secondary' }}
-                    />
-                    <Typography
-                      variant="body2"
-                      sx={{ fontSize: '0.875rem' }}
-                    >
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <ScheduleIcon fontSize="small" color="disabled" />
+                    <Typography variant="body2">
                       {classItem.schedule}
                     </Typography>
-                  </Box>
+                  </Stack>
                 </Stack>
 
                 {/* Subjects */}
-                <Box sx={{ mt: 2 }}>
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    sx={{ display: 'block', mb: 1 }}
-                  >
+                <Box mt={2}>
+                  <Typography variant="caption" color="text.secondary" mb={1} display="block">
                     Subjects
                   </Typography>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                    {classItem.subjects.slice(0, 3).map((subject) => (
+                  <Stack direction="row" spacing={0.5} flexWrap="wrap">
+                    {classItem.subjects.slice(0, 3).map(subject => (
                       <Chip
                         key={subject}
                         label={subject}
@@ -254,17 +208,17 @@ export default function MyClasses({ teacherId }: MyClassesProps) {
                         variant="outlined"
                       />
                     )}
-                  </Box>
+                  </Stack>
                 </Box>
               </CardContent>
 
-              <CardActions sx={{ px: 2, pb: 2, pt: 0 }}>
+              <CardActions sx={{ px: 2, pb: 2 }}>
                 <Stack direction="row" spacing={1} width="100%">
                   <Button
-                    size="small"
-                    startIcon={<CheckCircleIcon />}
-                    variant="outlined"
                     fullWidth
+                    size="small"
+                    variant="outlined"
+                    startIcon={<CheckCircleIcon />}
                     onClick={() =>
                       navigate(`/teacher/classes/${classItem.id}/attendance`, {
                         state: { classId: classItem.id },
@@ -274,10 +228,10 @@ export default function MyClasses({ teacherId }: MyClassesProps) {
                     Attendance
                   </Button>
                   <Button
-                    size="small"
-                    startIcon={<AssignmentIcon />}
-                    variant="contained"
                     fullWidth
+                    size="small"
+                    variant="contained"
+                    startIcon={<AssignmentIcon />}
                     onClick={() =>
                       navigate(`/teacher/classes/${classItem.id}/report-cards`, {
                         state: { classId: classItem.id },
@@ -289,9 +243,9 @@ export default function MyClasses({ teacherId }: MyClassesProps) {
                 </Stack>
               </CardActions>
             </Card>
-          </Grid>
-        );
-      })}
-    </Grid>
+          );
+        })}
+      </Stack>
+    </>
   );
 }

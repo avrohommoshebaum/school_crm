@@ -1,64 +1,163 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Button } from '../components/ui/button';
-import { FileText, Send, Download } from 'lucide-react';
+import {
+  Box,
+  Typography,
+  Card,
+  CardHeader,
+  CardContent,
+  Button,
+  Stack,
+  Paper,
+} from '@mui/material';
 
-export default function ReportCards() {
+import DescriptionIcon from '@mui/icons-material/Description';
+import SendIcon from '@mui/icons-material/Send';
+import DownloadIcon from '@mui/icons-material/Download';
+import type { JSX } from 'react';
+import SamplePageOverlay from '../components/samplePageOverlay';
+
+
+export default function ReportCards(): JSX.Element {
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-gray-900 mb-2">Report Cards</h1>
-        <p className="text-gray-600">Create, manage, and distribute student report cards</p>
-      </div>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      <SamplePageOverlay />
+      {/* Page Header */}
+      <Box>
+        <Typography variant="h5" sx={{ mb: 0.5 }}>
+          Report Cards
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Create, manage, and distribute student report cards
+        </Typography>
+      </Box>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-          <CardHeader>
-            <div className="size-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
-              <FileText className="size-6 text-blue-700" />
-            </div>
-            <CardTitle>Create Report Cards</CardTitle>
-            <CardDescription>Generate new report cards for students</CardDescription>
-          </CardHeader>
+      {/* Action Cards */}
+      <Stack
+        direction={{ xs: 'column', md: 'row' }}
+        spacing={3}
+      >
+        {/* Create */}
+        <Card
+          sx={{
+            flex: 1,
+            cursor: 'pointer',
+            transition: 'box-shadow 0.2s',
+            '&:hover': { boxShadow: 6 },
+          }}
+        >
+          <CardHeader
+            avatar={
+              <Paper
+                sx={{
+                  width: 48,
+                  height: 48,
+                  bgcolor: 'primary.light',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: 2,
+                }}
+              >
+                <DescriptionIcon color="primary" />
+              </Paper>
+            }
+            title="Create Report Cards"
+            subheader="Generate new report cards for students"
+          />
           <CardContent>
-            <Button className="w-full">Create New</Button>
+            <Button variant="contained" fullWidth>
+              Create New
+            </Button>
           </CardContent>
         </Card>
 
-        <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-          <CardHeader>
-            <div className="size-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
-              <Send className="size-6 text-green-700" />
-            </div>
-            <CardTitle>Distribute Reports</CardTitle>
-            <CardDescription>Send report cards to parents via email</CardDescription>
-          </CardHeader>
+        {/* Distribute */}
+        <Card
+          sx={{
+            flex: 1,
+            cursor: 'pointer',
+            transition: 'box-shadow 0.2s',
+            '&:hover': { boxShadow: 6 },
+          }}
+        >
+          <CardHeader
+            avatar={
+              <Paper
+                sx={{
+                  width: 48,
+                  height: 48,
+                  bgcolor: 'success.light',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: 2,
+                }}
+              >
+                <SendIcon color="success" />
+              </Paper>
+            }
+            title="Distribute Reports"
+            subheader="Send report cards to parents via email"
+          />
           <CardContent>
-            <Button className="w-full bg-green-700 hover:bg-green-800">Send Reports</Button>
+            <Button
+              variant="contained"
+              color="success"
+              fullWidth
+            >
+              Send Reports
+            </Button>
           </CardContent>
         </Card>
 
-        <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-          <CardHeader>
-            <div className="size-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
-              <Download className="size-6 text-purple-700" />
-            </div>
-            <CardTitle>Download Reports</CardTitle>
-            <CardDescription>Export report cards as PDF files</CardDescription>
-          </CardHeader>
+        {/* Download */}
+        <Card
+          sx={{
+            flex: 1,
+            cursor: 'pointer',
+            transition: 'box-shadow 0.2s',
+            '&:hover': { boxShadow: 6 },
+          }}
+        >
+          <CardHeader
+            avatar={
+              <Paper
+                sx={{
+                  width: 48,
+                  height: 48,
+                  bgcolor: 'secondary.light',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: 2,
+                }}
+              >
+                <DownloadIcon color="secondary" />
+              </Paper>
+            }
+            title="Download Reports"
+            subheader="Export report cards as PDF files"
+          />
           <CardContent>
-            <Button className="w-full bg-purple-700 hover:bg-purple-800">Download</Button>
+            <Button
+              variant="contained"
+              color="secondary"
+              fullWidth
+            >
+              Download
+            </Button>
           </CardContent>
         </Card>
-      </div>
+      </Stack>
 
+      {/* Recent Reports */}
       <Card>
-        <CardHeader>
-          <CardTitle>Recent Report Cards</CardTitle>
-        </CardHeader>
+        <CardHeader title="Recent Report Cards" />
         <CardContent>
-          <p className="text-gray-600">No report cards created yet.</p>
+          <Typography variant="body2" color="text.secondary">
+            No report cards created yet.
+          </Typography>
         </CardContent>
       </Card>
-    </div>
+    </Box>
   );
 }

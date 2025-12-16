@@ -1,72 +1,117 @@
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Button } from '../components/ui/button';
-import { Badge } from '../components/ui/badge';
-import { Link } from 'react-router';
-import { Plus } from 'lucide-react';
+import {
+  Box,
+  Typography,
+  Button,
+  Card,
+  CardHeader,
+  CardContent,
+  Stack,
+  Chip,
+  Paper,
+} from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
+import { Link } from 'react-router-dom';
 
-export default function Applications() {
-  const applications = [
+import SamplePageOverlay from '../components/samplePageOverlay';
+import type { JSX } from 'react';
+
+interface Application {
+  id: number;
+  name: string;
+  grade: string;
+  status: 'pending' | 'interview scheduled' | 'accepted';
+  date: string;
+}
+
+export default function Applications(): JSX.Element {
+  const applications: Application[] = [
     { id: 1, name: 'Rachel Berkowitz', grade: '1st Grade', status: 'pending', date: '2024-11-20' },
     { id: 2, name: 'Devorah Klein', grade: '3rd Grade', status: 'interview scheduled', date: '2024-11-18' },
     { id: 3, name: 'Esther Rosenberg', grade: '2nd Grade', status: 'accepted', date: '2024-11-15' },
   ];
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (
+    status: Application['status']
+  ): 'warning' | 'info' | 'success' | 'default' => {
     switch (status) {
       case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'warning';
       case 'interview scheduled':
-        return 'bg-blue-100 text-blue-800';
+        return 'info';
       case 'accepted':
-        return 'bg-green-100 text-green-800';
+        return 'success';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'default';
     }
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-gray-900 mb-2">Student Applications</h1>
-          <p className="text-gray-600">Review and manage new student applications</p>
-        </div>
-        <Link to="/applications/new">
-          <Button className="bg-blue-700 hover:bg-blue-800">
-            <Plus className="size-4 mr-2" />
-            New Application
-          </Button>
-        </Link>
-      </div>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      <SamplePageOverlay />
 
+      {/* Header */}
+      <Box display="flex" alignItems="center" justifyContent="space-between">
+        <Box>
+          <Typography variant="h5" sx={{ mb: 0.5 }}>
+            Student Applications
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Review and manage new student applications
+          </Typography>
+        </Box>
+
+        <Button
+          component={Link}
+          to="/applications/new"
+          variant="contained"
+          startIcon={<AddIcon />}
+        >
+          New Application
+        </Button>
+      </Box>
+
+      {/* Applications Card */}
       <Card>
-        <CardHeader>
-          <CardTitle>Pending Applications</CardTitle>
-        </CardHeader>
+        <CardHeader title="Pending Applications" />
         <CardContent>
-          <div className="space-y-4">
+          <Stack spacing={2}>
             {applications.map((app) => (
-              <div
+              <Paper
                 key={app.id}
-                className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
+                variant="outlined"
+                sx={{
+                  p: 2,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  transition: 'background-color 0.2s',
+                  '&:hover': { bgcolor: 'action.hover' },
+                }}
               >
-                <div>
-                  <h3 className="text-gray-900 mb-1">{app.name}</h3>
-                  <p className="text-sm text-gray-600">
+                <Box>
+                  <Typography sx={{ fontWeight: 500 }}>
+                    {app.name}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
                     {app.grade} • Applied {app.date}
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Badge className={getStatusColor(app.status)}>{app.status}</Badge>
-                  <Button variant="outline" size="sm">
+                  </Typography>
+                </Box>
+
+                <Stack direction="row" spacing={2} alignItems="center">
+                  <Chip
+                    label={app.status}
+                    color={getStatusColor(app.status)}
+                    size="small"
+                  />
+                  <Button variant="outlined" size="small">
                     Review
                   </Button>
-                </div>
-              </div>
+                </Stack>
+              </Paper>
             ))}
-          </div>
+          </Stack>
         </CardContent>
       </Card>
-    </div>
+    </Box>
   );
 }

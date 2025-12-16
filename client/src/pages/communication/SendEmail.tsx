@@ -1,13 +1,44 @@
-import { useState, useRef, useEffect } from 'react';
-import { Mail, Send, Search, Upload, X, FileText, Image as ImageIcon, File, Bold, Italic, List, AlertCircle, Clock, ChevronDown, ChevronUp, ListOrdered, Underline, Paperclip } from 'lucide-react';
-import { Card, CardContent } from '../../components/ui/card';
-import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
-import { Label } from '../../components/ui/label';
-import { Checkbox } from '../../components/ui/checkbox';
-import { Badge } from '../../components/ui/badge';
-import { Alert, AlertDescription } from '../../components/ui/alert';
-import { Switch } from '../../components/ui/switch';
+import { useEffect, useRef, useState } from "react";
+import {
+  Mail,
+  Send,
+  Search,
+  Upload,
+  X,
+  FileText,
+  Image as ImageIcon,
+  File as FileIcon,
+  Bold,
+  Italic,
+  List,
+  AlertCircle,
+  Clock,
+  ChevronDown,
+  ListOrdered,
+  Underline,
+  Paperclip,
+} from "lucide-react";
+
+import {
+  Alert,
+  Badge,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Checkbox,
+  Chip,
+  Divider,
+  IconButton,
+  InputAdornment,
+  Stack,
+  Switch,
+  TextField,
+  Tooltip,
+  Typography,
+} from "@mui/material";
+
+import SamplePageOverlay from "../../components/samplePageOverlay";
 
 interface AttachedFile {
   id: string;
@@ -17,135 +48,145 @@ interface AttachedFile {
 
 export default function SendEmail() {
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
-  const [groupSearch, setGroupSearch] = useState('');
-  
-  // Email-specific states
-  const [emailSubject, setEmailSubject] = useState('');
+  const [groupSearch, setGroupSearch] = useState("");
+
+  // Email states
+  const [emailSubject, setEmailSubject] = useState("");
   const [showCcBcc, setShowCcBcc] = useState(false);
-  const [ccRecipients, setCcRecipients] = useState('');
-  const [bccRecipients, setBccRecipients] = useState('');
-  const [emailPriority, setEmailPriority] = useState<'normal' | 'high'>('normal');
+  const [ccRecipients, setCcRecipients] = useState("");
+  const [bccRecipients, setBccRecipients] = useState("");
+  const [emailPriority, setEmailPriority] = useState<"normal" | "high">(
+    "normal"
+  );
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [showSchedule, setShowSchedule] = useState(false);
-  const [scheduleDate, setScheduleDate] = useState('');
-  const [scheduleTime, setScheduleTime] = useState('');
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduleTime, setScheduleTime] = useState("");
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const emailEditorRef = useRef<HTMLDivElement>(null);
   const savedSelectionRef = useRef<Range | null>(null);
+
   const [activeFormats, setActiveFormats] = useState({
     bold: false,
     italic: false,
     underline: false,
     unorderedList: false,
-    orderedList: false
+    orderedList: false,
   });
 
-  // Mock groups data
+  // Mock groups
   const groups = [
-    { id: '1', name: 'All Parents', count: 450, category: 'general' },
-    { id: '2', name: 'Grade 1 Parents', count: 45, category: 'grade' },
-    { id: '3', name: 'Grade 2 Parents', count: 48, category: 'grade' },
-    { id: '4', name: 'Teachers', count: 25, category: 'staff' },
-    { id: '5', name: 'Administration', count: 8, category: 'staff' },
+    { id: "1", name: "All Parents", count: 450 },
+    { id: "2", name: "Grade 1 Parents", count: 45 },
+    { id: "3", name: "Grade 2 Parents", count: 48 },
+    { id: "4", name: "Teachers", count: 25 },
+    { id: "5", name: "Administration", count: 8 },
   ];
 
-  const filteredGroups = groups.filter(group =>
-    group.name.toLowerCase().includes(groupSearch.toLowerCase())
+  const filteredGroups = groups.filter((g) =>
+    g.name.toLowerCase().includes(groupSearch.toLowerCase())
   );
 
-  // Save selection before button click
+  // ---------- Editor selection helpers ----------
   const saveSelection = () => {
-    const selection = window.getSelection();
-    if (selection && selection.rangeCount > 0) {
-      savedSelectionRef.current = selection.getRangeAt(0);
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      savedSelectionRef.current = sel.getRangeAt(0);
     }
   };
 
-  // Restore selection after button click
   const restoreSelection = () => {
     if (savedSelectionRef.current && emailEditorRef.current) {
-      const selection = window.getSelection();
-      selection?.removeAllRanges();
-      selection?.addRange(savedSelectionRef.current);
+      const sel = window.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(savedSelectionRef.current);
       emailEditorRef.current.focus();
     }
   };
 
-  // Check active formatting
   const updateActiveFormats = () => {
-    setActiveFormats({
-      bold: document.queryCommandState('bold'),
-      italic: document.queryCommandState('italic'),
-      underline: document.queryCommandState('underline'),
-      unorderedList: document.queryCommandState('insertUnorderedList'),
-      orderedList: document.queryCommandState('insertOrderedList')
-    });
+    try {
+      setActiveFormats({
+        bold: document.queryCommandState("bold"),
+        italic: document.queryCommandState("italic"),
+        underline: document.queryCommandState("underline"),
+        unorderedList: document.queryCommandState("insertUnorderedList"),
+        orderedList: document.queryCommandState("insertOrderedList"),
+      });
+    } catch {
+      /* ignore */
+    }
   };
 
   useEffect(() => {
     const editor = emailEditorRef.current;
-    if (editor) {
-      editor.addEventListener('keyup', updateActiveFormats);
-      editor.addEventListener('mouseup', updateActiveFormats);
-      return () => {
-        editor.removeEventListener('keyup', updateActiveFormats);
-        editor.removeEventListener('mouseup', updateActiveFormats);
-      };
-    }
+    if (!editor) return;
+
+    editor.addEventListener("keyup", updateActiveFormats);
+    editor.addEventListener("mouseup", updateActiveFormats);
+
+    return () => {
+      editor.removeEventListener("keyup", updateActiveFormats);
+      editor.removeEventListener("mouseup", updateActiveFormats);
+    };
   }, []);
 
-  const applyFormatting = (command: string, value?: string) => {
+  const applyFormatting = (command: string) => {
     restoreSelection();
-    
-    if (command === 'insertUnorderedList' || command === 'insertOrderedList') {
-      const selection = window.getSelection();
-      const hasSelection = selection && selection.toString().length > 0;
-      
+
+    if (
+      command === "insertUnorderedList" ||
+      command === "insertOrderedList"
+    ) {
+      const sel = window.getSelection();
+      const hasSelection = sel && sel.toString().length > 0;
+
       if (hasSelection) {
-        document.execCommand(command, false, value);
+        document.execCommand(command, false);
       } else {
-        const listTag = command === 'insertUnorderedList' ? 'ul' : 'ol';
-        const listItem = document.createElement('li');
-        listItem.innerHTML = '<br>';
-        
+        const listTag = command === "insertUnorderedList" ? "ul" : "ol";
         const list = document.createElement(listTag);
-        list.appendChild(listItem);
-        
-        if (savedSelectionRef.current) {
-          savedSelectionRef.current.insertNode(list);
-          const range = document.createRange();
-          range.setStart(listItem, 0);
-          range.collapse(true);
-          selection?.removeAllRanges();
-          selection?.addRange(range);
-          savedSelectionRef.current = range;
-        }
+        const li = document.createElement("li");
+        li.innerHTML = "<br>";
+        list.appendChild(li);
+
+        savedSelectionRef.current?.insertNode(list);
+
+        const range = document.createRange();
+        range.setStart(li, 0);
+        range.collapse(true);
+        sel?.removeAllRanges();
+        sel?.addRange(range);
+        savedSelectionRef.current = range;
       }
     } else {
-      document.execCommand(command, false, value);
+      document.execCommand(command, false);
     }
-    
+
     updateActiveFormats();
     saveSelection();
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    addFiles(files);
+  // ---------- File handling ----------
+  const addFiles = (files: File[]) => {
+    const mapped = files.map((file) => ({
+      id: Math.random().toString(36).slice(2),
+      file,
+      preview: file.type.startsWith("image/")
+        ? URL.createObjectURL(file)
+        : undefined,
+    }));
+    setAttachedFiles((prev) => [...prev, ...mapped]);
   };
 
-  const addFiles = (files: File[]) => {
-    const newFiles = files.map(file => ({
-      id: Math.random().toString(36).substring(7),
-      file,
-      preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined
-    }));
-    setAttachedFiles(prev => [...prev, ...newFiles]);
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    addFiles(Array.from(e.target.files || []));
   };
 
   const removeFile = (id: string) => {
-    setAttachedFiles(prev => prev.filter(f => f.id !== id));
+    setAttachedFiles((prev) => prev.filter((f) => f.id !== id));
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -153,384 +194,386 @@ export default function SendEmail() {
     setIsDragging(true);
   };
 
-  const handleDragLeave = () => {
-    setIsDragging(false);
-  };
+  const handleDragLeave = () => setIsDragging(false);
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    const files = Array.from(e.dataTransfer.files);
-    addFiles(files);
+    addFiles(Array.from(e.dataTransfer.files));
   };
 
+  // ---------- Send ----------
   const handleSend = () => {
-    if (selectedGroups.length === 0) {
-      alert('Please select at least one group.');
+    if (!selectedGroups.length) {
+      alert("Please select at least one group.");
       return;
     }
 
     if (!emailSubject.trim()) {
-      alert('Please enter an email subject.');
+      alert("Please enter an email subject.");
       return;
     }
 
-    const emailContent = emailEditorRef.current?.innerHTML || '';
-    if (!emailContent.trim() || emailContent === '<br>') {
-      alert('Please enter your email message.');
+    const html = emailEditorRef.current?.innerHTML || "";
+    if (!html.trim() || html === "<br>") {
+      alert("Please enter your email message.");
       return;
     }
 
-    console.log('Sending email:', {
-      groups: selectedGroups,
-      subject: emailSubject,
-      content: emailContent,
-      cc: ccRecipients,
-      bcc: bccRecipients,
-      priority: emailPriority,
-      attachments: attachedFiles,
-      scheduled: showSchedule ? { date: scheduleDate, time: scheduleTime } : null
+    console.log({
+      selectedGroups,
+      emailSubject,
+      html,
+      ccRecipients,
+      bccRecipients,
+      emailPriority,
+      attachedFiles,
+      scheduled: showSchedule
+        ? { scheduleDate, scheduleTime }
+        : null,
     });
 
-    alert('Email sent successfully!');
-    
-    // Reset form
+    alert("Email sent successfully!");
+
     setSelectedGroups([]);
-    setEmailSubject('');
-    if (emailEditorRef.current) {
-      emailEditorRef.current.innerHTML = '';
-    }
-    setCcRecipients('');
-    setBccRecipients('');
+    setEmailSubject("");
+    setCcRecipients("");
+    setBccRecipients("");
     setShowCcBcc(false);
-    setEmailPriority('normal');
+    setEmailPriority("normal");
     setAttachedFiles([]);
     setShowSchedule(false);
-    setScheduleDate('');
-    setScheduleTime('');
+    setScheduleDate("");
+    setScheduleTime("");
+    if (emailEditorRef.current) emailEditorRef.current.innerHTML = "";
   };
 
   return (
-    <div className="space-y-4 md:space-y-6 p-4 md:p-6 max-w-7xl mx-auto">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
-        {/* Group Selection */}
+    <Box sx={{ maxWidth: 1200, mx: "auto", p: 2 }}>
+      <SamplePageOverlay />
+
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: { xs: "1fr", lg: "1fr 2fr" },
+          gap: 3,
+        }}
+      >
+        {/* -------- Recipient Selection -------- */}
         <Card>
-          <CardContent className="space-y-4 pt-6">
-            <div>
-              <Label className="text-sm md:text-base mb-2 block">Select Recipients</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
-                <Input
-                  placeholder="Search groups..."
-                  value={groupSearch}
-                  onChange={(e) => setGroupSearch(e.target.value)}
-                  className="pl-9 text-sm"
-                />
-              </div>
-            </div>
+          <CardContent>
+            <Stack spacing={2}>
+              <Typography variant="subtitle1">Select Recipients</Typography>
 
-            <div className="space-y-2 max-h-[400px] overflow-y-auto">
-              {filteredGroups.map((group) => (
-                <div
-                  key={group.id}
-                  className="flex items-center justify-between p-2.5 sm:p-3 hover:bg-gray-50 rounded-lg border border-gray-200 transition-colors"
-                >
-                  <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                    <Checkbox
-                      id={`group-${group.id}`}
-                      checked={selectedGroups.includes(group.id)}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setSelectedGroups([...selectedGroups, group.id]);
-                        } else {
-                          setSelectedGroups(selectedGroups.filter(id => id !== group.id));
-                        }
-                      }}
-                    />
-                    <Label
-                      htmlFor={`group-${group.id}`}
-                      className="text-xs sm:text-sm cursor-pointer truncate"
-                    >
-                      {group.name}
-                    </Label>
-                  </div>
-                  <Badge variant="secondary" className="text-xs shrink-0">
-                    {group.count}
-                  </Badge>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+              <TextField
+                placeholder="Search groups..."
+                size="small"
+                value={groupSearch}
+                onChange={(e) => setGroupSearch(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Search size={16} />
+                    </InputAdornment>
+                  ),
+                }}
+              />
 
-        {/* Email Composition */}
-        <Card className="lg:col-span-2">
-          <CardContent className="space-y-4 md:space-y-6 pt-6">
-            {/* Selected Groups Display */}
-            {selectedGroups.length > 0 && (
-              <div className="space-y-2">
-                <Label className="text-sm md:text-base">Selected Groups</Label>
-                <div className="flex flex-wrap gap-1.5 sm:gap-2 p-2.5 sm:p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  {groups
-                    .filter(g => selectedGroups.includes(g.id))
-                    .map(group => (
-                      <Badge key={group.id} variant="default" className="text-xs sm:text-sm">
-                        {group.name} ({group.count})
-                      </Badge>
-                    ))}
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-3">
-              {/* Subject Line */}
-              <div className="space-y-2">
-                <Label className="text-sm md:text-base">Subject</Label>
-                <Input
-                  value={emailSubject}
-                  onChange={(e) => setEmailSubject(e.target.value)}
-                  placeholder="Enter email subject..."
-                  className="text-sm md:text-base"
-                />
-              </div>
-
-              {/* CC/BCC Toggle and Fields */}
-              <div className="space-y-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowCcBcc(!showCcBcc)}
-                  className="text-xs sm:text-sm text-gray-600 hover:text-gray-700 h-auto p-0"
-                >
-                  <ChevronDown className={`size-3 mr-1 transition-transform ${showCcBcc ? 'rotate-180' : ''}`} />
-                  {showCcBcc ? 'Hide' : 'Add'} CC/BCC
-                </Button>
-                
-                {showCcBcc && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pl-2 border-l-2 border-gray-200">
-                    <div>
-                      <Label className="text-xs sm:text-sm text-gray-600">CC (Optional)</Label>
-                      <Input
-                        value={ccRecipients}
-                        onChange={(e) => setCcRecipients(e.target.value)}
-                        placeholder="email@example.com, another@example.com"
-                        className="text-sm mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs sm:text-sm text-gray-600">BCC (Optional)</Label>
-                      <Input
-                        value={bccRecipients}
-                        onChange={(e) => setBccRecipients(e.target.value)}
-                        placeholder="email@example.com, another@example.com"
-                        className="text-sm mt-1"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Priority Flag */}
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="size-4 text-orange-600" />
-                  <Label className="text-sm cursor-pointer">Mark as High Priority</Label>
-                </div>
-                <Switch
-                  checked={emailPriority === 'high'}
-                  onCheckedChange={(checked) => setEmailPriority(checked ? 'high' : 'normal')}
-                />
-              </div>
-
-              {/* Schedule Send */}
-              <div className="space-y-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowSchedule(!showSchedule)}
-                  className="text-xs sm:text-sm text-blue-600 hover:text-blue-700 h-auto p-0"
-                >
-                  <Clock className="size-3 mr-1" />
-                  {showSchedule ? 'Cancel' : 'Schedule'} Send
-                </Button>
-                
-                {showSchedule && (
-                  <div className="flex flex-col sm:flex-row gap-2 pl-2 border-l-2 border-gray-200">
-                    <div className="flex-1">
-                      <Label className="text-xs text-gray-600">Date</Label>
-                      <Input
-                        type="date"
-                        value={scheduleDate}
-                        onChange={(e) => setScheduleDate(e.target.value)}
-                        className="text-sm mt-1"
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <Label className="text-xs text-gray-600">Time</Label>
-                      <Input
-                        type="time"
-                        value={scheduleTime}
-                        onChange={(e) => setScheduleTime(e.target.value)}
-                        className="text-sm mt-1"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Rich Text Formatting Toolbar */}
-              <div className="space-y-2">
-                <Label className="text-sm md:text-base">Message</Label>
-                <div className="border rounded-lg overflow-hidden">
-                  <div className="bg-gray-50 border-b p-2 flex flex-wrap gap-1">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onMouseDown={(e) => { e.preventDefault(); saveSelection(); }}
-                      onClick={() => applyFormatting('bold')}
-                      className={`size-8 p-0 ${activeFormats.bold ? 'bg-blue-100 shadow-inner ring-1 ring-blue-300' : ''}`}
-                      title="Bold"
-                    >
-                      <Bold className="size-4" />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onMouseDown={(e) => { e.preventDefault(); saveSelection(); }}
-                      onClick={() => applyFormatting('italic')}
-                      className={`size-8 p-0 ${activeFormats.italic ? 'bg-blue-100 shadow-inner ring-1 ring-blue-300' : ''}`}
-                      title="Italic"
-                    >
-                      <Italic className="size-4" />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onMouseDown={(e) => { e.preventDefault(); saveSelection(); }}
-                      onClick={() => applyFormatting('underline')}
-                      className={`size-8 p-0 ${activeFormats.underline ? 'bg-blue-100 shadow-inner ring-1 ring-blue-300' : ''}`}
-                      title="Underline"
-                    >
-                      <Underline className="size-4" />
-                    </Button>
-                    <div className="w-px bg-gray-300 mx-1" />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onMouseDown={(e) => { e.preventDefault(); saveSelection(); }}
-                      onClick={() => applyFormatting('insertUnorderedList')}
-                      className={`size-8 p-0 ${activeFormats.unorderedList ? 'bg-blue-100 shadow-inner ring-1 ring-blue-300' : ''}`}
-                      title="Bullet List"
-                    >
-                      <List className="size-4" />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onMouseDown={(e) => { e.preventDefault(); saveSelection(); }}
-                      onClick={() => applyFormatting('insertOrderedList')}
-                      className={`size-8 p-0 ${activeFormats.orderedList ? 'bg-blue-100 shadow-inner ring-1 ring-blue-300' : ''}`}
-                      title="Numbered List"
-                    >
-                      <ListOrdered className="size-4" />
-                    </Button>
-                  </div>
-                  <div
-                    ref={emailEditorRef}
-                    contentEditable
-                    className="min-h-[200px] p-3 md:p-4 focus:outline-none text-sm md:text-base"
-                    onInput={updateActiveFormats}
-                    onMouseUp={() => { saveSelection(); updateActiveFormats(); }}
-                    onKeyUp={() => { saveSelection(); updateActiveFormats(); }}
-                    suppressContentEditableWarning
-                  />
-                </div>
-              </div>
-
-              {/* File Attachments */}
-              <div className="space-y-2">
-                <Label className="text-sm md:text-base">Attachments</Label>
-                <div
-                  className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors ${
-                    isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
-                  }`}
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                >
-                  <Paperclip className="size-8 mx-auto mb-2 text-gray-400" />
-                  <p className="text-sm text-gray-600 mb-2">
-                    Drag and drop files here, or click to browse
-                  </p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <Upload className="size-4 mr-2" />
-                    Choose Files
-                  </Button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    multiple
-                    className="hidden"
-                    onChange={handleFileSelect}
-                  />
-                </div>
-
-                {attachedFiles.length > 0 && (
-                  <div className="space-y-2">
-                    {attachedFiles.map((attached) => (
-                      <div
-                        key={attached.id}
-                        className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg border"
+              <Box sx={{ maxHeight: 400, overflowY: "auto" }}>
+                <Stack spacing={1}>
+                  {filteredGroups.map((group) => {
+                    const checked = selectedGroups.includes(group.id);
+                    return (
+                      <Box
+                        key={group.id}
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          p: 1.5,
+                          borderRadius: 2,
+                          border: "1px solid #e5e7eb",
+                          bgcolor: checked ? "#eff6ff" : "transparent",
+                        }}
                       >
-                        {attached.preview ? (
-                          <ImageIcon className="size-4 text-blue-600" />
-                        ) : attached.file.type.includes('pdf') ? (
-                          <FileText className="size-4 text-red-600" />
-                        ) : (
-                          <File className="size-4 text-gray-600" />
-                        )}
-                        <span className="text-sm flex-1 truncate">{attached.file.name}</span>
-                        <span className="text-xs text-gray-500">
-                          {(attached.file.size / 1024).toFixed(1)} KB
-                        </span>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeFile(attached.id)}
-                          className="size-6 p-0"
-                        >
-                          <X className="size-3" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Send Button */}
-            <div className="flex justify-end pt-4 border-t">
-              <Button onClick={handleSend} size="lg" className="w-full sm:w-auto">
-                <Send className="size-4 mr-2" />
-                {showSchedule && scheduleDate && scheduleTime ? 'Schedule Email' : 'Send Email'}
-              </Button>
-            </div>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <Checkbox
+                            checked={checked}
+                            onChange={() =>
+                              setSelectedGroups((prev) =>
+                                checked
+                                  ? prev.filter((id) => id !== group.id)
+                                  : [...prev, group.id]
+                              )
+                            }
+                          />
+                          <Typography variant="body2" noWrap>
+                            {group.name}
+                          </Typography>
+                        </Stack>
+                        <Chip size="small" label={group.count} />
+                      </Box>
+                    );
+                  })}
+                </Stack>
+              </Box>
+            </Stack>
           </CardContent>
         </Card>
-      </div>
-    </div>
+
+        {/* -------- Email Composition -------- */}
+        <Card>
+          <CardContent>
+            <Stack spacing={3}>
+              {selectedGroups.length > 0 && (
+                <Box>
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                    Selected Groups
+                  </Typography>
+                  <Stack direction="row" spacing={1} flexWrap="wrap">
+                    {groups
+                      .filter((g) => selectedGroups.includes(g.id))
+                      .map((g) => (
+                        <Chip
+                          key={g.id}
+                          label={`${g.name} (${g.count})`}
+                          color="primary"
+                        />
+                      ))}
+                  </Stack>
+                </Box>
+              )}
+
+              <TextField
+                label="Subject"
+                value={emailSubject}
+                onChange={(e) => setEmailSubject(e.target.value)}
+              />
+
+              <Button
+                variant="text"
+                onClick={() => setShowCcBcc((v) => !v)}
+                sx={{ alignSelf: "flex-start" }}
+              >
+                <ChevronDown size={16} style={{ marginRight: 6 }} />
+                {showCcBcc ? "Hide" : "Add"} CC / BCC
+              </Button>
+
+              {showCcBcc && (
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                  <TextField
+                    label="CC"
+                    value={ccRecipients}
+                    onChange={(e) => setCcRecipients(e.target.value)}
+                  />
+                  <TextField
+                    label="BCC"
+                    value={bccRecipients}
+                    onChange={(e) => setBccRecipients(e.target.value)}
+                  />
+                </Stack>
+              )}
+
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  p: 1.5,
+                  bgcolor: "#f9fafb",
+                  borderRadius: 2,
+                }}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <AlertCircle size={16} color="#ea580c" />
+                  <Typography variant="body2">High Priority</Typography>
+                </Stack>
+                <Switch
+                  checked={emailPriority === "high"}
+                  onChange={(e) =>
+                    setEmailPriority(e.target.checked ? "high" : "normal")
+                  }
+                />
+              </Box>
+
+              {/* Schedule */}
+              <Button
+                variant="text"
+                onClick={() => setShowSchedule((v) => !v)}
+                sx={{ alignSelf: "flex-start" }}
+              >
+                <Clock size={16} style={{ marginRight: 6 }} />
+                {showSchedule ? "Cancel" : "Schedule"} Send
+              </Button>
+
+              {showSchedule && (
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                  <TextField
+                    type="date"
+                    label="Date"
+                    value={scheduleDate}
+                    onChange={(e) => setScheduleDate(e.target.value)}
+                  />
+                  <TextField
+                    type="time"
+                    label="Time"
+                    value={scheduleTime}
+                    onChange={(e) => setScheduleTime(e.target.value)}
+                  />
+                </Stack>
+              )}
+
+              {/* Toolbar */}
+              <Box sx={{ border: "1px solid #e5e7eb", borderRadius: 2 }}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    gap: 0.5,
+                    p: 1,
+                    bgcolor: "#f9fafb",
+                    borderBottom: "1px solid #e5e7eb",
+                  }}
+                >
+                  {[
+                    { cmd: "bold", Icon: Bold, active: activeFormats.bold },
+                    {
+                      cmd: "italic",
+                      Icon: Italic,
+                      active: activeFormats.italic,
+                    },
+                    {
+                      cmd: "underline",
+                      Icon: Underline,
+                      active: activeFormats.underline,
+                    },
+                    {
+                      cmd: "insertUnorderedList",
+                      Icon: List,
+                      active: activeFormats.unorderedList,
+                    },
+                    {
+                      cmd: "insertOrderedList",
+                      Icon: ListOrdered,
+                      active: activeFormats.orderedList,
+                    },
+                  ].map(({ cmd, Icon, active }) => (
+                    <Tooltip key={cmd} title={cmd}>
+                      <IconButton
+                        size="small"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          saveSelection();
+                        }}
+                        onClick={() => applyFormatting(cmd)}
+                        sx={{
+                          bgcolor: active ? "#dbeafe" : "transparent",
+                        }}
+                      >
+                        <Icon size={16} />
+                      </IconButton>
+                    </Tooltip>
+                  ))}
+                </Box>
+
+                <Box
+                  ref={emailEditorRef}
+                  contentEditable
+                  suppressContentEditableWarning
+                  sx={{
+                    minHeight: 200,
+                    p: 2,
+                    outline: "none",
+                  }}
+                  onMouseUp={saveSelection}
+                  onKeyUp={saveSelection}
+                />
+              </Box>
+
+              {/* Attachments */}
+              <Box
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                sx={{
+                  p: 3,
+                  textAlign: "center",
+                  border: "2px dashed",
+                  borderColor: isDragging ? "primary.main" : "grey.300",
+                  borderRadius: 2,
+                }}
+              >
+                <Paperclip size={28} />
+                <Typography variant="body2" sx={{ my: 1 }}>
+                  Drag files here or click to upload
+                </Typography>
+                <Button
+                  variant="outlined"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload size={16} style={{ marginRight: 6 }} />
+                  Choose Files
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  hidden
+                  onChange={handleFileSelect}
+                />
+              </Box>
+
+              {attachedFiles.length > 0 && (
+                <Stack spacing={1}>
+                  {attachedFiles.map((f) => (
+                    <Box
+                      key={f.id}
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        p: 1,
+                        border: "1px solid #e5e7eb",
+                        borderRadius: 2,
+                      }}
+                    >
+                      {f.preview ? (
+                        <ImageIcon size={16} />
+                      ) : f.file.type.includes("pdf") ? (
+                        <FileText size={16} />
+                      ) : (
+                        <FileIcon size={16} />
+                      )}
+                      <Typography variant="body2" noWrap sx={{ flex: 1 }}>
+                        {f.file.name}
+                      </Typography>
+                      <IconButton
+                        size="small"
+                        onClick={() => removeFile(f.id)}
+                      >
+                        <X size={14} />
+                      </IconButton>
+                    </Box>
+                  ))}
+                </Stack>
+              )}
+
+              <Divider />
+
+              <Button
+                variant="contained"
+                size="large"
+                onClick={handleSend}
+                sx={{ alignSelf: "flex-end" }}
+              >
+                <Send size={16} style={{ marginRight: 8 }} />
+                {showSchedule && scheduleDate && scheduleTime
+                  ? "Schedule Email"
+                  : "Send Email"}
+              </Button>
+            </Stack>
+          </CardContent>
+        </Card>
+      </Box>
+    </Box>
   );
 }

@@ -2,6 +2,8 @@
 import session from "express-session";
 import MongoStore from "connect-mongo";
 
+ const isProd = process.env.NODE_ENV === "production";
+
 export default function configureSession(app) {
   app.use(
     session({
@@ -10,8 +12,8 @@ export default function configureSession(app) {
       saveUninitialized: false,
       cookie: {
         httpOnly: true,
-        secure: true,
-        sameSite: "none",
+        secure: isProd,                 // ✅ only secure in prod
+        sameSite: isProd ? "none" : "lax",
         maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
       },
       store: MongoStore.create({

@@ -1,14 +1,59 @@
-import { useState, useRef, useEffect } from 'react';
-import { Mail, MessageSquare, Phone, Send, Search, Mic, Upload, PhoneCall, Volume2, Smartphone, Hash, Square, Play, Paperclip, X, FileText, Image as ImageIcon, File, Bold, Italic, Link as LinkIcon, List, AlertCircle, Clock, ChevronDown, ChevronUp, ListOrdered, Underline } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
-import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
-import { Label } from '../../components/ui/label';
-import { Textarea } from '../../components/ui/textarea';
-import { Checkbox } from '../../components/ui/checkbox';
-import { Badge } from '../../components/ui/badge';
-import { Alert, AlertDescription } from '../../components/ui/alert';
-import { Switch } from '../../components/ui/switch';
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Mail,
+  MessageSquare,
+  Phone,
+  Send,
+  Search,
+  Mic,
+  Upload,
+  PhoneCall,
+  Volume2,
+  Smartphone,
+  Hash,
+  Square,
+  Play,
+  Paperclip,
+  X,
+  FileText,
+  Image as ImageIcon,
+  File as FileLucide,
+  Bold,
+  Italic,
+  Link as LinkIcon,
+  List,
+  AlertCircle,
+  Clock,
+  ChevronDown,
+  ChevronUp,
+  ListOrdered,
+  Underline,
+} from "lucide-react";
+
+import {
+  Alert,
+  Badge,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  Checkbox,
+  Chip,
+  Divider,
+  FormControlLabel,
+  IconButton,
+  InputAdornment,
+  MenuItem,
+  Select,
+  Stack,
+  Switch,
+  TextField,
+  Tooltip,
+  Typography,
+} from "@mui/material";
+
+import SamplePageOverlay from "../../components/samplePageOverlay";
 
 interface AttachedFile {
   id: string;
@@ -18,34 +63,41 @@ interface AttachedFile {
 
 export default function ComposeMessage() {
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
-  const [messageType, setMessageType] = useState<'email' | 'sms' | 'call'>('email');
-  const [message, setMessage] = useState('');
-  const [recordingMethod, setRecordingMethod] = useState<'text-to-speech' | 'call-to-record' | 'device-record' | 'saved-file'>('text-to-speech');
-  const [selectedAudioFile, setSelectedAudioFile] = useState('');
-  const [groupSearch, setGroupSearch] = useState('');
-  
+  const [messageType, setMessageType] = useState<"email" | "sms" | "call">(
+    "email"
+  );
+  const [message, setMessage] = useState("");
+  const [recordingMethod, setRecordingMethod] = useState<
+    "text-to-speech" | "call-to-record" | "device-record" | "saved-file"
+  >("text-to-speech");
+  const [selectedAudioFile, setSelectedAudioFile] = useState("");
+  const [groupSearch, setGroupSearch] = useState("");
+
   // Email-specific states
-  const [emailSubject, setEmailSubject] = useState('');
+  const [emailSubject, setEmailSubject] = useState("");
   const [showCcBcc, setShowCcBcc] = useState(false);
-  const [ccRecipients, setCcRecipients] = useState('');
-  const [bccRecipients, setBccRecipients] = useState('');
-  const [emailPriority, setEmailPriority] = useState<'normal' | 'high'>('normal');
+  const [ccRecipients, setCcRecipients] = useState("");
+  const [bccRecipients, setBccRecipients] = useState("");
+  const [emailPriority, setEmailPriority] = useState<"normal" | "high">(
+    "normal"
+  );
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
-  const [isDragging, setIsDragging] = useState(false);
   const [showSchedule, setShowSchedule] = useState(false);
-  const [scheduleDate, setScheduleDate] = useState('');
-  const [scheduleTime, setScheduleTime] = useState('');
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduleTime, setScheduleTime] = useState("");
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const emailEditorRef = useRef<HTMLDivElement>(null);
   const savedSelectionRef = useRef<Range | null>(null);
+
   const [activeFormats, setActiveFormats] = useState({
     bold: false,
     italic: false,
     underline: false,
     unorderedList: false,
-    orderedList: false
+    orderedList: false,
   });
-  
+
   // Audio recording states
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -53,154 +105,146 @@ export default function ComposeMessage() {
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  
+
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
-  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const groups = [
-    { id: '1', name: 'All Parents', count: 487, description: 'All parent contacts', pin: '1001' },
-    { id: '2', name: '1st Grade Parents', count: 65, description: 'Parents of 1st grade students', pin: '1234' },
-    { id: '3', name: '2nd Grade Parents', count: 72, description: 'Parents of 2nd grade students', pin: '1235' },
-    { id: '4', name: '3rd Grade Parents', count: 68, description: 'Parents of 3rd grade students', pin: '1236' },
-    { id: '5', name: '4th Grade Parents', count: 71, description: 'Parents of 4th grade students', pin: '1237' },
-    { id: '6', name: '5th Grade Parents', count: 69, description: 'Parents of 5th grade students', pin: '1238' },
-    { id: '7', name: '6th Grade Parents', count: 70, description: 'Parents of 6th grade students', pin: '1239' },
-    { id: '8', name: '7th Grade Parents', count: 72, description: 'Parents of 7th grade students', pin: '1240' },
-    { id: '9', name: 'Staff Members', count: 45, description: 'All staff contacts', pin: '2001' },
-    { id: '10', name: 'Bus Route 1', count: 35, description: 'Students on bus route 1', pin: '3001' },
-  ];
-
-  const handleSendMessage = () => {
-    // Check for empty message (handle both plain text and HTML)
-    const messageContent = messageType === 'email' 
-      ? emailEditorRef.current?.textContent?.trim() || ''
-      : message.trim();
-    
-    if (!messageContent || selectedGroups.length === 0) {
-      alert('Please select at least one group and enter a message.');
-      return;
-    }
-
-    if (messageType === 'email' && !emailSubject.trim()) {
-      alert('Please enter an email subject.');
-      return;
-    }
-
-    // TODO: Integrate with Twilio API for SMS/calls and email service
-    const emailData = messageType === 'email' ? {
-      subject: emailSubject,
-      message: message, // HTML content
-      cc: ccRecipients,
-      bcc: bccRecipients,
-      priority: emailPriority,
-      attachments: attachedFiles.map(f => f.file.name),
-      scheduledFor: showSchedule && scheduleDate && scheduleTime 
-        ? `${scheduleDate} ${scheduleTime}` 
-        : null
-    } : { message };
-
-    console.log('Sending message:', { 
-      messageType, 
-      selectedGroups,
-      ...emailData
-    });
-    
-    alert(
-      showSchedule && scheduleDate && scheduleTime
-        ? `Message scheduled for ${scheduleDate} at ${scheduleTime} to ${selectedGroups.length} group(s)!`
-        : `Message sent to ${selectedGroups.length} group(s)!`
-    );
-    
-    // Reset form
-    setMessage('');
-    if (emailEditorRef.current) {
-      emailEditorRef.current.innerHTML = '';
-    }
-    setEmailSubject('');
-    setCcRecipients('');
-    setBccRecipients('');
-    setEmailPriority('normal');
-    setAttachedFiles([]);
-    setShowSchedule(false);
-    setScheduleDate('');
-    setScheduleTime('');
-    setSelectedGroups([]);
-  };
+  const groups = useMemo(
+    () => [
+      {
+        id: "1",
+        name: "All Parents",
+        count: 487,
+        description: "All parent contacts",
+        pin: "1001",
+      },
+      {
+        id: "2",
+        name: "1st Grade Parents",
+        count: 65,
+        description: "Parents of 1st grade students",
+        pin: "1234",
+      },
+      {
+        id: "3",
+        name: "2nd Grade Parents",
+        count: 72,
+        description: "Parents of 2nd grade students",
+        pin: "1235",
+      },
+      {
+        id: "4",
+        name: "3rd Grade Parents",
+        count: 68,
+        description: "Parents of 3rd grade students",
+        pin: "1236",
+      },
+      {
+        id: "5",
+        name: "4th Grade Parents",
+        count: 71,
+        description: "Parents of 4th grade students",
+        pin: "1237",
+      },
+      {
+        id: "6",
+        name: "5th Grade Parents",
+        count: 69,
+        description: "Parents of 5th grade students",
+        pin: "1238",
+      },
+      {
+        id: "7",
+        name: "6th Grade Parents",
+        count: 70,
+        description: "Parents of 6th grade students",
+        pin: "1239",
+      },
+      {
+        id: "8",
+        name: "7th Grade Parents",
+        count: 72,
+        description: "Parents of 7th grade students",
+        pin: "1240",
+      },
+      {
+        id: "9",
+        name: "Staff Members",
+        count: 45,
+        description: "All staff contacts",
+        pin: "2001",
+      },
+      {
+        id: "10",
+        name: "Bus Route 1",
+        count: 35,
+        description: "Students on bus route 1",
+        pin: "3001",
+      },
+    ],
+    []
+  );
 
   const toggleGroup = (groupId: string) => {
-    setSelectedGroups(prev =>
-      prev.includes(groupId)
-        ? prev.filter(id => id !== groupId)
-        : [...prev, groupId]
+    setSelectedGroups((prev) =>
+      prev.includes(groupId) ? prev.filter((id) => id !== groupId) : [...prev, groupId]
     );
   };
 
   const getTotalRecipients = () => {
     return groups
-      .filter(g => selectedGroups.includes(g.id))
+      .filter((g) => selectedGroups.includes(g.id))
       .reduce((sum, g) => sum + g.count, 0);
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   // Timer for recording
   useEffect(() => {
     if (isRecording && !isPaused) {
       timerIntervalRef.current = setInterval(() => {
-        setRecordingTime(prev => {
-          if (prev >= 120) { // Max 2 minutes
+        setRecordingTime((prev) => {
+          if (prev >= 120) {
             stopRecording();
             return prev;
           }
           return prev + 1;
         });
       }, 1000);
-    } else {
-      if (timerIntervalRef.current) {
-        clearInterval(timerIntervalRef.current);
-      }
+    } else if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
     }
-    
+
     return () => {
-      if (timerIntervalRef.current) {
-        clearInterval(timerIntervalRef.current);
-      }
+      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRecording, isPaused]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (audioPlayerRef.current) {
-        audioPlayerRef.current.pause();
-      }
-      if (audioUrl) {
-        URL.revokeObjectURL(audioUrl);
-      }
-      // Cleanup file previews
-      attachedFiles.forEach(file => {
-        if (file.preview) {
-          URL.revokeObjectURL(file.preview);
-        }
+      if (audioPlayerRef.current) audioPlayerRef.current.pause();
+      if (audioUrl) URL.revokeObjectURL(audioUrl);
+      attachedFiles.forEach((f) => {
+        if (f.preview) URL.revokeObjectURL(f.preview);
       });
-      if (timerIntervalRef.current) {
-        clearInterval(timerIntervalRef.current);
-      }
+      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     };
   }, [audioUrl, attachedFiles]);
 
-  // Format time as MM:SS
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
   // Start recording
   const startRecording = async () => {
-    // Check if browser supports mediaDevices
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      alert('Your browser does not support audio recording. Please use a modern browser like Chrome, Firefox, or Safari.');
+      alert(
+        "Your browser does not support audio recording. Please use a modern browser like Chrome, Firefox, or Safari."
+      );
       return;
     }
 
@@ -211,39 +255,42 @@ export default function ComposeMessage() {
       audioChunksRef.current = [];
 
       mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
+        if (event.data.size > 0) audioChunksRef.current.push(event.data);
       };
 
       mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
-        setAudioBlob(audioBlob);
-        const url = URL.createObjectURL(audioBlob);
+        const blob = new Blob(audioChunksRef.current, { type: "audio/wav" });
+        setAudioBlob(blob);
+        const url = URL.createObjectURL(blob);
         setAudioUrl(url);
-        
-        // Stop all tracks
-        stream.getTracks().forEach(track => track.stop());
+        stream.getTracks().forEach((t) => t.stop());
       };
 
       mediaRecorder.start();
       setIsRecording(true);
       setRecordingTime(0);
     } catch (error: any) {
-      console.error('Error accessing microphone:', error);
-      
-      let errorMessage = 'Unable to access microphone. ';
-      
-      if (error.name === 'NotFoundError') {
-        errorMessage += 'No microphone was found on this device. Please connect a microphone and try again, or use "Call to Record" or "Use Saved Audio File" instead.';
-      } else if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-        errorMessage += 'Microphone access was denied. Please allow microphone access in your browser settings and try again.';
-      } else if (error.name === 'NotReadableError') {
-        errorMessage += 'Your microphone is already in use by another application. Please close other apps using the microphone and try again.';
+      console.error("Error accessing microphone:", error);
+
+      let errorMessage = "Unable to access microphone. ";
+
+      if (error?.name === "NotFoundError") {
+        errorMessage +=
+          'No microphone was found on this device. Please connect a microphone and try again, or use "Call to Record" or "Use Saved Audio File" instead.';
+      } else if (
+        error?.name === "NotAllowedError" ||
+        error?.name === "PermissionDeniedError"
+      ) {
+        errorMessage +=
+          "Microphone access was denied. Please allow microphone access in your browser settings and try again.";
+      } else if (error?.name === "NotReadableError") {
+        errorMessage +=
+          "Your microphone is already in use by another application. Please close other apps using the microphone and try again.";
       } else {
-        errorMessage += 'Please check your device settings and try again, or use "Call to Record" or "Use Saved Audio File" instead.';
+        errorMessage +=
+          'Please check your device settings and try again, or use "Call to Record" or "Use Saved Audio File" instead.';
       }
-      
+
       alert(errorMessage);
     }
   };
@@ -254,30 +301,26 @@ export default function ComposeMessage() {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
       setIsPaused(false);
-      if (timerIntervalRef.current) {
-        clearInterval(timerIntervalRef.current);
-      }
+      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     }
   };
 
   // Play recorded audio
   const playRecording = () => {
-    if (audioUrl) {
-      if (!audioPlayerRef.current) {
-        audioPlayerRef.current = new Audio(audioUrl);
-        audioPlayerRef.current.onended = () => {
-          setIsPlaying(false);
-        };
-      }
-      
-      if (isPlaying) {
-        audioPlayerRef.current.pause();
-        audioPlayerRef.current.currentTime = 0;
-        setIsPlaying(false);
-      } else {
-        audioPlayerRef.current.play();
-        setIsPlaying(true);
-      }
+    if (!audioUrl) return;
+
+    if (!audioPlayerRef.current) {
+      audioPlayerRef.current = new Audio(audioUrl);
+      audioPlayerRef.current.onended = () => setIsPlaying(false);
+    }
+
+    if (isPlaying) {
+      audioPlayerRef.current.pause();
+      audioPlayerRef.current.currentTime = 0;
+      setIsPlaying(false);
+    } else {
+      void audioPlayerRef.current.play();
+      setIsPlaying(true);
     }
   };
 
@@ -287,9 +330,7 @@ export default function ComposeMessage() {
       audioPlayerRef.current.pause();
       audioPlayerRef.current = null;
     }
-    if (audioUrl) {
-      URL.revokeObjectURL(audioUrl);
-    }
+    if (audioUrl) URL.revokeObjectURL(audioUrl);
     setAudioBlob(null);
     setAudioUrl(null);
     setIsPlaying(false);
@@ -300,73 +341,54 @@ export default function ComposeMessage() {
   // File attachment handlers
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (files) {
-      addFiles(Array.from(files));
-    }
+    if (files) addFiles(Array.from(files));
   };
 
   const addFiles = (files: File[]) => {
-    const newFiles: AttachedFile[] = files.map(file => ({
+    const newFiles: AttachedFile[] = files.map((file) => ({
       id: Math.random().toString(36).substring(7),
       file,
-      preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined
+      preview: file.type.startsWith("image/")
+        ? URL.createObjectURL(file)
+        : undefined,
     }));
-    setAttachedFiles(prev => [...prev, ...newFiles]);
+    setAttachedFiles((prev) => [...prev, ...newFiles]);
   };
 
   const removeFile = (id: string) => {
-    setAttachedFiles(prev => {
-      const fileToRemove = prev.find(f => f.id === id);
-      if (fileToRemove?.preview) {
-        URL.revokeObjectURL(fileToRemove.preview);
-      }
-      return prev.filter(f => f.id !== id);
+    setAttachedFiles((prev) => {
+      const toRemove = prev.find((f) => f.id === id);
+      if (toRemove?.preview) URL.revokeObjectURL(toRemove.preview);
+      return prev.filter((f) => f.id !== id);
     });
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const files = Array.from(e.dataTransfer.files);
-    addFiles(files);
-  };
-
   const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
   };
 
   const getFileIcon = (file: File) => {
-    if (file.type.startsWith('image/')) return ImageIcon;
-    if (file.type.includes('pdf')) return FileText;
-    return File;
+    if (file.type.startsWith("image/")) return ImageIcon;
+    if (file.type.includes("pdf")) return FileText;
+    return FileLucide;
   };
 
   // Update active formatting state
   const updateActiveFormats = () => {
-    if (messageType !== 'email') return;
-    
+    if (messageType !== "email") return;
+
     try {
       setActiveFormats({
-        bold: document.queryCommandState('bold'),
-        italic: document.queryCommandState('italic'),
-        underline: document.queryCommandState('underline'),
-        unorderedList: document.queryCommandState('insertUnorderedList'),
-        orderedList: document.queryCommandState('insertOrderedList')
+        bold: document.queryCommandState("bold"),
+        italic: document.queryCommandState("italic"),
+        underline: document.queryCommandState("underline"),
+        unorderedList: document.queryCommandState("insertUnorderedList"),
+        orderedList: document.queryCommandState("insertOrderedList"),
       });
-    } catch (e) {
-      // queryCommandState can throw errors in some browsers
+    } catch {
+      // ignore
     }
   };
 
@@ -389,928 +411,1187 @@ export default function ComposeMessage() {
     }
   };
 
-  // Insert list manually
   const insertList = (ordered: boolean) => {
     if (!emailEditorRef.current) return;
-    
     emailEditorRef.current.focus();
-    
+
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) {
-      // No selection, insert at the end
-      const listElement = document.createElement(ordered ? 'ol' : 'ul');
-      const listItem = document.createElement('li');
-      listItem.innerHTML = '<br>'; // Empty list item
+      const listElement = document.createElement(ordered ? "ol" : "ul");
+      const listItem = document.createElement("li");
+      listItem.innerHTML = "<br>";
       listElement.appendChild(listItem);
       emailEditorRef.current.appendChild(listElement);
-      
-      // Place cursor in the list item
+
       const range = document.createRange();
       range.setStart(listItem, 0);
       range.collapse(true);
-      selection.removeAllRanges();
-      selection.addRange(range);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
     } else {
-      // Try execCommand first
-      const command = ordered ? 'insertOrderedList' : 'insertUnorderedList';
-      document.execCommand(command, false, undefined);
+      const cmd = ordered ? "insertOrderedList" : "insertUnorderedList";
+      document.execCommand(cmd, false, undefined);
     }
-    
-    // Update state
+
     setMessage(emailEditorRef.current.innerHTML);
     saveSelection();
   };
 
-  // Rich text formatting functions
   const applyFormatting = (command: string, value?: string) => {
-    if (messageType !== 'email') return;
-    
+    if (messageType !== "email") return;
     if (!emailEditorRef.current) return;
-    
-    // Restore the selection first
+
     restoreSelection();
-    
-    // Execute the command
     document.execCommand(command, false, value);
-    
-    // Save the new selection
     saveSelection();
-    
-    // Update the message state
     setMessage(emailEditorRef.current.innerHTML);
   };
 
   const insertLink = () => {
-    const url = prompt('Enter URL:');
-    if (url) {
-      applyFormatting('createLink', url);
-    }
+    const url = prompt("Enter URL:");
+    if (url) applyFormatting("createLink", url);
   };
 
   const handleEditorInput = (e: React.FormEvent<HTMLDivElement>) => {
-    if (messageType === 'email') {
-      setMessage(e.currentTarget.innerHTML);
-    }
+    if (messageType === "email") setMessage(e.currentTarget.innerHTML);
   };
 
-  const filteredGroups = groups.filter(group =>
-    group.name.toLowerCase().includes(groupSearch.toLowerCase()) ||
-    group.description.toLowerCase().includes(groupSearch.toLowerCase())
+  const handleSendMessage = () => {
+    const messageContent =
+      messageType === "email"
+        ? emailEditorRef.current?.textContent?.trim() || ""
+        : message.trim();
+
+    if (!messageContent || selectedGroups.length === 0) {
+      alert("Please select at least one group and enter a message.");
+      return;
+    }
+
+    if (messageType === "email" && !emailSubject.trim()) {
+      alert("Please enter an email subject.");
+      return;
+    }
+
+    const emailData =
+      messageType === "email"
+        ? {
+            subject: emailSubject,
+            message: message,
+            cc: ccRecipients,
+            bcc: bccRecipients,
+            priority: emailPriority,
+            attachments: attachedFiles.map((f) => f.file.name),
+            scheduledFor:
+              showSchedule && scheduleDate && scheduleTime
+                ? `${scheduleDate} ${scheduleTime}`
+                : null,
+          }
+        : { message };
+
+    console.log("Sending message:", {
+      messageType,
+      selectedGroups,
+      ...emailData,
+    });
+
+    alert(
+      showSchedule && scheduleDate && scheduleTime
+        ? `Message scheduled for ${scheduleDate} at ${scheduleTime} to ${selectedGroups.length} group(s)!`
+        : `Message sent to ${selectedGroups.length} group(s)!`
+    );
+
+    // Reset form
+    setMessage("");
+    if (emailEditorRef.current) emailEditorRef.current.innerHTML = "";
+    setEmailSubject("");
+    setCcRecipients("");
+    setBccRecipients("");
+    setEmailPriority("normal");
+    setAttachedFiles([]);
+    setShowSchedule(false);
+    setScheduleDate("");
+    setScheduleTime("");
+    setSelectedGroups([]);
+  };
+
+  const filteredGroups = useMemo(() => {
+    const q = groupSearch.toLowerCase();
+    return groups.filter(
+      (g) =>
+        g.name.toLowerCase().includes(q) || g.description.toLowerCase().includes(q)
+    );
+  }, [groups, groupSearch]);
+
+  const canSend =
+    (messageType === "email"
+      ? (emailEditorRef.current?.textContent?.trim() || "").length > 0
+      : message.trim().length > 0) &&
+    selectedGroups.length > 0 &&
+    (messageType !== "email" || emailSubject.trim().length > 0);
+
+  const SelectedGroupChips = (
+    <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+      {groups
+        .filter((g) => selectedGroups.includes(g.id))
+        .map((group) => (
+          <Chip
+            key={group.id}
+            label={`${group.name} (${group.count})`}
+            onDelete={() => toggleGroup(group.id)}
+            color="primary"
+            sx={{
+              "& .MuiChip-deleteIcon": { opacity: 1 },
+            }}
+          />
+        ))}
+    </Stack>
   );
 
   return (
-    <div className="space-y-4 md:space-y-6">
-      <div>
-        <h1 className="text-gray-900 mb-2">Compose Message</h1>
-        <p className="text-gray-600">Send emails, SMS messages, and robocalls to selected groups</p>
-      </div>
+    <Box>
+      <SamplePageOverlay />
 
-      {/* Quick Send via Text Alert - Show only for SMS and Calls */}
-      {(messageType === 'sms' || messageType === 'call') && selectedGroups.length > 0 && (
-        <Alert className="bg-blue-50 border-blue-200">
-          <Smartphone className="size-4 text-blue-700" />
-          <AlertDescription className="text-sm">
-            <p className="text-blue-900 mb-2">
-              <strong>Quick Send:</strong> Text <strong className="font-mono">+1 (833) 000-0000</strong> with PIN + your message
-            </p>
-            <div className="flex flex-wrap gap-2 mb-2">
-              {groups
-                .filter(g => selectedGroups.includes(g.id))
-                .map(group => (
-                  <span key={group.id} className="inline-flex items-center gap-1.5 text-xs bg-white px-2 py-1 rounded border border-blue-200">
-                    <Hash className="size-3 text-blue-600" />
-                    <span className="font-mono text-blue-900">{group.pin}</span>
-                    <span className="text-gray-400">→</span>
-                    <span className="text-gray-700">{group.name}</span>
-                  </span>
-                ))}
-            </div>
-            <p className="text-xs text-gray-600 font-mono bg-white px-2 py-1 rounded border border-blue-200 inline-block">
-              Example: {groups.find(g => selectedGroups.includes(g.id))?.pin} School closes early today at 2pm
-            </p>
-          </AlertDescription>
-        </Alert>
-      )}
+      <Stack spacing={2.5}>
+        <Box>
+          <Typography variant="h5" sx={{ mb: 0.5, color: "text.primary" }}>
+            Compose Message
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Send emails, SMS messages, and robocalls to selected groups
+          </Typography>
+        </Box>
 
-      {/* Message Type Selection - Mobile First */}
-      <div className="lg:hidden">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Message Type</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-3 gap-2 sm:gap-3">
-              <Button
-                variant={messageType === 'email' ? 'default' : 'outline'}
-                onClick={() => setMessageType('email')}
-                className="flex flex-col items-center gap-1.5 h-auto py-3 sm:py-4"
-              >
-                <Mail className="size-5 sm:size-6" />
-                <span className="text-xs sm:text-sm">Email</span>
-              </Button>
-              <Button
-                variant={messageType === 'sms' ? 'default' : 'outline'}
-                onClick={() => setMessageType('sms')}
-                className="flex flex-col items-center gap-1.5 h-auto py-3 sm:py-4"
-              >
-                <MessageSquare className="size-5 sm:size-6" />
-                <span className="text-xs sm:text-sm">SMS</span>
-              </Button>
-              <Button
-                variant={messageType === 'call' ? 'default' : 'outline'}
-                onClick={() => setMessageType('call')}
-                className="flex flex-col items-center gap-1.5 h-auto py-3 sm:py-4"
-              >
-                <Phone className="size-5 sm:size-6" />
-                <span className="text-xs sm:text-sm">Call</span>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+        {/* Quick Send via Text Alert - Show only for SMS and Calls */}
+        {(messageType === "sms" || messageType === "call") &&
+          selectedGroups.length > 0 && (
+            <Alert
+              icon={<Smartphone size={18} />}
+              severity="info"
+              sx={{
+                bgcolor: "#eff6ff",
+                border: "1px solid #bfdbfe",
+                color: "#0f172a",
+              }}
+            >
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                <strong>Quick Send:</strong> Text{" "}
+                <strong style={{ fontFamily: "monospace" }}>
+                  +1 (833) 000-0000
+                </strong>{" "}
+                with PIN + your message
+              </Typography>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
-        {/* Message Composition */}
-        <Card className="lg:col-span-2">
-          <CardContent className="space-y-4 md:space-y-6 pt-6">
-            {/* Message Type Selection - Desktop */}
-            <div className="space-y-2 hidden lg:block">
-              <Label>Message Type</Label>
-              <div className="grid grid-cols-3 gap-4">
-                <Button
-                  variant={messageType === 'email' ? 'default' : 'outline'}
-                  onClick={() => setMessageType('email')}
-                  className="flex flex-col items-center gap-2 h-auto py-4"
-                >
-                  <Mail className="size-6" />
-                  <span>Email</span>
-                </Button>
-                <Button
-                  variant={messageType === 'sms' ? 'default' : 'outline'}
-                  onClick={() => setMessageType('sms')}
-                  className="flex flex-col items-center gap-2 h-auto py-4"
-                >
-                  <MessageSquare className="size-6" />
-                  <span>SMS</span>
-                </Button>
-                <Button
-                  variant={messageType === 'call' ? 'default' : 'outline'}
-                  onClick={() => setMessageType('call')}
-                  className="flex flex-col items-center gap-2 h-auto py-4"
-                >
-                  <Phone className="size-6" />
-                  <span>Robocall</span>
-                </Button>
-              </div>
-            </div>
-
-            {/* Selected Groups Display */}
-            {selectedGroups.length > 0 && (
-              <div className="space-y-2">
-                <Label className="text-sm md:text-base">Selected Groups</Label>
-                <div className="flex flex-wrap gap-1.5 sm:gap-2 p-2.5 sm:p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  {groups
-                    .filter(g => selectedGroups.includes(g.id))
-                    .map(group => (
-                      <Badge 
-                        key={group.id} 
-                        className="bg-blue-600 text-white hover:bg-blue-700 cursor-pointer text-xs sm:text-sm py-1 px-2 sm:px-2.5"
-                        onClick={() => toggleGroup(group.id)}
-                      >
-                        <span className="max-w-[150px] sm:max-w-none truncate">
-                          {group.name} ({group.count})
-                        </span>
-                        <span className="ml-1.5 sm:ml-2">×</span>
-                      </Badge>
-                    ))}
-                </div>
-              </div>
-            )}
-
-            {/* Robocall Recording Method */}
-            {messageType === 'call' && (
-              <div className="space-y-3">
-                <Label>Recording Method</Label>
-                <div className="grid grid-cols-1 gap-3">
-                  {/* Text to Speech */}
-                  <div
-                    className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                      recordingMethod === 'text-to-speech'
-                        ? 'border-blue-600 bg-blue-50'
-                        : 'border-gray-300 hover:border-gray-400'
-                    }`}
-                    onClick={() => setRecordingMethod('text-to-speech')}
-                  >
-                    <div className="flex items-start gap-3">
-                      <input
-                        type="radio"
-                        checked={recordingMethod === 'text-to-speech'}
-                        onChange={() => setRecordingMethod('text-to-speech')}
-                        className="mt-1"
-                      />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Volume2 className="size-5 text-blue-600" />
-                          <p className="text-gray-900">Text-to-Speech</p>
-                        </div>
-                        <p className="text-sm text-gray-600">
-                          Type your message and it will be converted to speech automatically
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Call Me to Record */}
-                  <div
-                    className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                      recordingMethod === 'call-to-record'
-                        ? 'border-blue-600 bg-blue-50'
-                        : 'border-gray-300 hover:border-gray-400'
-                    }`}
-                    onClick={() => setRecordingMethod('call-to-record')}
-                  >
-                    <div className="flex items-start gap-3">
-                      <input
-                        type="radio"
-                        checked={recordingMethod === 'call-to-record'}
-                        onChange={() => setRecordingMethod('call-to-record')}
-                        className="mt-1"
-                      />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <PhoneCall className="size-5 text-green-600" />
-                          <p className="text-gray-900">Call Me to Record</p>
-                        </div>
-                        <p className="text-sm text-gray-600">
-                          Receive a call and record your message over the phone
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Record on Device */}
-                  <div
-                    className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                      recordingMethod === 'device-record'
-                        ? 'border-blue-600 bg-blue-50'
-                        : 'border-gray-300 hover:border-gray-400'
-                    }`}
-                    onClick={() => setRecordingMethod('device-record')}
-                  >
-                    <div className="flex items-start gap-3">
-                      <input
-                        type="radio"
-                        checked={recordingMethod === 'device-record'}
-                        onChange={() => setRecordingMethod('device-record')}
-                        className="mt-1"
-                      />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Mic className="size-5 text-purple-600" />
-                          <p className="text-gray-900">Record on Device</p>
-                        </div>
-                        <p className="text-sm text-gray-600">
-                          Use your device's microphone to record the message now
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Use Saved File */}
-                  <div
-                    className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                      recordingMethod === 'saved-file'
-                        ? 'border-blue-600 bg-blue-50'
-                        : 'border-gray-300 hover:border-gray-400'
-                    }`}
-                    onClick={() => setRecordingMethod('saved-file')}
-                  >
-                    <div className="flex items-start gap-3">
-                      <input
-                        type="radio"
-                        checked={recordingMethod === 'saved-file'}
-                        onChange={() => setRecordingMethod('saved-file')}
-                        className="mt-1"
-                      />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Upload className="size-5 text-orange-600" />
-                          <p className="text-gray-900">Use Saved Audio File</p>
-                        </div>
-                        <p className="text-sm text-gray-600">
-                          Select from previously recorded or uploaded audio files
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Call to Record - Phone Number Input */}
-            {messageType === 'call' && recordingMethod === 'call-to-record' && (
-              <div className="space-y-3 p-4 bg-green-50 border border-green-200 rounded-lg">
-                <Label>Your Phone Number</Label>
-                <Input 
-                  type="tel" 
-                  placeholder="(555) 123-4567" 
-                  className="bg-white"
-                />
-                <Button className="w-full bg-green-600 hover:bg-green-700">
-                  <PhoneCall className="size-4 mr-2" />
-                  Call Me Now to Record
-                </Button>
-                <p className="text-xs text-gray-600">
-                  You'll receive a call within 30 seconds. Follow the prompts to record your message.
-                </p>
-              </div>
-            )}
-
-            {/* Device Recording Interface */}
-            {messageType === 'call' && recordingMethod === 'device-record' && (
-              <div className="space-y-3 p-3 sm:p-4 bg-purple-50 border border-purple-200 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs sm:text-sm">Voice Recording</Label>
-                  <Badge 
-                    variant="outline" 
-                    className={`text-xs font-mono ${isRecording ? 'bg-red-100 border-red-300 text-red-700' : ''}`}
-                  >
-                    {formatTime(recordingTime)}
-                  </Badge>
-                </div>
-
-                <Alert className="bg-blue-50 border-blue-200">
-                  <AlertDescription className="text-xs text-blue-900">
-                    <strong>Note:</strong> A microphone is required for this option. If you don't have a microphone, please use "Call to Record" or "Use Saved Audio File" instead.
-                  </AlertDescription>
-                </Alert>
-                
-                {!audioUrl ? (
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <Button 
-                      className={`w-full sm:flex-1 h-9 text-sm ${
-                        isRecording 
-                          ? 'bg-red-600 hover:bg-red-700' 
-                          : 'bg-purple-600 hover:bg-purple-700'
-                      }`}
-                      onClick={isRecording ? stopRecording : startRecording}
+              <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mb: 1 }}>
+                {groups
+                  .filter((g) => selectedGroups.includes(g.id))
+                  .map((group) => (
+                    <Box
+                      key={group.id}
+                      sx={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 0.75,
+                        fontSize: 12,
+                        bgcolor: "white",
+                        px: 1,
+                        py: 0.5,
+                        borderRadius: 1,
+                        border: "1px solid #bfdbfe",
+                      }}
                     >
-                      {isRecording ? (
+                      <Hash size={14} />
+                      <Box component="span" sx={{ fontFamily: "monospace" }}>
+                        {group.pin}
+                      </Box>
+                      <Box component="span" sx={{ color: "text.disabled" }}>
+                        →
+                      </Box>
+                      <Box component="span" sx={{ color: "text.secondary" }}>
+                        {group.name}
+                      </Box>
+                    </Box>
+                  ))}
+              </Stack>
+
+              <Box
+                sx={{
+                  display: "inline-block",
+                  fontFamily: "monospace",
+                  fontSize: 12,
+                  bgcolor: "white",
+                  px: 1,
+                  py: 0.5,
+                  borderRadius: 1,
+                  border: "1px solid #bfdbfe",
+                  color: "text.secondary",
+                }}
+              >
+                Example:{" "}
+                {groups.find((g) => selectedGroups.includes(g.id))?.pin} School
+                closes early today at 2pm
+              </Box>
+            </Alert>
+          )}
+
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: { xs: "1fr", lg: "2fr 1fr" },
+            gap: 2.5,
+          }}
+        >
+          {/* Message Composition */}
+          <Card>
+            <CardContent sx={{ pt: 3 }}>
+              <Stack spacing={2.5}>
+                {/* Message Type Selection */}
+                <Box>
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                    Message Type
+                  </Typography>
+
+                  <Box
+                    sx={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(3, 1fr)",
+                      gap: 1.5,
+                    }}
+                  >
+                    <Button
+                      variant={messageType === "email" ? "contained" : "outlined"}
+                      onClick={() => setMessageType("email")}
+                      sx={{ py: 2, display: "flex", flexDirection: "column", gap: 1 }}
+                    >
+                      <Mail size={22} />
+                      Email
+                    </Button>
+
+                    <Button
+                      variant={messageType === "sms" ? "contained" : "outlined"}
+                      onClick={() => setMessageType("sms")}
+                      sx={{ py: 2, display: "flex", flexDirection: "column", gap: 1 }}
+                    >
+                      <MessageSquare size={22} />
+                      SMS
+                    </Button>
+
+                    <Button
+                      variant={messageType === "call" ? "contained" : "outlined"}
+                      onClick={() => setMessageType("call")}
+                      sx={{ py: 2, display: "flex", flexDirection: "column", gap: 1 }}
+                    >
+                      <Phone size={22} />
+                      Robocall
+                    </Button>
+                  </Box>
+                </Box>
+
+                {/* Selected Groups Display */}
+                {selectedGroups.length > 0 && (
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                      Selected Groups
+                    </Typography>
+                    <Box
+                      sx={{
+                        p: 1.5,
+                        bgcolor: "#eff6ff",
+                        border: "1px solid #bfdbfe",
+                        borderRadius: 2,
+                      }}
+                    >
+                      {SelectedGroupChips}
+                    </Box>
+                  </Box>
+                )}
+
+                {/* Robocall Recording Method */}
+                {messageType === "call" && (
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
+                      Recording Method
+                    </Typography>
+
+                    <Stack spacing={1.25}>
+                      {[
+                        {
+                          key: "text-to-speech" as const,
+                          title: "Text-to-Speech",
+                          desc:
+                            "Type your message and it will be converted to speech automatically",
+                          Icon: Volume2,
+                          iconColor: "#2563eb",
+                        },
+                        {
+                          key: "call-to-record" as const,
+                          title: "Call Me to Record",
+                          desc: "Receive a call and record your message over the phone",
+                          Icon: PhoneCall,
+                          iconColor: "#16a34a",
+                        },
+                        {
+                          key: "device-record" as const,
+                          title: "Record on Device",
+                          desc: "Use your device's microphone to record the message now",
+                          Icon: Mic,
+                          iconColor: "#7c3aed",
+                        },
+                        {
+                          key: "saved-file" as const,
+                          title: "Use Saved Audio File",
+                          desc:
+                            "Select from previously recorded or uploaded audio files",
+                          Icon: Upload,
+                          iconColor: "#ea580c",
+                        },
+                      ].map(({ key, title, desc, Icon, iconColor }) => {
+                        const selected = recordingMethod === key;
+                        return (
+                          <Box
+                            key={key}
+                            onClick={() => setRecordingMethod(key)}
+                            sx={{
+                              p: 2,
+                              borderRadius: 2,
+                              border: "2px solid",
+                              borderColor: selected ? "#2563eb" : "#d1d5db",
+                              bgcolor: selected ? "#eff6ff" : "transparent",
+                              cursor: "pointer",
+                              transition: "all 120ms ease",
+                              "&:hover": {
+                                borderColor: selected ? "#2563eb" : "#9ca3af",
+                              },
+                            }}
+                          >
+                            <Stack direction="row" spacing={1.5} alignItems="flex-start">
+                              <input
+                                type="radio"
+                                checked={selected}
+                                onChange={() => setRecordingMethod(key)}
+                                style={{ marginTop: 4 }}
+                              />
+                              <Box sx={{ flex: 1 }}>
+                                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
+                                  <Icon size={20} color={iconColor} />
+                                  <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>
+                                    {title}
+                                  </Typography>
+                                </Stack>
+                                <Typography variant="body2" color="text.secondary">
+                                  {desc}
+                                </Typography>
+                              </Box>
+                            </Stack>
+                          </Box>
+                        );
+                      })}
+                    </Stack>
+                  </Box>
+                )}
+
+                {/* Call to Record - Phone Number Input */}
+                {messageType === "call" && recordingMethod === "call-to-record" && (
+                  <Box
+                    sx={{
+                      p: 2,
+                      bgcolor: "#ecfdf5",
+                      border: "1px solid #bbf7d0",
+                      borderRadius: 2,
+                    }}
+                  >
+                    <Stack spacing={1.25}>
+                      <Typography variant="subtitle2">Your Phone Number</Typography>
+                      <TextField
+                        fullWidth
+                        placeholder="(555) 123-4567"
+                        type="tel"
+                        size="small"
+                        sx={{ bgcolor: "white" }}
+                      />
+                      <Button
+                        variant="contained"
+                        sx={{ bgcolor: "#16a34a", "&:hover": { bgcolor: "#15803d" } }}
+                        fullWidth
+                      >
+                        <PhoneCall size={16} style={{ marginRight: 8 }} />
+                        Call Me Now to Record
+                      </Button>
+                      <Typography variant="caption" color="text.secondary">
+                        You'll receive a call within 30 seconds. Follow the prompts to
+                        record your message.
+                      </Typography>
+                    </Stack>
+                  </Box>
+                )}
+
+                {/* Device Recording Interface */}
+                {messageType === "call" && recordingMethod === "device-record" && (
+                  <Box
+                    sx={{
+                      p: 2,
+                      bgcolor: "#f5f3ff",
+                      border: "1px solid #ddd6fe",
+                      borderRadius: 2,
+                    }}
+                  >
+                    <Stack spacing={1.25}>
+                      <Stack direction="row" justifyContent="space-between" alignItems="center">
+                        <Typography variant="subtitle2">Voice Recording</Typography>
+                        <Badge
+                          badgeContent={formatTime(recordingTime)}
+                          color={isRecording ? "error" : "default"}
+                          sx={{
+                            "& .MuiBadge-badge": {
+                              fontFamily: "monospace",
+                              fontSize: 12,
+                              px: 1,
+                              py: 0.5,
+                            },
+                          }}
+                        />
+                      </Stack>
+
+                      <Alert severity="info" sx={{ bgcolor: "#eff6ff", border: "1px solid #bfdbfe" }}>
+                        <Typography variant="caption" sx={{ display: "block" }}>
+                          <strong>Note:</strong> A microphone is required for this option.
+                          If you don't have a microphone, please use "Call to Record" or
+                          "Use Saved Audio File" instead.
+                        </Typography>
+                      </Alert>
+
+                      {!audioUrl ? (
+                        <Button
+                          variant="contained"
+                          onClick={isRecording ? stopRecording : startRecording}
+                          sx={{
+                            bgcolor: isRecording ? "#dc2626" : "#7c3aed",
+                            "&:hover": { bgcolor: isRecording ? "#b91c1c" : "#6d28d9" },
+                          }}
+                        >
+                          {isRecording ? (
+                            <>
+                              <Square size={16} style={{ marginRight: 8 }} />
+                              Stop Recording
+                            </>
+                          ) : (
+                            <>
+                              <Mic size={16} style={{ marginRight: 8 }} />
+                              Start Recording
+                            </>
+                          )}
+                        </Button>
+                      ) : (
+                        <Stack spacing={1}>
+                          <Alert severity="success" sx={{ bgcolor: "#ecfdf5", border: "1px solid #bbf7d0" }}>
+                            <Typography variant="body2">
+                              ✓ Recording saved ({formatTime(recordingTime)})
+                            </Typography>
+                          </Alert>
+
+                          <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                            <Button variant="outlined" onClick={playRecording}>
+                              {isPlaying ? (
+                                <>
+                                  <Square size={16} style={{ marginRight: 8 }} />
+                                  Stop Playback
+                                </>
+                              ) : (
+                                <>
+                                  <Play size={16} style={{ marginRight: 8 }} />
+                                  Play Recording
+                                </>
+                              )}
+                            </Button>
+                            <Button variant="outlined" onClick={clearRecording}>
+                              Re-record
+                            </Button>
+                          </Stack>
+                        </Stack>
+                      )}
+
+                      <Typography variant="caption" color="text.secondary">
+                        {!audioUrl
+                          ? 'Click "Start Recording" and speak your message. Maximum duration: 2 minutes.'
+                          : "Preview your recording or re-record if needed."}
+                      </Typography>
+                    </Stack>
+                  </Box>
+                )}
+
+                {/* Saved Audio File Selection */}
+                {messageType === "call" && recordingMethod === "saved-file" && (
+                  <Box
+                    sx={{
+                      p: 2,
+                      bgcolor: "#fff7ed",
+                      border: "1px solid #fed7aa",
+                      borderRadius: 2,
+                    }}
+                  >
+                    <Stack spacing={1.25}>
+                      <Typography variant="subtitle2">Select Audio File</Typography>
+
+                      <Select
+                        size="small"
+                        fullWidth
+                        value={selectedAudioFile}
+                        onChange={(e) => setSelectedAudioFile(String(e.target.value))}
+                        sx={{ bgcolor: "white" }}
+                      >
+                        <MenuItem value="">Choose a saved audio file...</MenuItem>
+                        <MenuItem value="1">Snow Day Announcement - Nov 20, 2024</MenuItem>
+                        <MenuItem value="2">Early Dismissal Message - Nov 15, 2024</MenuItem>
+                        <MenuItem value="3">Holiday Greeting - Nov 10, 2024</MenuItem>
+                        <MenuItem value="4">Emergency Closure - Nov 5, 2024</MenuItem>
+                      </Select>
+
+                      <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                        {selectedAudioFile && (
+                          <Button variant="outlined" fullWidth>
+                            <Volume2 size={16} style={{ marginRight: 8 }} />
+                            Preview Audio
+                          </Button>
+                        )}
+                        <Button variant="outlined" fullWidth>
+                          <Upload size={16} style={{ marginRight: 8 }} />
+                          Upload New File
+                        </Button>
+                      </Stack>
+
+                      <Typography variant="caption" color="text.secondary">
+                        Supported formats: MP3, WAV, M4A. Maximum file size: 10MB.
+                      </Typography>
+                    </Stack>
+                  </Box>
+                )}
+
+                {/* Email-Specific Fields */}
+                {messageType === "email" && (
+                  <Stack spacing={2}>
+                    <Box>
+                      <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                        Subject
+                      </Typography>
+                      <TextField
+                        fullWidth
+                        value={emailSubject}
+                        onChange={(e) => setEmailSubject(e.target.value)}
+                        placeholder="Enter email subject..."
+                        size="small"
+                      />
+                    </Box>
+
+                    <Box>
+                      <Button
+                        variant="text"
+                        onClick={() => setShowCcBcc((v) => !v)}
+                        sx={{ px: 0, textTransform: "none" }}
+                      >
+                        {showCcBcc ? (
+                          <ChevronUp size={16} style={{ marginRight: 6 }} />
+                        ) : (
+                          <ChevronDown size={16} style={{ marginRight: 6 }} />
+                        )}
+                        {showCcBcc ? "Hide" : "Add"} CC/BCC
+                      </Button>
+
+                      {showCcBcc && (
+                        <Box sx={{ borderLeft: "2px solid #e5e7eb", pl: 2, mt: 1 }}>
+                          <Stack spacing={1.25}>
+                            <Box>
+                              <Typography variant="caption" color="text.secondary">
+                                CC (Optional)
+                              </Typography>
+                              <TextField
+                                fullWidth
+                                size="small"
+                                value={ccRecipients}
+                                onChange={(e) => setCcRecipients(e.target.value)}
+                                placeholder="email@example.com, another@example.com"
+                                sx={{ mt: 0.5 }}
+                              />
+                            </Box>
+
+                            <Box>
+                              <Typography variant="caption" color="text.secondary">
+                                BCC (Optional)
+                              </Typography>
+                              <TextField
+                                fullWidth
+                                size="small"
+                                value={bccRecipients}
+                                onChange={(e) => setBccRecipients(e.target.value)}
+                                placeholder="email@example.com, another@example.com"
+                                sx={{ mt: 0.5 }}
+                              />
+                            </Box>
+                          </Stack>
+                        </Box>
+                      )}
+                    </Box>
+
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        p: 1.5,
+                        bgcolor: "#f9fafb",
+                        borderRadius: 2,
+                      }}
+                    >
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <AlertCircle size={16} color="#ea580c" />
+                        <Typography variant="body2">Mark as High Priority</Typography>
+                      </Stack>
+                      <Switch
+                        checked={emailPriority === "high"}
+                        onChange={(e) => setEmailPriority(e.target.checked ? "high" : "normal")}
+                      />
+                    </Box>
+
+                    <Box>
+                      <Button
+                        variant="text"
+                        onClick={() => setShowSchedule((v) => !v)}
+                        sx={{ px: 0, textTransform: "none" }}
+                      >
+                        <Clock size={16} style={{ marginRight: 6 }} />
+                        {showSchedule ? "Cancel" : "Schedule"} Send
+                      </Button>
+
+                      {showSchedule && (
+                        <Box sx={{ borderLeft: "2px solid #e5e7eb", pl: 2, mt: 1 }}>
+                          <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25}>
+                            <Box sx={{ flex: 1 }}>
+                              <Typography variant="caption" color="text.secondary">
+                                Date
+                              </Typography>
+                              <TextField
+                                fullWidth
+                                size="small"
+                                type="date"
+                                value={scheduleDate}
+                                onChange={(e) => setScheduleDate(e.target.value)}
+                                sx={{ mt: 0.5 }}
+                              />
+                            </Box>
+
+                            <Box sx={{ flex: 1 }}>
+                              <Typography variant="caption" color="text.secondary">
+                                Time
+                              </Typography>
+                              <TextField
+                                fullWidth
+                                size="small"
+                                type="time"
+                                value={scheduleTime}
+                                onChange={(e) => setScheduleTime(e.target.value)}
+                                sx={{ mt: 0.5 }}
+                              />
+                            </Box>
+                          </Stack>
+                        </Box>
+                      )}
+                    </Box>
+                  </Stack>
+                )}
+
+                {/* Message Content - Text to Speech Only */}
+                {messageType !== "call" || recordingMethod === "text-to-speech" ? (
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                      Message
+                    </Typography>
+
+                    {/* Rich Text Formatting Toolbar - Email Only */}
+                    {messageType === "email" && (
+                      <Box
+                        sx={{
+                          display: "flex",
+                          flexWrap: "wrap",
+                          gap: 0.5,
+                          p: 1,
+                          bgcolor: "#f9fafb",
+                          border: "1px solid #e5e7eb",
+                          borderBottom: "none",
+                          borderTopLeftRadius: 8,
+                          borderTopRightRadius: 8,
+                        }}
+                      >
+                        <Tooltip title="Bold">
+                          <IconButton
+                            size="small"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              applyFormatting("bold");
+                            }}
+                            sx={{
+                              bgcolor: activeFormats.bold ? "#dbeafe" : "transparent",
+                              boxShadow: activeFormats.bold ? 2 : 0,
+                            }}
+                          >
+                            <Bold size={16} color={activeFormats.bold ? "#2563eb" : undefined} />
+                          </IconButton>
+                        </Tooltip>
+
+                        <Tooltip title="Italic">
+                          <IconButton
+                            size="small"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              applyFormatting("italic");
+                            }}
+                            sx={{
+                              bgcolor: activeFormats.italic ? "#dbeafe" : "transparent",
+                              boxShadow: activeFormats.italic ? 2 : 0,
+                            }}
+                          >
+                            <Italic size={16} color={activeFormats.italic ? "#2563eb" : undefined} />
+                          </IconButton>
+                        </Tooltip>
+
+                        <Tooltip title="Underline">
+                          <IconButton
+                            size="small"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              applyFormatting("underline");
+                            }}
+                            sx={{
+                              bgcolor: activeFormats.underline ? "#dbeafe" : "transparent",
+                              boxShadow: activeFormats.underline ? 2 : 0,
+                            }}
+                          >
+                            <Underline size={16} color={activeFormats.underline ? "#2563eb" : undefined} />
+                          </IconButton>
+                        </Tooltip>
+
+                        <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+
+                        <Tooltip title="Bullet List">
+                          <IconButton
+                            size="small"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              insertList(false);
+                            }}
+                            sx={{
+                              bgcolor: activeFormats.unorderedList ? "#dbeafe" : "transparent",
+                              boxShadow: activeFormats.unorderedList ? 2 : 0,
+                            }}
+                          >
+                            <List size={16} color={activeFormats.unorderedList ? "#2563eb" : undefined} />
+                          </IconButton>
+                        </Tooltip>
+
+                        <Tooltip title="Numbered List">
+                          <IconButton
+                            size="small"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              insertList(true);
+                            }}
+                            sx={{
+                              bgcolor: activeFormats.orderedList ? "#dbeafe" : "transparent",
+                              boxShadow: activeFormats.orderedList ? 2 : 0,
+                            }}
+                          >
+                            <ListOrdered size={16} color={activeFormats.orderedList ? "#2563eb" : undefined} />
+                          </IconButton>
+                        </Tooltip>
+
+                        <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+
+                        <Tooltip title="Insert Link">
+                          <IconButton
+                            size="small"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              insertLink();
+                            }}
+                          >
+                            <LinkIcon size={16} />
+                          </IconButton>
+                        </Tooltip>
+
+                        <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+
+                        <Button
+                          size="small"
+                          variant="text"
+                          onClick={() => fileInputRef.current?.click()}
+                          sx={{ textTransform: "none" }}
+                        >
+                          <Paperclip size={16} style={{ marginRight: 6 }} />
+                          Attach
+                        </Button>
+                      </Box>
+                    )}
+
+                    {messageType === "email" ? (
+                      <Box sx={{ position: "relative" }}>
+                        <Box
+                          ref={emailEditorRef}
+                          contentEditable
+                          onInput={handleEditorInput}
+                          onBlur={saveSelection}
+                          onMouseUp={saveSelection}
+                          onKeyUp={saveSelection}
+                          suppressContentEditableWarning
+                          data-placeholder="Type your email message here... Use the toolbar above to format text."
+                          sx={{
+                            minHeight: 200,
+                            p: 1.5,
+                            border: "1px solid #e5e7eb",
+                            borderBottomLeftRadius: 8,
+                            borderBottomRightRadius: 8,
+                            outline: "none",
+                            overflowY: "auto",
+                            whiteSpace: "pre-wrap",
+                            "&:focus": { boxShadow: "0 0 0 2px rgba(59,130,246,.35)" },
+                          }}
+                        />
+                        <style>{`
+                          [contenteditable][data-placeholder]:empty:before {
+                            content: attr(data-placeholder);
+                            color: #9ca3af;
+                            pointer-events: none;
+                            position: absolute;
+                          }
+                          [contenteditable] a {
+                            color: #2563eb;
+                            text-decoration: underline;
+                          }
+                          [contenteditable] ul,
+                          [contenteditable] ol {
+                            margin: 0.5em 0;
+                            padding-left: 2em;
+                          }
+                          [contenteditable] ul { list-style-type: disc; }
+                          [contenteditable] ol { list-style-type: decimal; }
+                          [contenteditable] li { margin: 0.25em 0; }
+                        `}</style>
+                      </Box>
+                    ) : (
+                      <TextField
+                        fullWidth
+                        multiline
+                        minRows={messageType === "sms" ? 6 : 8}
+                        value={message}
+                        onChange={(e) => setMessage(e.target.value)}
+                        placeholder={
+                          messageType === "call"
+                            ? "Enter the message to be read in the robocall..."
+                            : "Enter your SMS message (160 characters recommended)..."
+                        }
+                      />
+                    )}
+
+                    {messageType === "sms" && (
+                      <Stack
+                        direction="row"
+                        justifyContent="space-between"
+                        alignItems="center"
+                        sx={{ mt: 1 }}
+                      >
+                        <Typography variant="caption" color="text.secondary">
+                          Character count: {message.length}
+                        </Typography>
+                        {message.length > 160 && (
+                          <Typography variant="caption" sx={{ color: "#ea580c" }}>
+                            Multiple messages ({Math.ceil(message.length / 160)})
+                          </Typography>
+                        )}
+                      </Stack>
+                    )}
+
+                    {/* Hidden File Input + Attachments */}
+                    {messageType === "email" && (
+                      <>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          multiple
+                          onChange={handleFileSelect}
+                          style={{ display: "none" }}
+                          accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.jpg,.jpeg,.png,.gif"
+                        />
+
+                        {attachedFiles.length > 0 && (
+                          <Box sx={{ mt: 2 }}>
+                            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+                              <Typography variant="caption" color="text.secondary">
+                                Attached Files ({attachedFiles.length})
+                              </Typography>
+                              <Button
+                                size="small"
+                                variant="text"
+                                onClick={() => fileInputRef.current?.click()}
+                                sx={{ textTransform: "none" }}
+                              >
+                                <Paperclip size={14} style={{ marginRight: 6 }} />
+                                Add More
+                              </Button>
+                            </Stack>
+
+                            <Box
+                              sx={{
+                                display: "grid",
+                                gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+                                gap: 1,
+                              }}
+                            >
+                              {attachedFiles.map((attachedFile) => {
+                                const Icon = getFileIcon(attachedFile.file);
+                                return (
+                                  <Box
+                                    key={attachedFile.id}
+                                    sx={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 1,
+                                      p: 1,
+                                      bgcolor: "#f9fafb",
+                                      border: "1px solid #e5e7eb",
+                                      borderRadius: 2,
+                                    }}
+                                  >
+                                    {attachedFile.preview ? (
+                                      <Box
+                                        component="img"
+                                        src={attachedFile.preview}
+                                        alt={attachedFile.file.name}
+                                        sx={{
+                                          width: 40,
+                                          height: 40,
+                                          objectFit: "cover",
+                                          borderRadius: 1,
+                                          flexShrink: 0,
+                                        }}
+                                      />
+                                    ) : (
+                                      <Box
+                                        sx={{
+                                          width: 40,
+                                          height: 40,
+                                          borderRadius: 1,
+                                          bgcolor: "#e5e7eb",
+                                          display: "flex",
+                                          alignItems: "center",
+                                          justifyContent: "center",
+                                          flexShrink: 0,
+                                        }}
+                                      >
+                                        <Icon size={18} />
+                                      </Box>
+                                    )}
+
+                                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                                      <Typography variant="body2" noWrap>
+                                        {attachedFile.file.name}
+                                      </Typography>
+                                      <Typography variant="caption" color="text.secondary">
+                                        {formatFileSize(attachedFile.file.size)}
+                                      </Typography>
+                                    </Box>
+
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => removeFile(attachedFile.id)}
+                                    >
+                                      <X size={16} />
+                                    </IconButton>
+                                  </Box>
+                                );
+                              })}
+                            </Box>
+                          </Box>
+                        )}
+                      </>
+                    )}
+                  </Box>
+                ) : null}
+
+                {/* Send Button */}
+                <Divider />
+                <Stack
+                  direction={{ xs: "column", sm: "row" }}
+                  justifyContent="space-between"
+                  alignItems={{ xs: "stretch", sm: "center" }}
+                  spacing={2}
+                >
+                  <Box>
+                    <Typography variant="body2" color="text.secondary">
+                      Recipients:{" "}
+                      <Box component="span" sx={{ color: "text.primary" }}>
+                        {getTotalRecipients()}
+                      </Box>
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {selectedGroups.length} group{selectedGroups.length !== 1 ? "s" : ""} selected
+                    </Typography>
+                  </Box>
+
+                  <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                    {messageType === "email" && attachedFiles.length > 0 && (
+                      <Chip
+                        variant="outlined"
+                        label={`${attachedFiles.length} file${attachedFiles.length !== 1 ? "s" : ""}`}
+                        icon={<Paperclip size={16} />}
+                      />
+                    )}
+
+                    <Button
+                      variant="contained"
+                      onClick={handleSendMessage}
+                      disabled={!canSend}
+                      sx={{
+                        bgcolor: "#1d4ed8",
+                        "&:hover": { bgcolor: "#1e40af" },
+                      }}
+                    >
+                      {showSchedule && scheduleDate && scheduleTime ? (
                         <>
-                          <Square className="size-3 sm:size-4 mr-2" />
-                          Stop Recording
+                          <Clock size={16} style={{ marginRight: 8 }} />
+                          Schedule{" "}
+                          {messageType === "email"
+                            ? "Email"
+                            : messageType === "sms"
+                            ? "SMS"
+                            : "Robocall"}
                         </>
                       ) : (
                         <>
-                          <Mic className="size-3 sm:size-4 mr-2" />
-                          Start Recording
+                          <Send size={16} style={{ marginRight: 8 }} />
+                          Send{" "}
+                          {messageType === "email"
+                            ? "Email"
+                            : messageType === "sms"
+                            ? "SMS"
+                            : "Robocall"}
                         </>
                       )}
                     </Button>
-                  </div>
+                  </Stack>
+                </Stack>
+              </Stack>
+            </CardContent>
+          </Card>
+
+          {/* Group Selection */}
+          <Card>
+            <CardHeader
+              title="Select Recipients"
+              subheader="Choose groups to send message to"
+              titleTypographyProps={{ variant: "h6" }}
+              subheaderTypographyProps={{ variant: "body2" }}
+            />
+            <CardContent>
+              <Stack spacing={1.5}>
+                <TextField
+                  fullWidth
+                  placeholder="Search groups..."
+                  value={groupSearch}
+                  onChange={(e) => setGroupSearch(e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Search size={18} />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+
+                {filteredGroups.length === 0 ? (
+                  <Box sx={{ textAlign: "center", py: 4, color: "text.secondary" }}>
+                    <Typography variant="body2">
+                      No groups found matching "{groupSearch}"
+                    </Typography>
+                  </Box>
                 ) : (
-                  <div className="space-y-2">
-                    <Alert className="bg-green-50 border-green-200">
-                      <AlertDescription className="text-xs sm:text-sm text-green-900">
-                        ✓ Recording saved ({formatTime(recordingTime)})
-                      </AlertDescription>
-                    </Alert>
-                    <div className="flex flex-col sm:flex-row gap-2">
-                      <Button 
-                        variant="outline" 
-                        className="flex-1 h-9 text-sm"
-                        onClick={playRecording}
-                      >
-                        {isPlaying ? (
-                          <>
-                            <Square className="size-3 sm:size-4 mr-2" />
-                            Stop Playback
-                          </>
-                        ) : (
-                          <>
-                            <Play className="size-3 sm:size-4 mr-2" />
-                            Play Recording
-                          </>
-                        )}
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        className="flex-1 sm:flex-none h-9 text-sm"
-                        onClick={clearRecording}
-                      >
-                        Re-record
-                      </Button>
-                    </div>
-                  </div>
-                )}
-                
-                <p className="text-xs text-gray-600">
-                  {!audioUrl 
-                    ? 'Click "Start Recording" and speak your message. Maximum duration: 2 minutes.'
-                    : 'Preview your recording or re-record if needed.'
-                  }
-                </p>
-              </div>
-            )}
-
-            {/* Saved Audio File Selection */}
-            {messageType === 'call' && recordingMethod === 'saved-file' && (
-              <div className="space-y-3 p-3 sm:p-4 bg-orange-50 border border-orange-200 rounded-lg">
-                <Label className="text-xs sm:text-sm">Select Audio File</Label>
-                <select 
-                  className="w-full p-2 border rounded-md bg-white text-sm"
-                  value={selectedAudioFile}
-                  onChange={(e) => setSelectedAudioFile(e.target.value)}
-                >
-                  <option value="">Choose a saved audio file...</option>
-                  <option value="1">Snow Day Announcement - Nov 20, 2024</option>
-                  <option value="2">Early Dismissal Message - Nov 15, 2024</option>
-                  <option value="3">Holiday Greeting - Nov 10, 2024</option>
-                  <option value="4">Emergency Closure - Nov 5, 2024</option>
-                </select>
-                
-                <div className="flex flex-col sm:flex-row gap-2">
-                  {selectedAudioFile && (
-                    <Button variant="outline" className="flex-1 h-9 text-sm">
-                      <Volume2 className="size-3 sm:size-4 mr-2" />
-                      <span className="hidden sm:inline">Preview Audio</span>
-                      <span className="sm:hidden">Preview</span>
-                    </Button>
-                  )}
-                  <Button variant="outline" className={`h-9 text-sm ${selectedAudioFile ? 'flex-1 sm:flex-none' : 'w-full'}`}>
-                    <Upload className="size-3 sm:size-4 mr-2" />
-                    <span className="hidden sm:inline">Upload New File</span>
-                    <span className="sm:hidden">Upload File</span>
-                  </Button>
-                </div>
-                
-                <p className="text-xs text-gray-600">
-                  Supported formats: MP3, WAV, M4A. Maximum file size: 10MB.
-                </p>
-              </div>
-            )}
-
-            {/* Email-Specific Fields */}
-            {messageType === 'email' && (
-              <div className="space-y-3">
-                {/* Subject Line */}
-                <div className="space-y-2">
-                  <Label className="text-sm md:text-base">Subject</Label>
-                  <Input
-                    value={emailSubject}
-                    onChange={(e) => setEmailSubject(e.target.value)}
-                    placeholder="Enter email subject..."
-                    className="text-sm md:text-base"
-                  />
-                </div>
-
-                {/* CC/BCC Toggle and Fields */}
-                <div className="space-y-2">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowCcBcc(!showCcBcc)}
-                    className="text-xs sm:text-sm text-blue-600 hover:text-blue-700 h-auto p-0"
-                  >
-                    {showCcBcc ? <ChevronUp className="size-3 mr-1" /> : <ChevronDown className="size-3 mr-1" />}
-                    {showCcBcc ? 'Hide' : 'Add'} CC/BCC
-                  </Button>
-                  
-                  {showCcBcc && (
-                    <div className="space-y-2 pl-2 border-l-2 border-gray-200">
-                      <div>
-                        <Label className="text-xs sm:text-sm text-gray-600">CC (Optional)</Label>
-                        <Input
-                          value={ccRecipients}
-                          onChange={(e) => setCcRecipients(e.target.value)}
-                          placeholder="email@example.com, another@example.com"
-                          className="text-sm mt-1"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs sm:text-sm text-gray-600">BCC (Optional)</Label>
-                        <Input
-                          value={bccRecipients}
-                          onChange={(e) => setBccRecipients(e.target.value)}
-                          placeholder="email@example.com, another@example.com"
-                          className="text-sm mt-1"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Priority Flag */}
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <AlertCircle className="size-4 text-orange-600" />
-                    <Label className="text-sm cursor-pointer">Mark as High Priority</Label>
-                  </div>
-                  <Switch
-                    checked={emailPriority === 'high'}
-                    onCheckedChange={(checked) => setEmailPriority(checked ? 'high' : 'normal')}
-                  />
-                </div>
-
-                {/* Schedule Send */}
-                <div className="space-y-2">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowSchedule(!showSchedule)}
-                    className="text-xs sm:text-sm text-blue-600 hover:text-blue-700 h-auto p-0"
-                  >
-                    <Clock className="size-3 mr-1" />
-                    {showSchedule ? 'Cancel' : 'Schedule'} Send
-                  </Button>
-                  
-                  {showSchedule && (
-                    <div className="flex flex-col sm:flex-row gap-2 pl-2 border-l-2 border-gray-200">
-                      <div className="flex-1">
-                        <Label className="text-xs text-gray-600">Date</Label>
-                        <Input
-                          type="date"
-                          value={scheduleDate}
-                          onChange={(e) => setScheduleDate(e.target.value)}
-                          className="text-sm mt-1"
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <Label className="text-xs text-gray-600">Time</Label>
-                        <Input
-                          type="time"
-                          value={scheduleTime}
-                          onChange={(e) => setScheduleTime(e.target.value)}
-                          className="text-sm mt-1"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Message Content - Text to Speech Only */}
-            {messageType !== 'call' || recordingMethod === 'text-to-speech' ? (
-              <div className="space-y-2">
-                <Label className="text-sm md:text-base">Message</Label>
-                
-                {/* Rich Text Formatting Toolbar - Email Only */}
-                {messageType === 'email' && (
-                  <div className="flex flex-wrap gap-1 p-2 bg-gray-50 rounded-t-lg border border-b-0">
-                    <Button 
-                      type="button" 
-                      variant="ghost" 
-                      size="sm" 
-                      className={`h-8 w-8 p-0 transition-all ${activeFormats.bold ? 'bg-blue-100 shadow-md' : ''}`}
-                      title="Bold"
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        applyFormatting('bold');
-                      }}
-                    >
-                      <Bold className={`size-4 ${activeFormats.bold ? 'text-blue-600' : ''}`} />
-                    </Button>
-                    <Button 
-                      type="button" 
-                      variant="ghost" 
-                      size="sm" 
-                      className={`h-8 w-8 p-0 transition-all ${activeFormats.italic ? 'bg-blue-100 shadow-md' : ''}`}
-                      title="Italic"
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        applyFormatting('italic');
-                      }}
-                    >
-                      <Italic className={`size-4 ${activeFormats.italic ? 'text-blue-600' : ''}`} />
-                    </Button>
-                    <Button 
-                      type="button" 
-                      variant="ghost" 
-                      size="sm" 
-                      className={`h-8 w-8 p-0 transition-all ${activeFormats.underline ? 'bg-blue-100 shadow-md' : ''}`}
-                      title="Underline"
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        applyFormatting('underline');
-                      }}
-                    >
-                      <Underline className={`size-4 ${activeFormats.underline ? 'text-blue-600' : ''}`} />
-                    </Button>
-                    <div className="w-px bg-gray-300 mx-1" />
-                    <Button 
-                      type="button" 
-                      variant="ghost" 
-                      size="sm" 
-                      className={`h-8 w-8 p-0 transition-all ${activeFormats.unorderedList ? 'bg-blue-100 shadow-md' : ''}`}
-                      title="Bullet List"
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        insertList(false);
-                      }}
-                    >
-                      <List className={`size-4 ${activeFormats.unorderedList ? 'text-blue-600' : ''}`} />
-                    </Button>
-                    <Button 
-                      type="button" 
-                      variant="ghost" 
-                      size="sm" 
-                      className={`h-8 w-8 p-0 transition-all ${activeFormats.orderedList ? 'bg-blue-100 shadow-md' : ''}`}
-                      title="Numbered List"
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        insertList(true);
-                      }}
-                    >
-                      <ListOrdered className={`size-4 ${activeFormats.orderedList ? 'text-blue-600' : ''}`} />
-                    </Button>
-                    <div className="w-px bg-gray-300 mx-1" />
-                    <Button 
-                      type="button" 
-                      variant="ghost" 
-                      size="sm" 
-                      className="h-8 w-8 p-0" 
-                      title="Insert Link"
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        insertLink();
-                      }}
-                    >
-                      <LinkIcon className="size-4" />
-                    </Button>
-                    <div className="w-px bg-gray-300 mx-1" />
-                    <Button 
-                      type="button" 
-                      variant="ghost" 
-                      size="sm" 
-                      className="h-8 px-2 text-xs" 
-                      onClick={() => fileInputRef.current?.click()}
-                      title="Attach Files"
-                    >
-                      <Paperclip className="size-4 mr-1" />
-                      <span className="hidden sm:inline">Attach</span>
-                    </Button>
-                  </div>
-                )}
-                
-                {/* Email uses contentEditable, others use textarea */}
-                {messageType === 'email' ? (
-                  <div className="relative">
-                    <div
-                      ref={emailEditorRef}
-                      contentEditable
-                      onInput={handleEditorInput}
-                      onBlur={saveSelection}
-                      onMouseUp={saveSelection}
-                      onKeyUp={saveSelection}
-                      className="min-h-[200px] p-3 border rounded-b-lg text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-blue-500 overflow-y-auto"
-                      style={{ whiteSpace: 'pre-wrap' }}
-                      suppressContentEditableWarning
-                      data-placeholder="Type your email message here... Use the toolbar above to format text."
-                    />
-                    <style>{`
-                      [contenteditable][data-placeholder]:empty:before {
-                        content: attr(data-placeholder);
-                        color: #9ca3af;
-                        pointer-events: none;
-                        position: absolute;
-                      }
-                      [contenteditable] a {
-                        color: #2563eb;
-                        text-decoration: underline;
-                      }
-                      [contenteditable] ul,
-                      [contenteditable] ol {
-                        margin: 0.5em 0;
-                        padding-left: 2em;
-                      }
-                      [contenteditable] ul {
-                        list-style-type: disc;
-                      }
-                      [contenteditable] ol {
-                        list-style-type: decimal;
-                      }
-                      [contenteditable] li {
-                        margin: 0.25em 0;
-                      }
-                    `}</style>
-                  </div>
-                ) : (
-                  <Textarea
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    placeholder={
-                      messageType === 'call'
-                        ? 'Enter the message to be read in the robocall...'
-                        : 'Enter your SMS message (160 characters recommended)...'
-                    }
-                    rows={messageType === 'sms' ? 6 : 8}
-                    className="resize-none text-sm md:text-base"
-                  />
-                )}
-                {messageType === 'sms' && (
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs sm:text-sm text-gray-500">
-                      Character count: {message.length}
-                    </p>
-                    {message.length > 160 && (
-                      <p className="text-xs sm:text-sm text-orange-600">
-                        Multiple messages ({Math.ceil(message.length / 160)})
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {/* File Attachments Display - Email Only */}
-                {messageType === 'email' && (
-                  <>
-                    {/* Hidden File Input */}
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      multiple
-                      onChange={handleFileSelect}
-                      className="hidden"
-                      accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.jpg,.jpeg,.png,.gif"
-                    />
-
-                    {/* Attached Files List - Only show when files exist */}
-                    {attachedFiles.length > 0 && (
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label className="text-xs sm:text-sm text-gray-600">
-                            Attached Files ({attachedFiles.length})
-                          </Label>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => fileInputRef.current?.click()}
-                            className="h-auto py-1 px-2 text-xs text-blue-600"
+                  <Box sx={{ maxHeight: 400, overflowY: "auto" }}>
+                    <Stack spacing={1}>
+                      {filteredGroups.map((group) => {
+                        const checked = selectedGroups.includes(group.id);
+                        return (
+                          <Box
+                            key={group.id}
+                            onClick={() => toggleGroup(group.id)}
+                            sx={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 1.25,
+                              p: 1.25,
+                              borderRadius: 2,
+                              border: "1px solid",
+                              borderColor: checked ? "#93c5fd" : "#e5e7eb",
+                              bgcolor: checked ? "#eff6ff" : "transparent",
+                              cursor: "pointer",
+                              "&:hover": { bgcolor: checked ? "#eff6ff" : "#f9fafb" },
+                            }}
                           >
-                            <Paperclip className="size-3 mr-1" />
-                            Add More
-                          </Button>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {attachedFiles.map((attachedFile) => {
-                            const FileIcon = getFileIcon(attachedFile.file);
-                            return (
-                              <div
-                                key={attachedFile.id}
-                                className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg border group"
+                            <Checkbox
+                              checked={checked}
+                              onChange={() => toggleGroup(group.id)}
+                              sx={{ mt: 0.25 }}
+                            />
+                            <Box sx={{ flex: 1, minWidth: 0 }}>
+                              <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
+                                <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
+                                  <Typography variant="body2" noWrap>
+                                    {group.name}
+                                  </Typography>
+
+                                  {(messageType === "sms" || messageType === "call") && (
+                                    <Box
+                                      sx={{
+                                        fontFamily: "monospace",
+                                        fontSize: 12,
+                                        color: "#1d4ed8",
+                                        bgcolor: "#eff6ff",
+                                        px: 0.75,
+                                        py: 0.25,
+                                        borderRadius: 1,
+                                        flexShrink: 0,
+                                      }}
+                                    >
+                                      #{group.pin}
+                                    </Box>
+                                  )}
+                                </Stack>
+
+                                <Chip
+                                  size="small"
+                                  label={group.count}
+                                  sx={{ flexShrink: 0 }}
+                                />
+                              </Stack>
+
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                                sx={{
+                                  display: "-webkit-box",
+                                  WebkitLineClamp: { xs: 2, sm: 1 },
+                                  WebkitBoxOrient: "vertical",
+                                  overflow: "hidden",
+                                }}
                               >
-                                {attachedFile.preview ? (
-                                  <img
-                                    src={attachedFile.preview}
-                                    alt={attachedFile.file.name}
-                                    className="size-10 object-cover rounded flex-shrink-0"
-                                  />
-                                ) : (
-                                  <div className="size-10 flex items-center justify-center bg-gray-200 rounded flex-shrink-0">
-                                    <FileIcon className="size-5 text-gray-600" />
-                                  </div>
-                                )}
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-xs sm:text-sm text-gray-900 truncate">
-                                    {attachedFile.file.name}
-                                  </p>
-                                  <p className="text-xs text-gray-500">
-                                    {formatFileSize(attachedFile.file.size)}
-                                  </p>
-                                </div>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => removeFile(attachedFile.id)}
-                                  className="h-auto p-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
-                                >
-                                  <X className="size-4 text-gray-600" />
-                                </Button>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </>
+                                {group.description}
+                              </Typography>
+                            </Box>
+                          </Box>
+                        );
+                      })}
+                    </Stack>
+                  </Box>
                 )}
-              </div>
-            ) : null}
-
-            {/* Send Button */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 pt-4 border-t">
-              <div>
-                <p className="text-sm md:text-base text-gray-600">
-                  Recipients: <span className="text-gray-900">{getTotalRecipients()}</span>
-                </p>
-                <p className="text-xs sm:text-sm text-gray-500">
-                  {selectedGroups.length} group{selectedGroups.length !== 1 ? 's' : ''} selected
-                </p>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                {messageType === 'email' && attachedFiles.length > 0 && (
-                  <Badge variant="outline" className="justify-center sm:self-center">
-                    <Paperclip className="size-3 mr-1" />
-                    {attachedFiles.length} file{attachedFiles.length !== 1 ? 's' : ''}
-                  </Badge>
-                )}
-                <Button
-                  onClick={handleSendMessage}
-                  disabled={
-                    !message.trim() || 
-                    selectedGroups.length === 0 || 
-                    (messageType === 'email' && !emailSubject.trim())
-                  }
-                  className="bg-blue-700 hover:bg-blue-800 w-full sm:w-auto"
-                >
-                  {showSchedule && scheduleDate && scheduleTime ? (
-                    <>
-                      <Clock className="size-4 mr-2" />
-                      <span className="hidden sm:inline">Schedule {messageType === 'email' ? 'Email' : messageType === 'sms' ? 'SMS' : 'Robocall'}</span>
-                      <span className="sm:hidden">Schedule</span>
-                    </>
-                  ) : (
-                    <>
-                      <Send className="size-4 mr-2" />
-                      <span className="hidden sm:inline">
-                        Send {messageType === 'email' ? 'Email' : messageType === 'sms' ? 'SMS' : 'Robocall'}
-                      </span>
-                      <span className="sm:hidden">
-                        Send {messageType === 'email' ? 'Email' : messageType === 'sms' ? 'SMS' : 'Call'}
-                      </span>
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Group Selection */}
-        <Card>
-          <CardHeader className="pb-3 md:pb-6">
-            <CardTitle className="text-lg md:text-xl">Select Recipients</CardTitle>
-            <CardDescription className="text-sm">Choose groups to send message to</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3 md:space-y-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
-              <Input 
-                placeholder="Search groups..." 
-                className="pl-10 text-sm md:text-base h-10 md:h-auto"
-                value={groupSearch}
-                onChange={(e) => setGroupSearch(e.target.value)}
-              />
-            </div>
-
-            {filteredGroups.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <p className="text-sm">No groups found matching "{groupSearch}"</p>
-              </div>
-            ) : (
-              <div className="space-y-2 max-h-[400px] md:max-h-96 overflow-y-auto">
-                {filteredGroups.map((group) => (
-                  <div
-                    key={group.id}
-                    className={`flex items-start gap-2.5 sm:gap-3 p-2.5 sm:p-3 rounded-lg border cursor-pointer transition-colors ${
-                      selectedGroups.includes(group.id)
-                        ? 'bg-blue-50 border-blue-300'
-                        : 'hover:bg-gray-50'
-                    }`}
-                    onClick={() => toggleGroup(group.id)}
-                  >
-                    <Checkbox
-                      checked={selectedGroups.includes(group.id)}
-                      onCheckedChange={() => toggleGroup(group.id)}
-                      className="mt-0.5"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm md:text-base text-gray-900 truncate">{group.name}</p>
-                          {(messageType === 'sms' || messageType === 'call') && (
-                            <span className="font-mono text-xs text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">
-                              #{group.pin}
-                            </span>
-                          )}
-                        </div>
-                        <Badge variant="secondary" className="text-xs shrink-0">
-                          {group.count}
-                        </Badge>
-                      </div>
-                      <p className="text-xs sm:text-sm text-gray-500 line-clamp-2 sm:line-clamp-1">{group.description}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Box>
+      </Stack>
+    </Box>
   );
 }

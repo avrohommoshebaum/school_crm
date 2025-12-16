@@ -18,6 +18,7 @@ import {
 import { useState, useEffect } from "react";
 import api from "../../utils/api";
 import useCurrentUser from "../../hooks/useCurrentUser";
+import { SampleWrapper } from "../../components/SampleWrapper";
 
 export default function SettingsPage() {
   const { settings, loading, reload } = useCurrentUser();
@@ -195,6 +196,7 @@ export default function SettingsPage() {
       </Stack>
 
       {/* NOTIFICATIONS */}
+      <SampleWrapper label="Sample">
       <Paper sx={{ p: 3, mb: 3 }}>
         <Typography variant="h6" sx={{ mb: 2 }}>
           Notifications
@@ -220,8 +222,10 @@ export default function SettingsPage() {
           )}
         </Stack>
       </Paper>
+      </SampleWrapper>
 
       {/* DISPLAY SETTINGS */}
+      <SampleWrapper label="Sample">
       <Paper sx={{ p: 3, mb: 3 }}>
         <Typography variant="h6" sx={{ mb: 2 }}>
           Display Settings
@@ -288,7 +292,7 @@ export default function SettingsPage() {
           )}
         </Stack>
       </Paper>
-
+</SampleWrapper>
       {/* CHANGE PASSWORD */}
       <Paper sx={{ p: 3 }}>
         <Typography variant="h6" sx={{ mb: 2 }}>

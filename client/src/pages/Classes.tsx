@@ -30,6 +30,8 @@ import SearchIcon from '@mui/icons-material/Search';
 import ClassDialog from '../components/dialogs/ClassDialog';
 import ViewClassDialog from '../components/dialogs/ViewClassDialog';
 
+import SamplePageOverlay from '../components/samplePageOverlay';
+
 // Mock data - replace with actual API calls
 const mockClasses = [
   {
@@ -219,6 +221,7 @@ export default function Classes() {
 
   return (
     <Box sx={{ height: 'calc(100vh - 120px)', width: '100%' }}>
+      <SamplePageOverlay />
       {/* Filters and Search */}
       <Paper sx={{ p: 2, mb: 2 }}>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center">

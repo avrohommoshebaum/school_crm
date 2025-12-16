@@ -56,6 +56,9 @@ import WarningIcon from '@mui/icons-material/Warning';
 import SupervisorAccountIcon from '@mui/icons-material/SupervisorAccount';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import SecurityIcon from '@mui/icons-material/Security';
+import { hasPermission } from "../utils/permissions";
+
+
 
 import { Outlet, useNavigate, useLocation, Link as RouterLink } from 'react-router-dom';
 import type { OverridableComponent } from '@mui/material/OverridableComponent';
@@ -64,6 +67,8 @@ import type { SvgIconTypeMap } from '@mui/material/SvgIcon';
 import nachlasLogo from '../assets/nachlasLogo.png';
 
 import api from '../utils/api';
+
+
 
 const DRAWER_WIDTH_OPEN = 250;
 const DRAWER_WIDTH_CLOSED = 72;
@@ -76,12 +81,20 @@ interface NavChildItem {
   name: string;
   path: string;
   icon: IconType;
+  permission?: {
+    module: string;
+    action: "view";
+  };
 }
 
 interface NavItem {
   name: string;
   path: string;
   icon: IconType;
+    permission?: {
+    module: string;
+    action: "view";
+  };
   children?: NavChildItem[];
 }
 
@@ -145,15 +158,16 @@ const navigationItems: NavItem[] = [
     name: 'Admin Center',
     path: '/admin',
     icon: SupervisorAccountIcon,
+     permission: { module: "users", action: "view" },
     children: [
-      { name: 'Overview', path: '/admin', icon: DashboardIcon },
-      { name: 'User Management', path: '/admin/users', icon: PeopleIcon },
-      { name: 'Role Management', path: '/admin/roles', icon: SecurityIcon },
-      { name: 'School Settings', path: '/admin/school-settings', icon: SchoolIcon },
-      { name: 'School Calendar', path: '/admin/calendar', icon: CalendarMonthIcon },
-      { name: 'Application Settings', path: '/admin/application-settings', icon: AssignmentTurnedInIcon },
-      { name: 'Academic Year', path: '/admin/academic-year', icon: EventIcon },
-      { name: 'System Settings', path: '/admin/system-settings', icon: SettingsIcon },
+      { name: 'Overview', path: '/admin', icon: DashboardIcon, permission: { module: "users", action: "view" },},
+      { name: 'User Management', path: '/admin/users', icon: PeopleIcon, permission: { module: "users", action: "view" },},
+      { name: 'Role Management', path: '/admin/roles', icon: SecurityIcon, permission: { module: "users", action: "view" },},
+      { name: 'School Settings', path: '/admin/school-settings', icon: SchoolIcon, permission: { module: "settings", action: "view" },},
+      { name: 'School Calendar', path: '/admin/school-calendar', icon: CalendarMonthIcon, permission: { module: "settings", action: "view" },},
+      { name: 'Application Settings', path: '/admin/application-settings', icon: AssignmentTurnedInIcon, permission: { module: "settings", action: "view" },},
+      { name: 'Academic Year', path: '/admin/academic-year', icon: EventIcon, permission: { module: "settings", action: "view" },},
+      { name: 'System Settings', path: '/admin/system-settings', icon: SettingsIcon, permission: { module: "settings", action: "view" },},
     ],
   },
 ];
@@ -173,7 +187,15 @@ useEffect(() => {
     .catch(() => navigate("/login"));
 }, []);
 
+  const canSeeItem = (item: NavItem) => {
+  if (!item.permission) return true;
 
+  return hasPermission(
+    currentUser,
+    item.permission.module,
+    item.permission.action
+  );
+};
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -231,6 +253,33 @@ const handleLogout = async () => {
     if (!item.children) return false;
     return item.children.some((child) => isActive(child.path));
   };
+
+  const visibleNavItems: NavItem[] = navigationItems
+  .map((item) => {
+    // No children → simple permission check
+    if (!item.children) {
+      return canSeeItem(item) ? item : null;
+    }
+
+    // Has children → filter children
+    const visibleChildren = item.children.filter((child) =>
+      canSeeItem(child as NavItem)
+    );
+
+    // Keep parent if:
+    // - parent itself is allowed
+    // - OR at least one child is allowed
+    if (canSeeItem(item) || visibleChildren.length > 0) {
+      return {
+        ...item,
+        children: visibleChildren,
+      };
+    }
+
+    return null;
+  })
+  .filter(Boolean) as NavItem[];
+
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh' }}>
@@ -366,7 +415,7 @@ const handleLogout = async () => {
         }}
       >
         <List sx={{ pt: isMobile ? 10 : 2 }}>
-          {navigationItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const parentActive = isParentActive(item);
 
             if (item.children) {

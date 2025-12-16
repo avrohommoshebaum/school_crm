@@ -1,16 +1,35 @@
-import { useState } from 'react';
-import { Card, CardContent } from '../../components/ui/card';
-import { Button } from '../../components/ui/button';
-import { Badge } from '../../components/ui/badge';
-import { AlertTriangle, TrendingUp, TrendingDown, ShieldAlert } from 'lucide-react';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog';
-import { Label } from '../../components/ui/label';
-import { Input } from '../../components/ui/input';
-import { Textarea } from '../../components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { useState, type JSX } from 'react';
 
-export default function BehaviorTracking() {
-  const [isIncidentDialogOpen, setIsIncidentDialogOpen] = useState(false);
+import {
+  Box,
+  Stack,
+  Typography,
+  Card,
+  CardContent,
+  Button,
+  Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Divider,
+  TextField,
+  Select,
+  MenuItem,
+  Checkbox,
+  FormControlLabel,
+  Paper,
+} from '@mui/material';
+
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import TrendingDownIcon from '@mui/icons-material/TrendingDown';
+import GppBadIcon from '@mui/icons-material/GppBad';
+
+import SamplePageOverlay from '../../components/samplePageOverlay';
+
+export default function BehaviorTracking(): JSX.Element {
+  const [isIncidentDialogOpen, setIsIncidentDialogOpen] = useState<boolean>(false);
 
   const behaviorReports = [
     {
@@ -21,7 +40,7 @@ export default function BehaviorTracking() {
       date: '2024-11-25',
       severity: 'minor',
       action: 'Verbal warning',
-      trend: 'improving'
+      trend: 'improving',
     },
     {
       id: 2,
@@ -31,305 +50,272 @@ export default function BehaviorTracking() {
       date: '2024-11-24',
       severity: 'minor',
       action: 'Parent notification',
-      trend: 'stable'
+      trend: 'stable',
     },
   ];
 
-  const getSeverityColor = (severity: string) => {
+  const getSeverityColor = (
+    severity: string
+  ): 'error' | 'warning' | 'info' | 'default' => {
     switch (severity) {
       case 'major':
-        return 'bg-red-100 text-red-800';
+      case 'critical':
+        return 'error';
       case 'moderate':
-        return 'bg-orange-100 text-orange-800';
+        return 'warning';
       case 'minor':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'info';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'default';
     }
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-gray-900">Behavior Tracking</h2>
-          <p className="text-sm text-gray-600">Monitor and track student behavior incidents</p>
-        </div>
-        <Dialog open={isIncidentDialogOpen} onOpenChange={setIsIncidentDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-orange-600 hover:bg-orange-700">
-              <AlertTriangle className="size-4 mr-2" />
-              Report Incident
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Report Incident</DialogTitle>
-              <DialogDescription>
-                Document a student incident for administrative tracking and follow-up
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 pt-4">
-              {/* Student Selection */}
-              <div className="space-y-2">
-                <Label>Student Involved *</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select student" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">Sarah Cohen - 1st Grade</SelectItem>
-                    <SelectItem value="2">Rivka Goldstein - 2nd Grade</SelectItem>
-                    <SelectItem value="3">Leah Schwartz - 3rd Grade</SelectItem>
-                    <SelectItem value="4">Chaya Friedman - 4th Grade</SelectItem>
-                    <SelectItem value="5">Miriam Levy - 2nd Grade</SelectItem>
-                    <SelectItem value="6">Devorah Klein - 3rd Grade</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      <SamplePageOverlay />
+      {/* Header */}
+      <Stack direction="row" justifyContent="space-between" alignItems="center">
+        <Box>
+          <Typography variant="h5">Behavior Tracking</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Monitor and track student behavior incidents
+          </Typography>
+        </Box>
 
-              {/* Date and Time */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Date of Incident *</Label>
-                  <Input type="date" defaultValue={new Date().toISOString().split('T')[0]} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Time of Incident *</Label>
-                  <Input type="time" />
-                </div>
-              </div>
+        <Button
+          variant="contained"
+          color="warning"
+          startIcon={<WarningAmberIcon />}
+          onClick={() => setIsIncidentDialogOpen(true)}
+        >
+          Report Incident
+        </Button>
+      </Stack>
 
-              {/* Incident Type */}
-              <div className="space-y-2">
-                <Label>Incident Type *</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select incident type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="behavioral">Behavioral Issue</SelectItem>
-                    <SelectItem value="academic">Academic Concern</SelectItem>
-                    <SelectItem value="safety">Safety Issue</SelectItem>
-                    <SelectItem value="medical">Medical Emergency</SelectItem>
-                    <SelectItem value="bullying">Bullying/Harassment</SelectItem>
-                    <SelectItem value="property">Property Damage</SelectItem>
-                    <SelectItem value="attendance">Attendance Issue</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+      {/* Incident Dialog */}
+      <Dialog
+        open={isIncidentDialogOpen}
+        onClose={() => setIsIncidentDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Report Incident</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={3}>
 
-              {/* Severity Level */}
-              <div className="space-y-2">
-                <Label>Severity Level *</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select severity" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="minor">Minor - Warning needed</SelectItem>
-                    <SelectItem value="moderate">Moderate - Intervention required</SelectItem>
-                    <SelectItem value="serious">Serious - Immediate action needed</SelectItem>
-                    <SelectItem value="critical">Critical - Emergency response</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <Typography variant="body2" color="text.secondary">
+              Document a student incident for administrative tracking and follow-up
+            </Typography>
 
-              {/* Location */}
-              <div className="space-y-2">
-                <Label>Location *</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Where did this occur?" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="classroom">Classroom</SelectItem>
-                    <SelectItem value="hallway">Hallway</SelectItem>
-                    <SelectItem value="cafeteria">Cafeteria</SelectItem>
-                    <SelectItem value="playground">Playground/Outdoor</SelectItem>
-                    <SelectItem value="bathroom">Bathroom</SelectItem>
-                    <SelectItem value="gym">Gymnasium</SelectItem>
-                    <SelectItem value="library">Library</SelectItem>
-                    <SelectItem value="office">Office</SelectItem>
-                    <SelectItem value="bus">School Bus</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <Select fullWidth displayEmpty>
+              <MenuItem value="">Student Involved</MenuItem>
+              {[
+                'Sarah Cohen - 1st Grade',
+                'Rivka Goldstein - 2nd Grade',
+                'Leah Schwartz - 3rd Grade',
+                'Chaya Friedman - 4th Grade',
+                'Miriam Levy - 2nd Grade',
+                'Devorah Klein - 3rd Grade',
+              ].map(s => (
+                <MenuItem key={s} value={s}>{s}</MenuItem>
+              ))}
+            </Select>
 
-              {/* Staff Witness */}
-              <div className="space-y-2">
-                <Label>Reporting Staff Member *</Label>
-                <Input placeholder="Your name or ID" />
-              </div>
+            <Stack direction="row" spacing={2}>
+              <TextField
+                type="date"
+                label="Date of Incident"
+                fullWidth
+                defaultValue={new Date().toISOString().split('T')[0]}
+                InputLabelProps={{ shrink: true }}
+              />
+              <TextField
+                type="time"
+                label="Time of Incident"
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+              />
+            </Stack>
 
-              {/* Other Students Involved */}
-              <div className="space-y-2">
-                <Label>Other Students Involved</Label>
-                <Input placeholder="Names of any other students involved" />
-              </div>
+            <Select fullWidth displayEmpty>
+              <MenuItem value="">Incident Type</MenuItem>
+              {[
+                'Behavioral',
+                'Academic',
+                'Safety',
+                'Medical',
+                'Bullying',
+                'Property',
+                'Attendance',
+                'Other',
+              ].map(t => (
+                <MenuItem key={t} value={t}>{t}</MenuItem>
+              ))}
+            </Select>
 
-              {/* Incident Description */}
-              <div className="space-y-2">
-                <Label>Detailed Description *</Label>
-                <Textarea 
-                  placeholder="Provide a detailed description of what happened, including any relevant context..."
-                  rows={5}
-                />
-              </div>
+            <Select fullWidth displayEmpty>
+              <MenuItem value="">Severity Level</MenuItem>
+              <MenuItem value="minor">Minor – Warning</MenuItem>
+              <MenuItem value="moderate">Moderate – Intervention</MenuItem>
+              <MenuItem value="serious">Serious – Immediate Action</MenuItem>
+              <MenuItem value="critical">Critical – Emergency</MenuItem>
+            </Select>
 
-              {/* Actions Taken */}
-              <div className="space-y-2">
-                <Label>Immediate Actions Taken *</Label>
-                <Textarea 
-                  placeholder="Describe what actions were taken immediately following the incident..."
-                  rows={3}
-                />
-              </div>
+            <Select fullWidth displayEmpty>
+              <MenuItem value="">Location</MenuItem>
+              {[
+                'Classroom',
+                'Hallway',
+                'Cafeteria',
+                'Playground',
+                'Bathroom',
+                'Gym',
+                'Library',
+                'Office',
+                'Bus',
+                'Other',
+              ].map(l => (
+                <MenuItem key={l} value={l}>{l}</MenuItem>
+              ))}
+            </Select>
 
-              {/* Parent Notification */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Parent Notified?</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="yes">Yes - Parent contacted</SelectItem>
-                      <SelectItem value="pending">Pending - Will contact</SelectItem>
-                      <SelectItem value="no">No - Not necessary</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Follow-up Required?</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="yes">Yes - Schedule follow-up</SelectItem>
-                      <SelectItem value="monitoring">Yes - Continue monitoring</SelectItem>
-                      <SelectItem value="meeting">Yes - Parent meeting needed</SelectItem>
-                      <SelectItem value="no">No - Resolved</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+            <TextField label="Reporting Staff Member" fullWidth />
+            <TextField label="Other Students Involved" fullWidth />
 
-              {/* Witnesses */}
-              <div className="space-y-2">
-                <Label>Witnesses</Label>
-                <Input placeholder="Names of any witnesses (staff or students)" />
-              </div>
+            <TextField
+              label="Detailed Description"
+              multiline
+              rows={4}
+              fullWidth
+            />
 
-              {/* Additional Notes */}
-              <div className="space-y-2">
-                <Label>Additional Notes/Comments</Label>
-                <Textarea 
-                  placeholder="Any additional information that may be relevant..."
-                  rows={3}
-                />
-              </div>
+            <TextField
+              label="Immediate Actions Taken"
+              multiline
+              rows={3}
+              fullWidth
+            />
 
-              {/* Checkboxes */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <input type="checkbox" id="flagStudent" className="size-4" />
-                  <Label htmlFor="flagStudent">Flag student for additional monitoring</Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input type="checkbox" id="adminReview" className="size-4" />
-                  <Label htmlFor="adminReview">Request administrative review</Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input type="checkbox" id="counselorReferral" className="size-4" />
-                  <Label htmlFor="counselorReferral">Refer to counselor/therapist</Label>
-                </div>
-              </div>
+            <Stack direction="row" spacing={2}>
+              <Select fullWidth displayEmpty>
+                <MenuItem value="">Parent Notified?</MenuItem>
+                <MenuItem value="yes">Yes</MenuItem>
+                <MenuItem value="pending">Pending</MenuItem>
+                <MenuItem value="no">No</MenuItem>
+              </Select>
 
-              {/* Action Buttons */}
-              <div className="flex gap-2 pt-4">
-                <Button className="flex-1 bg-orange-600 hover:bg-orange-700">
-                  <ShieldAlert className="size-4 mr-2" />
-                  Submit Incident Report
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="flex-1" 
-                  onClick={() => setIsIncidentDialogOpen(false)}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
+              <Select fullWidth displayEmpty>
+                <MenuItem value="">Follow-up Required?</MenuItem>
+                <MenuItem value="yes">Yes</MenuItem>
+                <MenuItem value="monitoring">Monitoring</MenuItem>
+                <MenuItem value="meeting">Parent Meeting</MenuItem>
+                <MenuItem value="no">No</MenuItem>
+              </Select>
+            </Stack>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Total Incidents</p>
-                <p className="text-gray-900">8</p>
-              </div>
-              <AlertTriangle className="size-8 text-orange-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">This Week</p>
-                <p className="text-gray-900">2</p>
-              </div>
-              <TrendingDown className="size-8 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Improving</p>
-                <p className="text-gray-900">5</p>
-              </div>
-              <TrendingUp className="size-8 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            <TextField label="Witnesses" fullWidth />
 
-      <div className="space-y-4">
-        {behaviorReports.map((report) => (
-          <Card key={report.id}>
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <h3 className="text-gray-900">{report.student}</h3>
-                    <Badge variant="outline">{report.grade}</Badge>
-                    <Badge className={getSeverityColor(report.severity)}>
-                      {report.severity}
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-gray-700 mb-1">{report.incident}</p>
-                  <p className="text-sm text-gray-600">Action taken: {report.action}</p>
-                  <p className="text-xs text-gray-500 mt-2">{report.date}</p>
-                </div>
-                <Button variant="outline" size="sm">
-                  View Details
-                </Button>
-              </div>
+            <TextField
+              label="Additional Notes"
+              multiline
+              rows={3}
+              fullWidth
+            />
+
+            <Divider />
+
+            <Stack>
+              <FormControlLabel
+                control={<Checkbox />}
+                label="Flag student for additional monitoring"
+              />
+              <FormControlLabel
+                control={<Checkbox />}
+                label="Request administrative review"
+              />
+              <FormControlLabel
+                control={<Checkbox />}
+                label="Refer to counselor/therapist"
+              />
+            </Stack>
+
+          </Stack>
+        </DialogContent>
+
+        <DialogActions>
+          <Button
+            variant="contained"
+            color="warning"
+            startIcon={<GppBadIcon />}
+          >
+            Submit Incident Report
+          </Button>
+          <Button
+            variant="outlined"
+            onClick={() => setIsIncidentDialogOpen(false)}
+          >
+            Cancel
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Stats */}
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+        {[
+          { label: 'Total Incidents', value: 8, icon: <WarningAmberIcon color="warning" /> },
+          { label: 'This Week', value: 2, icon: <TrendingDownIcon color="success" /> },
+          { label: 'Improving', value: 5, icon: <TrendingUpIcon color="primary" /> },
+        ].map(stat => (
+          <Card key={stat.label} sx={{ flex: 1 }}>
+            <CardContent>
+              <Stack direction="row" justifyContent="space-between">
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    {stat.label}
+                  </Typography>
+                  <Typography variant="h6">{stat.value}</Typography>
+                </Box>
+                {stat.icon}
+              </Stack>
             </CardContent>
           </Card>
         ))}
-      </div>
-    </div>
+      </Stack>
+
+      {/* Reports */}
+      <Stack spacing={2}>
+        {behaviorReports.map(report => (
+          <Card key={report.id}>
+            <CardContent>
+              <Stack direction="row" justifyContent="space-between">
+                <Box>
+                  <Stack direction="row" spacing={1} mb={1}>
+                    <Typography fontWeight={500}>{report.student}</Typography>
+                    <Chip label={report.grade} size="small" variant="outlined" />
+                    <Chip
+                      label={report.severity}
+                      size="small"
+                      color={getSeverityColor(report.severity)}
+                    />
+                  </Stack>
+
+                  <Typography variant="body2">{report.incident}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Action taken: {report.action}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {report.date}
+                  </Typography>
+                </Box>
+
+                <Button variant="outlined" size="small">
+                  View Details
+                </Button>
+              </Stack>
+            </CardContent>
+          </Card>
+        ))}
+      </Stack>
+    </Box>
   );
 }

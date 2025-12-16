@@ -41,6 +41,7 @@ import {
   CircularProgress,
   Checkbox,
   FormControlLabel,
+  Tooltip,
 } from "@mui/material";
 
 import SearchIcon from "@mui/icons-material/Search";
@@ -58,6 +59,10 @@ import BusinessIcon from "@mui/icons-material/Business";
 import FamilyRestroomIcon from "@mui/icons-material/FamilyRestroom";
 import SupervisorAccountIcon from "@mui/icons-material/SupervisorAccount";
 import CloseIcon from "@mui/icons-material/Close";
+
+import useCurrentUser from "../../hooks/useCurrentUser";
+import { hasPermission } from "../../utils/permissions";
+
 
 import api from "../../utils/api";
 
@@ -177,6 +182,17 @@ const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<RoleOption[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const { user: currentUser, loading: userLoading } = useCurrentUser(); 
+
+
+const canCreateUsers = hasPermission(currentUser, "users", "create");
+const canEditUsers = hasPermission(currentUser, "users", "edit");
+const canDeleteUsers = hasPermission(currentUser, "users", "delete");
+
+
+const NO_PERMISSION_TOOLTIP =
+  "You do not have permission to perform this action.";
+
 
   const [searchQuery, setSearchQuery] = useState("");
   const [currentTab, setCurrentTab] = useState(0);
@@ -500,8 +516,15 @@ const handleResetPassword = () => {
   // RENDER
   // -----------------------------
 
-  return (
-    <Box>
+    return (
+  <Box>
+    {userLoading ? (
+      <Box sx={{ display: "flex", justifyContent: "center", mt: 6 }}>
+        <CircularProgress />
+      </Box>
+    ) : (
+      <>
+
       {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
@@ -603,21 +626,29 @@ const handleResetPassword = () => {
                 <SearchIcon />
               </IconButton>
             )}
+<Tooltip
+  title={!canCreateUsers ? NO_PERMISSION_TOOLTIP : ""}
+  disableHoverListener={canCreateUsers}
+>
+  <span>
+    <Button
+      variant="contained"
+      startIcon={<PersonAddIcon />}
+      onClick={() => setInviteDialogOpen(true)}
+      disabled={!canCreateUsers}
+      sx={{
+        height: 40,
+        px: 2,
+        fontSize: "0.875rem",
+        textTransform: "none",
+        whiteSpace: "nowrap",
+      }}
+    >
+      {isMobile ? "Invite" : "Invite User"}
+    </Button>
+  </span>
+</Tooltip>
 
-            <Button
-              variant="contained"
-              startIcon={<PersonAddIcon />}
-              onClick={() => setInviteDialogOpen(true)}
-              sx={{
-                height: 40,
-                px: 2,
-                fontSize: "0.875rem",
-                textTransform: "none",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {isMobile ? "Invite" : "Invite User"}
-            </Button>
           </Box>
         </Box>
 
@@ -730,12 +761,24 @@ const handleResetPassword = () => {
                           {user.email}
                         </Typography>
                       </Box>
-                      <IconButton
-                        size="small"
-                        onClick={(e) => handleMenuOpen(e, user)}
-                      >
-                        <MoreVertIcon />
-                      </IconButton>
+                     <Tooltip
+  title={
+    !canEditUsers && !canDeleteUsers
+      ? NO_PERMISSION_TOOLTIP
+      : ""
+  }
+  disableHoverListener={canEditUsers || canDeleteUsers}
+>
+  <span>
+    <IconButton
+      size="small"
+      onClick={(e) => handleMenuOpen(e, user)}
+      disabled={!canEditUsers && !canDeleteUsers}
+    >
+      <MoreVertIcon fontSize="small" />
+    </IconButton>
+  </span>
+</Tooltip>
                     </Stack>
 
                     <Stack direction="row" spacing={1} flexWrap="wrap" gap={1}>
@@ -1009,12 +1052,25 @@ const handleResetPassword = () => {
                       </Typography>
                     </TableCell>
                     <TableCell align="center">
-                      <IconButton
-                        size="small"
-                        onClick={(e) => handleMenuOpen(e, user)}
-                      >
-                        <MoreVertIcon fontSize="small" />
-                      </IconButton>
+                    <Tooltip
+  title={
+    !canEditUsers && !canDeleteUsers
+      ? NO_PERMISSION_TOOLTIP
+      : ""
+  }
+  disableHoverListener={canEditUsers || canDeleteUsers}
+>
+  <span>
+    <IconButton
+      size="small"
+      onClick={(e) => handleMenuOpen(e, user)}
+      disabled={!canEditUsers && !canDeleteUsers}
+    >
+      <MoreVertIcon />
+    </IconButton>
+  </span>
+</Tooltip>
+
                     </TableCell>
                   </TableRow>
                 ))
@@ -1026,12 +1082,21 @@ const handleResetPassword = () => {
 
       {/* Context Menu */}
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
-        <MenuItem onClick={handleEditUser}>
-          <ListItemIcon>
-            <EditIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>Edit User</ListItemText>
-        </MenuItem>
+       <Tooltip
+  title={!canEditUsers ? NO_PERMISSION_TOOLTIP : ""}
+  placement="left"
+  disableHoverListener={canEditUsers}
+>
+  <span>
+    <MenuItem onClick={handleEditUser} disabled={!canEditUsers}>
+      <ListItemIcon>
+        <EditIcon fontSize="small" />
+      </ListItemIcon>
+      <ListItemText>Edit User</ListItemText>
+    </MenuItem>
+  </span>
+</Tooltip>
+
 
         {selectedUser?.status === "pending" && (
           <MenuItem onClick={handleResendInvite}>
@@ -1041,35 +1106,68 @@ const handleResetPassword = () => {
             <ListItemText>Resend Invitation</ListItemText>
           </MenuItem>
         )}
+<Tooltip
+  title={!canEditUsers ? NO_PERMISSION_TOOLTIP : ""}
+  placement="left"
+  disableHoverListener={canEditUsers}
+>
+  <span>
+    <MenuItem onClick={handleResetPassword} disabled={!canEditUsers}>
+      <ListItemIcon>
+        <LockResetIcon fontSize="small" />
+      </ListItemIcon>
+      <ListItemText>Reset Password</ListItemText>
+    </MenuItem>
+  </span>
+</Tooltip>
 
-        <MenuItem onClick={handleResetPassword}>
-          <ListItemIcon>
-            <LockResetIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>Reset Password</ListItemText>
-        </MenuItem>
 
-        <MenuItem onClick={handleToggleStatus}>
-          <ListItemIcon>
-            {selectedUser?.status === "active" ? (
-              <BlockIcon fontSize="small" color="error" />
-            ) : (
-              <CheckCircleIcon fontSize="small" color="success" />
-            )}
-          </ListItemIcon>
-          <ListItemText>
-            {selectedUser?.status === "active" ? "Deactivate" : "Activate"}
-          </ListItemText>
-        </MenuItem>
+       <Tooltip
+  title={!canEditUsers ? NO_PERMISSION_TOOLTIP : ""}
+  placement="left"
+  disableHoverListener={canEditUsers}
+>
+  <span>
+    <MenuItem onClick={handleToggleStatus} disabled={!canEditUsers}>
+      <ListItemIcon>
+        {selectedUser?.status === "active" ? (
+          <BlockIcon fontSize="small" color="error" />
+        ) : (
+          <CheckCircleIcon fontSize="small" color="success" />
+        )}
+      </ListItemIcon>
+      <ListItemText>
+        {selectedUser?.status === "active" ? "Deactivate" : "Activate"}
+      </ListItemText>
+    </MenuItem>
+  </span>
+</Tooltip>
+
 
         <Divider />
 
-        <MenuItem onClick={handleDeleteUser} sx={{ color: "error.main" }}>
-          <ListItemIcon>
-            <DeleteIcon fontSize="small" color="error" />
-          </ListItemIcon>
-          <ListItemText>Delete User</ListItemText>
-        </MenuItem>
+      <Tooltip
+  title={
+    !canDeleteUsers
+      ? "You do not have permission to delete users."
+      : ""
+  }
+  placement="left"
+  disableHoverListener={canDeleteUsers}
+>
+  <span>
+    <MenuItem
+      onClick={handleDeleteUser}
+      disabled={!canDeleteUsers}
+      sx={{ color: canDeleteUsers ? "error.main" : "text.disabled" }}
+    >
+      <ListItemIcon>
+        <DeleteIcon fontSize="small" />
+      </ListItemIcon>
+      <ListItemText>Delete User</ListItemText>
+    </MenuItem>
+  </span>
+</Tooltip>
       </Menu>
 
       {/* Invite User Dialog */}
@@ -1448,9 +1546,10 @@ const handleResetPassword = () => {
     </Button>
   </DialogActions>
 </Dialog>
-
-    </Box>
-  );
-};
+      </>
+    )}
+  </Box>
+    )}
+    
 
 export default UserManagement;
