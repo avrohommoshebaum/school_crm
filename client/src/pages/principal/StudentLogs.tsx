@@ -1,102 +1,115 @@
-import { useState } from 'react';
-import { Search, Plus, Filter, Calendar, User, MessageSquare } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
-import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
-import { Badge } from '../../components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog';
-import { Label } from '../../components/ui/label';
-import { Textarea } from '../../components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { useState, type JSX } from 'react';
 
-export default function StudentLogs() {
+import {
+  Box,
+  Stack,
+  Typography,
+  Card,
+  CardContent,
+  Button,
+  Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Select,
+  MenuItem,
+  Checkbox,
+  FormControlLabel,
+  Divider,
+  InputAdornment,
+} from '@mui/material';
+
+import AddIcon from '@mui/icons-material/Add';
+import SearchIcon from '@mui/icons-material/Search';
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import PersonIcon from '@mui/icons-material/Person';
+import MessageIcon from '@mui/icons-material/Message';
+import FilterAltIcon from '@mui/icons-material/FilterAlt';
+
+import SamplePageOverlay from '../../components/samplePageOverlay';
+
+type LogType =
+  | 'parent-meeting'
+  | 'parent-call'
+  | 'behavior'
+  | 'academic'
+  | 'general';
+
+export default function StudentLogs(): JSX.Element {
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterType, setFilterType] = useState('all');
+  const [filterType, setFilterType] = useState<'all' | LogType>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  // Mock log data
   const logs = [
     {
       id: 1,
       student: 'Sarah Cohen',
       grade: '3rd Grade',
-      type: 'parent-meeting',
+      type: 'parent-meeting' as LogType,
       title: 'Discussion about reading progress',
-      description: 'Met with Mrs. Cohen to discuss Sarah\'s reading improvement. She has shown significant progress this quarter. Recommended continuing with reading tutor.',
+      description:
+        "Met with Mrs. Cohen to discuss Sarah's reading improvement. Recommended continuing with reading tutor.",
       date: '2024-11-25',
       time: '2:30 PM',
       author: 'Mrs. Schwartz (Principal)',
       followUp: true,
-      followUpDate: '2024-12-10'
+      followUpDate: '2024-12-10',
     },
     {
       id: 2,
       student: 'Rivka Goldstein',
       grade: '3rd Grade',
-      type: 'behavior',
-      title: 'Behavioral concern - classroom disruption',
-      description: 'Rivka has been talking during class and distracting other students. Spoke with her about classroom expectations. Will monitor for improvement.',
+      type: 'behavior' as LogType,
+      title: 'Behavioral concern',
+      description:
+        'Talking during class and distracting other students. Will monitor for improvement.',
       date: '2024-11-24',
       time: '11:00 AM',
       author: 'Mrs. Schwartz (Principal)',
       followUp: true,
-      followUpDate: '2024-12-01'
+      followUpDate: '2024-12-01',
     },
     {
       id: 3,
       student: 'Leah Schwartz',
       grade: '4th Grade',
-      type: 'parent-call',
-      title: 'Phone call with mother regarding attendance',
-      description: 'Discussed Leah\'s recent absences. Family dealing with illness. Will provide makeup work and extra support upon return.',
+      type: 'parent-call' as LogType,
+      title: 'Phone call regarding attendance',
+      description:
+        'Family dealing with illness. Makeup work provided.',
       date: '2024-11-23',
       time: '4:15 PM',
       author: 'Mrs. Klein (Principal)',
-      followUp: false
+      followUp: false,
     },
-    {
-      id: 4,
-      student: 'Chaya Friedman',
-      grade: '5th Grade',
-      type: 'academic',
-      title: 'Math tutoring recommendation',
-      description: 'After reviewing test scores, recommended math tutoring for Chaya. Parents agreed to enroll her in after-school program starting next week.',
-      date: '2024-11-22',
-      time: '3:00 PM',
-      author: 'Mrs. Klein (Principal)',
-      followUp: true,
-      followUpDate: '2024-12-15'
-    },
-    {
-      id: 5,
-      student: 'Miriam Levy',
-      grade: '2nd Grade',
-      type: 'parent-meeting',
-      title: 'General check-in meeting',
-      description: 'Routine parent-teacher meeting. Miriam is doing excellent academically and socially. Parents are very pleased with her progress.',
-      date: '2024-11-21',
-      time: '1:30 PM',
-      author: 'Mrs. Friedman (Principal)',
-      followUp: false
-    }
   ];
 
-  const getTypeColor = (type: string) => {
+  const filteredLogs = logs.filter(log => {
+    const matchesSearch =
+      log.student.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      log.title.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesFilter = filterType === 'all' || log.type === filterType;
+    return matchesSearch && matchesFilter;
+  });
+
+  const typeColor = (type: LogType) => {
     switch (type) {
       case 'parent-meeting':
-        return 'bg-blue-100 text-blue-800';
+        return 'primary';
       case 'parent-call':
-        return 'bg-green-100 text-green-800';
+        return 'success';
       case 'behavior':
-        return 'bg-orange-100 text-orange-800';
+        return 'warning';
       case 'academic':
-        return 'bg-purple-100 text-purple-800';
+        return 'secondary';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'default';
     }
   };
 
-  const getTypeLabel = (type: string) => {
+  const typeLabel = (type: LogType) => {
     switch (type) {
       case 'parent-meeting':
         return 'Parent Meeting';
@@ -107,258 +120,223 @@ export default function StudentLogs() {
       case 'academic':
         return 'Academic';
       default:
-        return type;
+        return 'General';
     }
   };
 
-  const filteredLogs = logs.filter(log => {
-    const matchesSearch = log.student.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         log.title.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesFilter = filterType === 'all' || log.type === filterType;
-    return matchesSearch && matchesFilter;
-  });
-
   return (
-    <div className="space-y-6">
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      <SamplePageOverlay />
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-gray-900">Student Logs</h2>
-          <p className="text-sm text-gray-600">Track interactions, meetings, and important notes</p>
-        </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-blue-700 hover:bg-blue-800">
-              <Plus className="size-4 mr-2" />
-              Add Log Entry
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>New Log Entry</DialogTitle>
-              <DialogDescription>Record a conversation, meeting, or important note about a student</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 pt-4">
-              <div className="space-y-2">
-                <Label>Student *</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select student" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">Sarah Cohen - 3rd Grade</SelectItem>
-                    <SelectItem value="2">Rivka Goldstein - 3rd Grade</SelectItem>
-                    <SelectItem value="3">Leah Schwartz - 4th Grade</SelectItem>
-                    <SelectItem value="4">Chaya Friedman - 5th Grade</SelectItem>
-                    <SelectItem value="5">Miriam Levy - 2nd Grade</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+      <Stack direction="row" justifyContent="space-between" alignItems="center">
+        <Box>
+          <Typography variant="h5">Student Logs</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Track interactions, meetings, and important notes
+          </Typography>
+        </Box>
 
-              <div className="space-y-2">
-                <Label>Log Type *</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="parent-meeting">Parent Meeting</SelectItem>
-                    <SelectItem value="parent-call">Phone Call</SelectItem>
-                    <SelectItem value="behavior">Behavior Concern</SelectItem>
-                    <SelectItem value="academic">Academic</SelectItem>
-                    <SelectItem value="general">General Note</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => setIsDialogOpen(true)}
+        >
+          Add Log Entry
+        </Button>
+      </Stack>
 
-              <div className="space-y-2">
-                <Label>Title *</Label>
-                <Input placeholder="Brief summary of the log" />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Date & Time *</Label>
-                <div className="grid grid-cols-2 gap-4">
-                  <Input type="date" />
-                  <Input type="time" />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Details *</Label>
-                <Textarea 
-                  placeholder="Detailed description of the conversation, meeting, or concern..."
-                  rows={6}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <input type="checkbox" id="followUp" className="size-4" />
-                  <Label htmlFor="followUp">Requires follow-up</Label>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Follow-up Date</Label>
-                <Input type="date" />
-              </div>
-
-              <div className="flex gap-2 pt-4">
-                <Button className="flex-1 bg-blue-700 hover:bg-blue-800">
-                  Save Log Entry
-                </Button>
-                <Button variant="outline" className="flex-1" onClick={() => setIsDialogOpen(false)}>
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      {/* Search and Filter */}
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
-              <Input
-                placeholder="Search by student name or log title..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <Select value={filterType} onValueChange={setFilterType}>
-              <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="Filter by type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="parent-meeting">Parent Meetings</SelectItem>
-                <SelectItem value="parent-call">Phone Calls</SelectItem>
-                <SelectItem value="behavior">Behavior</SelectItem>
-                <SelectItem value="academic">Academic</SelectItem>
-              </SelectContent>
+      {/* Add Log Dialog */}
+      <Dialog open={isDialogOpen} onClose={() => setIsDialogOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>New Log Entry</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={3}>
+            <Select fullWidth displayEmpty>
+              <MenuItem value="">Select student</MenuItem>
+              <MenuItem value="1">Sarah Cohen – 3rd Grade</MenuItem>
+              <MenuItem value="2">Rivka Goldstein – 3rd Grade</MenuItem>
+              <MenuItem value="3">Leah Schwartz – 4th Grade</MenuItem>
             </Select>
-          </div>
+
+            <Select fullWidth displayEmpty>
+              <MenuItem value="">Log type</MenuItem>
+              <MenuItem value="parent-meeting">Parent Meeting</MenuItem>
+              <MenuItem value="parent-call">Phone Call</MenuItem>
+              <MenuItem value="behavior">Behavior</MenuItem>
+              <MenuItem value="academic">Academic</MenuItem>
+              <MenuItem value="general">General</MenuItem>
+            </Select>
+
+            <TextField label="Title" fullWidth />
+
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+              <TextField type="date" label="Date" InputLabelProps={{ shrink: true }} fullWidth />
+              <TextField type="time" label="Time" InputLabelProps={{ shrink: true }} fullWidth />
+            </Stack>
+
+            <TextField
+              label="Details"
+              multiline
+              rows={6}
+              fullWidth
+            />
+
+            <FormControlLabel
+              control={<Checkbox />}
+              label="Requires follow-up"
+            />
+
+            <TextField type="date" label="Follow-up Date" InputLabelProps={{ shrink: true }} fullWidth />
+          </Stack>
+        </DialogContent>
+
+        <DialogActions>
+          <Button variant="contained">Save Log Entry</Button>
+          <Button variant="outlined" onClick={() => setIsDialogOpen(false)}>
+            Cancel
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Search & Filter */}
+      <Card>
+        <CardContent>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+            <TextField
+              fullWidth
+              placeholder="Search by student or title..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+              }}
+            />
+
+            <Select
+              value={filterType}
+              onChange={e => setFilterType(e.target.value as any)}
+              sx={{ minWidth: 200 }}
+            >
+              <MenuItem value="all">All Types</MenuItem>
+              <MenuItem value="parent-meeting">Parent Meetings</MenuItem>
+              <MenuItem value="parent-call">Phone Calls</MenuItem>
+              <MenuItem value="behavior">Behavior</MenuItem>
+              <MenuItem value="academic">Academic</MenuItem>
+            </Select>
+          </Stack>
         </CardContent>
       </Card>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Total Logs</p>
-                <p className="text-gray-900">{logs.length}</p>
-              </div>
-              <MessageSquare className="size-8 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">This Week</p>
-                <p className="text-gray-900">3</p>
-              </div>
-              <Calendar className="size-8 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Follow-ups</p>
-                <p className="text-gray-900">3</p>
-              </div>
-              <Filter className="size-8 text-orange-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Students</p>
-                <p className="text-gray-900">5</p>
-              </div>
-              <User className="size-8 text-purple-600" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Logs List */}
-      <div className="space-y-4">
-        {filteredLogs.map((log) => (
-          <Card key={log.id} className="hover:shadow-md transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-gray-900">{log.title}</h3>
-                    <Badge className={getTypeColor(log.type)}>
-                      {getTypeLabel(log.type)}
-                    </Badge>
-                    {log.followUp && (
-                      <Badge variant="outline" className="border-orange-500 text-orange-700">
-                        Follow-up Required
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-4 text-sm text-gray-600 mb-3">
-                    <span className="flex items-center gap-1">
-                      <User className="size-4" />
-                      {log.student} - {log.grade}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Calendar className="size-4" />
-                      {log.date} at {log.time}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-700 mb-3">{log.description}</p>
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs text-gray-500">Logged by: {log.author}</p>
-                    {log.followUp && (
-                      <p className="text-xs text-orange-600">
-                        Follow-up: {log.followUpDate}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className="flex gap-2 pt-3 border-t">
-                <Button variant="outline" size="sm">
-                  Edit Log
-                </Button>
-                <Button variant="outline" size="sm">
-                  View Student Profile
-                </Button>
-                {log.followUp && (
-                  <Button variant="outline" size="sm" className="ml-auto text-green-700 border-green-300 hover:bg-green-50">
-                    Mark Complete
-                  </Button>
-                )}
-              </div>
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+        {[
+          { label: 'Total Logs', value: logs.length, icon: <MessageIcon /> },
+          { label: 'This Week', value: 3, icon: <CalendarMonthIcon /> },
+          { label: 'Follow-ups', value: logs.filter(l => l.followUp).length, icon: <FilterAltIcon /> },
+          { label: 'Students', value: 5, icon: <PersonIcon /> },
+        ].map(stat => (
+          <Card key={stat.label} sx={{ flex: 1 }}>
+            <CardContent>
+              <Stack direction="row" justifyContent="space-between">
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    {stat.label}
+                  </Typography>
+                  <Typography variant="h6">{stat.value}</Typography>
+                </Box>
+                {stat.icon}
+              </Stack>
             </CardContent>
           </Card>
         ))}
-      </div>
+      </Stack>
+
+      {/* Logs List */}
+      <Stack spacing={2}>
+        {filteredLogs.map(log => (
+          <Card key={log.id}>
+            <CardContent>
+              <Stack spacing={2}>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Typography fontWeight={600}>{log.title}</Typography>
+                  <Chip
+                    label={typeLabel(log.type)}
+                    size="small"
+                    color={typeColor(log.type)}
+                  />
+                  {log.followUp && (
+                    <Chip
+                      label="Follow-up Required"
+                      size="small"
+                      variant="outlined"
+                      color="warning"
+                    />
+                  )}
+                </Stack>
+
+                <Stack direction="row" spacing={3} flexWrap="wrap">
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <PersonIcon fontSize="small" />
+                    <Typography variant="body2">
+                      {log.student} – {log.grade}
+                    </Typography>
+                  </Stack>
+
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <CalendarMonthIcon fontSize="small" />
+                    <Typography variant="body2">
+                      {log.date} at {log.time}
+                    </Typography>
+                  </Stack>
+                </Stack>
+
+                <Typography variant="body2">{log.description}</Typography>
+
+                <Stack direction="row" justifyContent="space-between">
+                  <Typography variant="caption" color="text.secondary">
+                    Logged by: {log.author}
+                  </Typography>
+                  {log.followUp && (
+                    <Typography variant="caption" color="warning.main">
+                      Follow-up: {log.followUpDate}
+                    </Typography>
+                  )}
+                </Stack>
+
+                <Divider />
+
+                <Stack direction="row" spacing={1} justifyContent="flex-end">
+                  <Button size="small" variant="outlined">
+                    Edit Log
+                  </Button>
+                  <Button size="small" variant="outlined">
+                    View Student Profile
+                  </Button>
+                  {log.followUp && (
+                    <Button size="small" variant="outlined" color="success">
+                      Mark Complete
+                    </Button>
+                  )}
+                </Stack>
+              </Stack>
+            </CardContent>
+          </Card>
+        ))}
+      </Stack>
 
       {filteredLogs.length === 0 && (
         <Card>
-          <CardContent className="p-12 text-center">
-            <MessageSquare className="size-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600">No logs found matching your criteria</p>
+          <CardContent sx={{ textAlign: 'center', py: 6 }}>
+            <MessageIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
+            <Typography color="text.secondary">
+              No logs found matching your criteria
+            </Typography>
           </CardContent>
         </Card>
       )}
-    </div>
+    </Box>
   );
 }

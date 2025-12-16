@@ -50,6 +50,12 @@ import ParentMeetings from "../pages/principal/ParentMeetings";
 import BehaviorTracking from "../pages/principal/BehaviorTracking";
 import AcademicConcerns from "../pages/principal/AcademicConcerns";
 
+import BusinessOfficeCenter from "../pages/BusinessOfficeCenter";
+import TuitionManagement from "../pages/business/TuitionManagement";
+import Donations from "../pages/business/Donations";
+import Transportation from "../pages/business/Transportation";
+import FinancialReports from "../pages/business/FinancialReports";
+
 
 function NotFound() {
   return (
@@ -128,14 +134,24 @@ const router = createBrowserRouter([
         },
 
          {
-        path: 'principal',
-        Component: PrincipalCenter,
+         path: "principal",
         children: [
+          { index: true, Component: PrincipalCenter },
           { path: 'student-logs', Component: StudentLogs },
           { path: 'flagged-students', Component: FlaggedStudents },
           { path: 'parent-meetings', Component: ParentMeetings },
           { path: 'behavior-tracking', Component: BehaviorTracking },
           { path: 'academic-concerns', Component: AcademicConcerns },
+        ],
+      },
+         {
+         path: "business-office",
+        children: [
+          { index: true, Component: BusinessOfficeCenter },
+          { path: 'tuition', Component: TuitionManagement },
+          { path: 'donations', Component: Donations },
+          { path: 'transportation', Component: Transportation },
+          { path: 'reports', Component: FinancialReports },
         ],
       },
 

@@ -1,168 +1,259 @@
-import { Bus, MapPin, Users } from 'lucide-react';
-import { Card, CardContent } from '../../components/ui/card';
-import { Badge } from '../../components/ui/badge';
-import { Button } from '../../components/ui/button';
+import {
+  Box,
+  Card,
+  CardContent,
+  Typography,
+  Button,
+  Stack,
+  Chip,
+  Divider,
+} from "@mui/material";
+
+import DirectionsBusIcon from "@mui/icons-material/DirectionsBus";
+import LocationOnIcon from "@mui/icons-material/LocationOn";
+import PeopleIcon from "@mui/icons-material/People";
+import AddIcon from "@mui/icons-material/Add";
+
+import SamplePageOverlay from "../../components/samplePageOverlay";
+
+interface Route {
+  id: number;
+  name: string;
+  students: number;
+  driver: string;
+  monthlyFee: number;
+  collectedThisMonth: number;
+  totalExpected: number;
+  stops: string[];
+}
 
 export default function Transportation() {
-  const routes = [
+  const routes: Route[] = [
     {
       id: 1,
-      name: 'Route 1 - Westgate',
+      name: "Route 1 - Westgate",
       students: 18,
-      driver: 'Mr. Levi',
+      driver: "Mr. Levi",
       monthlyFee: 210,
       collectedThisMonth: 3780,
       totalExpected: 3780,
-      stops: ['Main St & Oak', 'Maple Ave', 'School']
+      stops: ["Main St & Oak", "Maple Ave", "School"],
     },
     {
       id: 2,
-      name: 'Route 2 - Downtown',
+      name: "Route 2 - Downtown",
       students: 22,
-      driver: 'Mr. Cohen',
+      driver: "Mr. Cohen",
       monthlyFee: 210,
       collectedThisMonth: 4200,
       totalExpected: 4620,
-      stops: ['Central Square', 'Park Ave', 'School']
+      stops: ["Central Square", "Park Ave", "School"],
     },
     {
       id: 3,
-      name: 'Route 3 - North Side',
+      name: "Route 3 - North Side",
       students: 15,
-      driver: 'Mrs. Goldstein',
+      driver: "Mrs. Goldstein",
       monthlyFee: 210,
       collectedThisMonth: 3150,
       totalExpected: 3150,
-      stops: ['Highland Rd', 'Brook St', 'School']
+      stops: ["Highland Rd", "Brook St", "School"],
     },
   ];
 
   const totalStudents = routes.reduce((sum, r) => sum + r.students, 0);
-  const totalCollected = routes.reduce((sum, r) => sum + r.collectedThisMonth, 0);
-  const totalExpected = routes.reduce((sum, r) => sum + r.totalExpected, 0);
+  const totalCollected = routes.reduce(
+    (sum, r) => sum + r.collectedThisMonth,
+    0
+  );
+  const totalExpected = routes.reduce(
+    (sum, r) => sum + r.totalExpected,
+    0
+  );
 
   return (
-    <div className="space-y-6">
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+      <SamplePageOverlay />
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-gray-900">Transportation Management</h2>
-          <p className="text-sm text-gray-600">Manage bus routes and transportation fees</p>
-        </div>
-        <Button className="bg-blue-700 hover:bg-blue-800">
-          <Bus className="size-4 mr-2" />
+      <Stack direction="row" justifyContent="space-between">
+        <Box>
+          <Typography variant="h5">Transportation Management</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Manage bus routes and transportation fees
+          </Typography>
+        </Box>
+        <Button variant="contained" startIcon={<AddIcon />}>
           Add Route
         </Button>
-      </div>
+      </Stack>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Total Routes</p>
-                <p className="text-gray-900">{routes.length}</p>
-              </div>
-              <Bus className="size-8 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Students on Buses</p>
-                <p className="text-gray-900">{totalStudents}</p>
-              </div>
-              <Users className="size-8 text-purple-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Collected (Month)</p>
-                <p className="text-gray-900">${totalCollected}</p>
-              </div>
-              <Bus className="size-8 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Outstanding</p>
-                <p className="text-gray-900">${totalExpected - totalCollected}</p>
-              </div>
-              <Bus className="size-8 text-orange-600" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+        <StatCard
+          label="Total Routes"
+          value={routes.length}
+          icon={<DirectionsBusIcon color="primary" />}
+        />
+        <StatCard
+          label="Students on Buses"
+          value={totalStudents}
+          icon={<PeopleIcon color="secondary" />}
+        />
+        <StatCard
+          label="Collected (Month)"
+          value={`$${totalCollected.toLocaleString()}`}
+          icon={<DirectionsBusIcon color="success" />}
+        />
+        <StatCard
+          label="Outstanding"
+          value={`$${(totalExpected - totalCollected).toLocaleString()}`}
+          icon={<DirectionsBusIcon color="warning" />}
+        />
+      </Stack>
 
       {/* Routes */}
-      <div className="space-y-4">
-        {routes.map((route) => (
-          <Card key={route.id}>
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <Bus className="size-6 text-blue-600" />
-                    <h3 className="text-gray-900">{route.name}</h3>
-                    <Badge variant="outline">{route.students} students</Badge>
-                  </div>
-                  <p className="text-sm text-gray-600 mb-3">Driver: {route.driver}</p>
-                  
-                  <div className="flex items-center gap-2 mb-3">
-                    <MapPin className="size-4 text-gray-400" />
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      {route.stops.map((stop, idx) => (
-                        <span key={idx}>
-                          {stop}
-                          {idx < route.stops.length - 1 && <span className="mx-2">→</span>}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
+      <Stack spacing={2}>
+        {routes.map((route) => {
+          const collectionRate = Math.round(
+            (route.collectedThisMonth / route.totalExpected) * 100
+          );
 
-                  <div className="grid grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
-                    <div>
-                      <p className="text-xs text-gray-600 mb-1">Monthly Fee</p>
-                      <p className="text-sm text-gray-900">${route.monthlyFee}/student</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-600 mb-1">Collected This Month</p>
-                      <p className="text-sm text-gray-900">${route.collectedThisMonth}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-600 mb-1">Collection Rate</p>
-                      <p className={`text-sm ${route.collectedThisMonth >= route.totalExpected ? 'text-green-600' : 'text-orange-600'}`}>
-                        {Math.round((route.collectedThisMonth / route.totalExpected) * 100)}%
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
+          return (
+            <Card key={route.id}>
+              <CardContent>
+                <Stack spacing={2}>
+                  {/* Header */}
+                  <Stack direction="row" spacing={2} alignItems="center">
+                    <DirectionsBusIcon color="primary" />
+                    <Typography fontWeight={600}>
+                      {route.name}
+                    </Typography>
+                    <Chip
+                      label={`${route.students} students`}
+                      size="small"
+                      variant="outlined"
+                    />
+                  </Stack>
 
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm">
-                  View Students
-                </Button>
-                <Button variant="outline" size="sm">
-                  Edit Route
-                </Button>
-                <Button variant="outline" size="sm">
-                  Payment Status
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    </div>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                  >
+                    Driver: {route.driver}
+                  </Typography>
+
+                  {/* Stops */}
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <LocationOnIcon
+                      fontSize="small"
+                      color="disabled"
+                    />
+                    <Typography variant="body2" color="text.secondary">
+                      {route.stops.join(" → ")}
+                    </Typography>
+                  </Stack>
+
+                  {/* Financials */}
+                  <Box
+                    sx={{
+                      p: 2,
+                      bgcolor: "grey.100",
+                      borderRadius: 2,
+                    }}
+                  >
+                    <Stack
+                      direction={{ xs: "column", md: "row" }}
+                      spacing={4}
+                    >
+                      <Info
+                        label="Monthly Fee"
+                        value={`$${route.monthlyFee}/student`}
+                      />
+                      <Info
+                        label="Collected This Month"
+                        value={`$${route.collectedThisMonth.toLocaleString()}`}
+                      />
+                      <Info
+                        label="Collection Rate"
+                        value={`${collectionRate}%`}
+                        color={
+                          route.collectedThisMonth >= route.totalExpected
+                            ? "success.main"
+                            : "warning.main"
+                        }
+                      />
+                    </Stack>
+                  </Box>
+
+                  <Divider />
+
+                  {/* Actions */}
+                  <Stack direction="row" spacing={1}>
+                    <Button size="small" variant="outlined">
+                      View Students
+                    </Button>
+                    <Button size="small" variant="outlined">
+                      Edit Route
+                    </Button>
+                    <Button size="small" variant="outlined">
+                      Payment Status
+                    </Button>
+                  </Stack>
+                </Stack>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </Stack>
+    </Box>
+  );
+}
+
+/* ---------- Helpers ---------- */
+
+function StatCard({
+  label,
+  value,
+  icon,
+}: {
+  label: string;
+  value: string | number;
+  icon: React.ReactNode;
+}) {
+  return (
+    <Card sx={{ flex: 1 }}>
+      <CardContent>
+        <Stack direction="row" justifyContent="space-between">
+          <Box>
+            <Typography variant="body2" color="text.secondary">
+              {label}
+            </Typography>
+            <Typography variant="h6">{value}</Typography>
+          </Box>
+          {icon}
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+}
+
+function Info({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: string;
+  color?: string;
+}) {
+  return (
+    <Box>
+      <Typography variant="caption" color="text.secondary">
+        {label}
+      </Typography>
+      <Typography sx={{ color: color ?? "text.primary" }}>
+        {value}
+      </Typography>
+    </Box>
   );
 }

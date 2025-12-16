@@ -132,6 +132,7 @@ const navigationItems: NavItem[] = [
   {
     name: 'Principal Center',
     path: '/principal',
+    permission: { module: "principalCenter", action: "view" },
     icon: AdminPanelSettingsIcon,
     children: [
       { name: 'Overview', path: '/principal', icon: DashboardIcon },
@@ -145,6 +146,7 @@ const navigationItems: NavItem[] = [
   {
     name: 'Business Office',
     path: '/business-office',
+     permission: { module: "businessOfficeCenter", action: "view" },
     icon: AccountBalanceIcon,
     children: [
       { name: 'Overview', path: '/business-office', icon: DashboardIcon },

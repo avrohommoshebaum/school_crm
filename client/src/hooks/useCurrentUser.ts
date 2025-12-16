@@ -1,19 +1,59 @@
 import { useEffect, useState } from "react";
 import api from "../utils/api";
 
+/* -------------------------------------------------
+ * PERMISSIONS
+ * ------------------------------------------------- */
+
+export interface PermissionSet {
+  view: boolean;
+  create: boolean;
+  edit: boolean;
+  delete: boolean;
+}
+
+/* -------------------------------------------------
+ * ROLES
+ * ------------------------------------------------- */
+
 export interface UserRole {
   id: string;
   name: string;
   displayName: string;
   color: string;
+
+  permissions: {
+    students?: PermissionSet;
+    classes?: PermissionSet;
+    reportCards?: PermissionSet;
+    communications?: PermissionSet;
+    businessOfficeCenter?: PermissionSet;
+    principalCenter?: PermissionSet;
+    admissions?: PermissionSet;
+    enrollment?: PermissionSet;
+    applications?: PermissionSet;
+    financial?: PermissionSet;
+    users?: PermissionSet;
+    settings?: PermissionSet;
+    reports?: PermissionSet;
+  };
 }
+
+/* -------------------------------------------------
+ * CURRENT USER
+ * ------------------------------------------------- */
 
 export interface CurrentUser {
   id: string;
   name: string;
   email: string;
   phone?: string;
+
   roles: UserRole[];
+
+  /** Per-user permission overrides (e.g. "users.edit": true) */
+  permissionsOverride?: Record<string, boolean>;
+
   employeeId?: string;
   department?: string;
   hireDate?: string;
@@ -25,6 +65,10 @@ export interface CurrentUser {
   emergencyPhone?: string;
   bio?: string;
 }
+
+/* -------------------------------------------------
+ * USER SETTINGS
+ * ------------------------------------------------- */
 
 export interface UserSettings {
   emailNotifications: boolean;
@@ -45,6 +89,10 @@ export interface UserSettings {
   profileVisibility: "all" | "staff" | "private";
 }
 
+/* -------------------------------------------------
+ * HOOK
+ * ------------------------------------------------- */
+
 const useCurrentUser = () => {
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [settings, setSettings] = useState<UserSettings | null>(null);
@@ -64,7 +112,12 @@ const useCurrentUser = () => {
     load();
   }, []);
 
-  return { user, settings, loading, reload: load };
-}
+  return {
+    user,
+    settings,
+    loading,
+    reload: load,
+  };
+};
 
 export default useCurrentUser;

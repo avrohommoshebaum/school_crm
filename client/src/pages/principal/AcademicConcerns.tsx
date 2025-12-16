@@ -1,9 +1,21 @@
-import { Card, CardContent } from '../../components/ui/card';
-import { Button } from '../../components/ui/button';
-import { Badge } from '../../components/ui/badge';
-import { BookOpen, TrendingDown, AlertCircle } from 'lucide-react';
+import {
+  Box,
+  Stack,
+  Typography,
+  Card,
+  CardContent,
+  Button,
+  Chip,
+} from '@mui/material';
 
-export default function AcademicConcerns() {
+import BookIcon from '@mui/icons-material/MenuBook';
+import TrendingDownIcon from '@mui/icons-material/TrendingDown';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+
+import SamplePageOverlay from '../../components/samplePageOverlay';
+import type { JSX } from 'react';
+
+export default function AcademicConcerns(): JSX.Element {
   const concerns = [
     {
       id: 1,
@@ -12,7 +24,7 @@ export default function AcademicConcerns() {
       subject: 'Math',
       issue: 'Below grade level in addition/subtraction',
       intervention: 'Math tutor assigned',
-      priority: 'high'
+      priority: 'high',
     },
     {
       id: 2,
@@ -21,102 +33,142 @@ export default function AcademicConcerns() {
       subject: 'Reading',
       issue: 'Reading comprehension struggles',
       intervention: 'Reading tutor 2x/week',
-      priority: 'medium'
+      priority: 'medium',
     },
   ];
 
-  const getPriorityColor = (priority: string) => {
+  const priorityColor = (priority: string) => {
     switch (priority) {
       case 'high':
-        return 'bg-red-100 text-red-800';
+        return 'error';
       case 'medium':
-        return 'bg-orange-100 text-orange-800';
+        return 'warning';
       case 'low':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'info';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'default';
     }
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-gray-900">Academic Concerns</h2>
-          <p className="text-sm text-gray-600">Track students requiring academic support</p>
-        </div>
-        <Button className="bg-purple-600 hover:bg-purple-700">
-          <BookOpen className="size-4 mr-2" />
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      <SamplePageOverlay />
+      {/* Header */}
+      <Stack direction="row" justifyContent="space-between" alignItems="center">
+        <Box>
+          <Typography variant="h5">Academic Concerns</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Track students requiring academic support
+          </Typography>
+        </Box>
+
+        <Button
+          variant="contained"
+          color="secondary"
+          startIcon={<BookIcon />}
+        >
           Add Concern
         </Button>
-      </div>
+      </Stack>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Active Concerns</p>
-                <p className="text-gray-900">{concerns.length}</p>
-              </div>
-              <AlertCircle className="size-8 text-orange-600" />
-            </div>
+      {/* Stats */}
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+        <Card sx={{ flex: 1 }}>
+          <CardContent>
+            <Stack direction="row" justifyContent="space-between">
+              <Box>
+                <Typography variant="body2" color="text.secondary">
+                  Active Concerns
+                </Typography>
+                <Typography variant="h6">{concerns.length}</Typography>
+              </Box>
+              <ErrorOutlineIcon color="warning" />
+            </Stack>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">With Tutors</p>
-                <p className="text-gray-900">2</p>
-              </div>
-              <BookOpen className="size-8 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">High Priority</p>
-                <p className="text-gray-900">1</p>
-              </div>
-              <TrendingDown className="size-8 text-red-600" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
 
-      <div className="space-y-4">
-        {concerns.map((concern) => (
+        <Card sx={{ flex: 1 }}>
+          <CardContent>
+            <Stack direction="row" justifyContent="space-between">
+              <Box>
+                <Typography variant="body2" color="text.secondary">
+                  With Tutors
+                </Typography>
+                <Typography variant="h6">2</Typography>
+              </Box>
+              <BookIcon color="primary" />
+            </Stack>
+          </CardContent>
+        </Card>
+
+        <Card sx={{ flex: 1 }}>
+          <CardContent>
+            <Stack direction="row" justifyContent="space-between">
+              <Box>
+                <Typography variant="body2" color="text.secondary">
+                  High Priority
+                </Typography>
+                <Typography variant="h6">
+                  {concerns.filter(c => c.priority === 'high').length}
+                </Typography>
+              </Box>
+              <TrendingDownIcon color="error" />
+            </Stack>
+          </CardContent>
+        </Card>
+      </Stack>
+
+      {/* Concerns List */}
+      <Stack spacing={2}>
+        {concerns.map(concern => (
           <Card key={concern.id}>
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <h3 className="text-gray-900">{concern.student}</h3>
-                    <Badge variant="outline">{concern.grade}</Badge>
-                    <Badge className="bg-purple-100 text-purple-800">{concern.subject}</Badge>
-                    <Badge className={getPriorityColor(concern.priority)}>
-                      {concern.priority} priority
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-gray-700 mb-2">{concern.issue}</p>
-                  <p className="text-sm text-gray-600">Intervention: {concern.intervention}</p>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm">
+            <CardContent>
+              <Stack spacing={2}>
+                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                  <Typography fontWeight={600}>
+                    {concern.student}
+                  </Typography>
+
+                  <Chip
+                    label={concern.grade}
+                    size="small"
+                    variant="outlined"
+                  />
+
+                  <Chip
+                    label={concern.subject}
+                    size="small"
+                    color="secondary"
+                  />
+
+                  <Chip
+                    label={`${concern.priority} priority`}
+                    size="small"
+                    color={priorityColor(concern.priority)}
+                  />
+                </Stack>
+
+                <Typography variant="body2">
+                  {concern.issue}
+                </Typography>
+
+                <Typography variant="body2" color="text.secondary">
+                  Intervention: {concern.intervention}
+                </Typography>
+
+                <Stack direction="row" spacing={1} justifyContent="flex-end">
+                  <Button size="small" variant="outlined">
                     Update
                   </Button>
-                  <Button variant="outline" size="sm">
+                  <Button size="small" variant="outlined">
                     View Progress
                   </Button>
-                </div>
-              </div>
+                </Stack>
+              </Stack>
             </CardContent>
           </Card>
         ))}
-      </div>
-    </div>
+      </Stack>
+    </Box>
   );
 }

@@ -1,16 +1,38 @@
-import { useState } from 'react';
-import { Calendar, Plus, Clock, User, CheckCircle, XCircle, MapPin } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
-import { Button } from '../../components/ui/button';
-import { Badge } from '../../components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog';
-import { Label } from '../../components/ui/label';
-import { Input } from '../../components/ui/input';
-import { Textarea } from '../../components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { useState, type JSX } from 'react';
 
-export default function ParentMeetings() {
-  const [filter, setFilter] = useState<'all' | 'upcoming' | 'completed'>('all');
+import {
+  Box,
+  Stack,
+  Typography,
+  Card,
+  CardContent,
+  Button,
+  Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Select,
+  MenuItem,
+  Checkbox,
+  FormControlLabel,
+  Divider,
+} from '@mui/material';
+
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import AddIcon from '@mui/icons-material/Add';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import PersonIcon from '@mui/icons-material/Person';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import PlaceIcon from '@mui/icons-material/Place';
+
+import SamplePageOverlay from '../../components/samplePageOverlay';
+
+type Filter = 'all' | 'upcoming' | 'completed';
+
+export default function ParentMeetings(): JSX.Element {
+  const [filter, setFilter] = useState<Filter>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const meetings = [
@@ -24,7 +46,7 @@ export default function ParentMeetings() {
       purpose: 'Discuss reading progress and tutoring updates',
       status: 'scheduled',
       location: 'Principal Office',
-      notes: 'Follow-up from previous quarter discussion'
+      notes: 'Follow-up from previous quarter discussion',
     },
     {
       id: 2,
@@ -36,7 +58,7 @@ export default function ParentMeetings() {
       purpose: 'General check-in meeting',
       status: 'scheduled',
       location: 'Conference Room',
-      notes: ''
+      notes: '',
     },
     {
       id: 3,
@@ -48,237 +70,196 @@ export default function ParentMeetings() {
       purpose: 'Math support discussion',
       status: 'completed',
       location: 'Principal Office',
-      notes: 'Parents agreed to math tutor, follow-up in 2 weeks'
+      notes: 'Parents agreed to math tutor, follow-up in 2 weeks',
     },
   ];
 
-  const filteredMeetings = meetings.filter(meeting => {
-    if (filter === 'all') return true;
-    if (filter === 'upcoming') return meeting.status === 'scheduled';
-    if (filter === 'completed') return meeting.status === 'completed';
+  const filteredMeetings = meetings.filter(m => {
+    if (filter === 'upcoming') return m.status === 'scheduled';
+    if (filter === 'completed') return m.status === 'completed';
     return true;
   });
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-gray-900">Parent Meetings</h2>
-          <p className="text-sm text-gray-600">Schedule and track parent-teacher conferences</p>
-        </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-purple-600 hover:bg-purple-700">
-              <Plus className="size-4 mr-2" />
-              Schedule Meeting
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Schedule Parent Meeting</DialogTitle>
-              <DialogDescription>
-                Schedule a meeting with parents to discuss student progress and concerns
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 pt-4">
-              <div className="space-y-2">
-                <Label>Student *</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select student" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">Sarah Cohen - 3rd Grade</SelectItem>
-                    <SelectItem value="2">Rivka Goldstein - 3rd Grade</SelectItem>
-                    <SelectItem value="3">Leah Schwartz - 4th Grade</SelectItem>
-                    <SelectItem value="4">Chaya Friedman - 5th Grade</SelectItem>
-                    <SelectItem value="5">Miriam Levy - 2nd Grade</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      <SamplePageOverlay />
+      {/* Header */}
+      <Stack direction="row" justifyContent="space-between" alignItems="center">
+        <Box>
+          <Typography variant="h5">Parent Meetings</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Schedule and track parent-teacher conferences
+          </Typography>
+        </Box>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Parent/Guardian Name *</Label>
-                  <Input placeholder="Mrs. Cohen" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Parent Phone</Label>
-                  <Input type="tel" placeholder="(732) 555-0000" />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Meeting Date *</Label>
-                  <Input type="date" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Meeting Time *</Label>
-                  <Input type="time" />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Duration</Label>
-                <Select defaultValue="30">
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="15">15 minutes</SelectItem>
-                    <SelectItem value="30">30 minutes</SelectItem>
-                    <SelectItem value="45">45 minutes</SelectItem>
-                    <SelectItem value="60">1 hour</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Location *</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select location" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="principal-office">Principal Office</SelectItem>
-                    <SelectItem value="conference-room">Conference Room</SelectItem>
-                    <SelectItem value="classroom">Classroom</SelectItem>
-                    <SelectItem value="virtual">Virtual Meeting</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Meeting Purpose/Agenda *</Label>
-                <Textarea 
-                  placeholder="What will be discussed in this meeting? (e.g., Academic progress, behavior concerns, general check-in, etc.)"
-                  rows={4}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Attendees</Label>
-                <Input placeholder="Who else will attend? (e.g., teacher, counselor, therapist)" />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Preparation Notes</Label>
-                <Textarea 
-                  placeholder="Notes to prepare for the meeting, materials needed, etc."
-                  rows={3}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <input type="checkbox" id="sendReminder" className="size-4" />
-                  <Label htmlFor="sendReminder">Send email reminder to parents</Label>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <input type="checkbox" id="addToCalendar" className="size-4" />
-                  <Label htmlFor="addToCalendar">Add to school calendar</Label>
-                </div>
-              </div>
-
-              <div className="flex gap-2 pt-4">
-                <Button className="flex-1 bg-purple-600 hover:bg-purple-700">
-                  <Calendar className="size-4 mr-2" />
-                  Schedule Meeting
-                </Button>
-                <Button variant="outline" className="flex-1" onClick={() => setIsDialogOpen(false)}>
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      {/* Filter Tabs */}
-      <div className="flex gap-2">
         <Button
-          variant={filter === 'all' ? 'default' : 'outline'}
-          onClick={() => setFilter('all')}
+          variant="contained"
+          color="secondary"
+          startIcon={<AddIcon />}
+          onClick={() => setIsDialogOpen(true)}
         >
+          Schedule Meeting
+        </Button>
+      </Stack>
+
+      {/* Schedule Dialog */}
+      <Dialog open={isDialogOpen} onClose={() => setIsDialogOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Schedule Parent Meeting</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={3}>
+            <Select fullWidth displayEmpty>
+              <MenuItem value="">Select student</MenuItem>
+              <MenuItem value="1">Sarah Cohen – 3rd Grade</MenuItem>
+              <MenuItem value="2">Rivka Goldstein – 3rd Grade</MenuItem>
+              <MenuItem value="3">Leah Schwartz – 4th Grade</MenuItem>
+            </Select>
+
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+              <TextField label="Parent / Guardian Name" fullWidth />
+              <TextField label="Parent Phone" fullWidth />
+            </Stack>
+
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+              <TextField type="date" label="Meeting Date" InputLabelProps={{ shrink: true }} fullWidth />
+              <TextField type="time" label="Meeting Time" InputLabelProps={{ shrink: true }} fullWidth />
+            </Stack>
+
+            <Select fullWidth defaultValue="30">
+              <MenuItem value="15">15 minutes</MenuItem>
+              <MenuItem value="30">30 minutes</MenuItem>
+              <MenuItem value="45">45 minutes</MenuItem>
+              <MenuItem value="60">1 hour</MenuItem>
+            </Select>
+
+            <Select fullWidth displayEmpty>
+              <MenuItem value="">Select location</MenuItem>
+              <MenuItem value="principal-office">Principal Office</MenuItem>
+              <MenuItem value="conference-room">Conference Room</MenuItem>
+              <MenuItem value="classroom">Classroom</MenuItem>
+              <MenuItem value="virtual">Virtual Meeting</MenuItem>
+            </Select>
+
+            <TextField
+              label="Meeting Purpose / Agenda"
+              multiline
+              rows={4}
+              fullWidth
+            />
+
+            <TextField label="Attendees" fullWidth />
+            <TextField label="Preparation Notes" multiline rows={3} fullWidth />
+
+            <FormControlLabel
+              control={<Checkbox />}
+              label="Send email reminder to parents"
+            />
+            <FormControlLabel
+              control={<Checkbox />}
+              label="Add to school calendar"
+            />
+          </Stack>
+        </DialogContent>
+
+        <DialogActions>
+          <Button variant="contained" color="secondary" startIcon={<CalendarMonthIcon />}>
+            Schedule Meeting
+          </Button>
+          <Button variant="outlined" onClick={() => setIsDialogOpen(false)}>
+            Cancel
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Filters */}
+      <Stack direction="row" spacing={2}>
+        <Button variant={filter === 'all' ? 'contained' : 'outlined'} onClick={() => setFilter('all')}>
           All Meetings
         </Button>
         <Button
-          variant={filter === 'upcoming' ? 'default' : 'outline'}
+          variant={filter === 'upcoming' ? 'contained' : 'outlined'}
           onClick={() => setFilter('upcoming')}
         >
           Upcoming
         </Button>
         <Button
-          variant={filter === 'completed' ? 'default' : 'outline'}
+          variant={filter === 'completed' ? 'contained' : 'outlined'}
           onClick={() => setFilter('completed')}
         >
           Completed
         </Button>
-      </div>
+      </Stack>
 
       {/* Meetings List */}
-      <div className="space-y-4">
-        {filteredMeetings.map((meeting) => (
+      <Stack spacing={2}>
+        {filteredMeetings.map(meeting => (
           <Card key={meeting.id}>
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <h3 className="text-gray-900">{meeting.student}</h3>
-                    <Badge variant="outline">{meeting.grade}</Badge>
-                    {meeting.status === 'scheduled' ? (
-                      <Badge className="bg-green-100 text-green-800">
-                        <Clock className="size-3 mr-1" />
-                        Scheduled
-                      </Badge>
-                    ) : (
-                      <Badge className="bg-gray-100 text-gray-800">
-                        <CheckCircle className="size-3 mr-1" />
-                        Completed
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-4 text-sm text-gray-600">
-                      <span className="flex items-center gap-1">
-                        <User className="size-4" />
-                        {meeting.parent}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Calendar className="size-4" />
+            <CardContent>
+              <Stack spacing={2}>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Typography fontWeight={600}>{meeting.student}</Typography>
+                  <Chip label={meeting.grade} size="small" variant="outlined" />
+                  {meeting.status === 'scheduled' ? (
+                    <Chip
+                      icon={<AccessTimeIcon />}
+                      label="Scheduled"
+                      color="success"
+                      size="small"
+                    />
+                  ) : (
+                    <Chip
+                      icon={<CheckCircleIcon />}
+                      label="Completed"
+                      size="small"
+                    />
+                  )}
+                </Stack>
+
+                <Stack spacing={1}>
+                  <Stack direction="row" spacing={3} flexWrap="wrap">
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <PersonIcon fontSize="small" />
+                      <Typography variant="body2">{meeting.parent}</Typography>
+                    </Stack>
+
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <CalendarMonthIcon fontSize="small" />
+                      <Typography variant="body2">
                         {meeting.date} at {meeting.time}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <MapPin className="size-4" />
-                        {meeting.location}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-700">{meeting.purpose}</p>
-                    {meeting.notes && (
-                      <p className="text-sm text-gray-600 italic">Notes: {meeting.notes}</p>
-                    )}
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm">
+                      </Typography>
+                    </Stack>
+
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <PlaceIcon fontSize="small" />
+                      <Typography variant="body2">{meeting.location}</Typography>
+                    </Stack>
+                  </Stack>
+
+                  <Typography variant="body2">{meeting.purpose}</Typography>
+
+                  {meeting.notes && (
+                    <Typography variant="body2" color="text.secondary" fontStyle="italic">
+                      Notes: {meeting.notes}
+                    </Typography>
+                  )}
+                </Stack>
+
+                <Divider />
+
+                <Stack direction="row" spacing={1} justifyContent="flex-end">
+                  <Button size="small" variant="outlined">
                     Edit
                   </Button>
                   {meeting.status === 'scheduled' && (
-                    <Button variant="outline" size="sm">
+                    <Button size="small" variant="outlined" color="error">
                       Cancel
                     </Button>
                   )}
-                </div>
-              </div>
+                </Stack>
+              </Stack>
             </CardContent>
           </Card>
         ))}
-      </div>
-    </div>
+      </Stack>
+    </Box>
   );
 }
