@@ -1,27 +1,17 @@
 import axios, { AxiosError } from "axios";
 
-// ------------------------------
-// Base URL Resolution
-// ------------------------------
-let baseURL: string =
-  import.meta.env.VITE_SERVER_URL || "http://localhost:8080";
+const baseURL =
+  import.meta.env.DEV
+    ? "http://localhost:8080/api"
+    : "/api";
 
-// In production, override using runtime config (injected at deploy time)
-if (import.meta.env.PROD && window.__APP_CONFIG__?.SERVER_URL) {
-  baseURL = window.__APP_CONFIG__.SERVER_URL;
-}
-
-// ------------------------------
-// Axios Instance
-// ------------------------------
 const api = axios.create({
   baseURL,
-  withCredentials: true, // IMPORTANT for session auth
+  withCredentials: true,
 });
 
 // ------------------------------
 // GLOBAL RESPONSE INTERCEPTOR
-// - Automatically logs out on 401 or 403
 // ------------------------------
 api.interceptors.response.use(
   (response) => response,
@@ -32,21 +22,17 @@ api.interceptors.response.use(
     if (status === 401) {
       console.warn("[AUTH] Session expired → Logging out");
 
-      // Clear any stored client-side auth data
       localStorage.removeItem("user");
       sessionStorage.removeItem("user");
 
-      // Redirect to login with message
       window.location.href = "/login?message=session_expired";
-
       return Promise.reject(error);
     }
 
     if (status === 403) {
-      console.warn("[AUTH] Forbidden. User has no permission → Logging out");
+      console.warn("[AUTH] Forbidden → Logging out");
 
       window.location.href = "/login?message=forbidden";
-
       return Promise.reject(error);
     }
 
@@ -55,14 +41,3 @@ api.interceptors.response.use(
 );
 
 export default api;
-
-// ------------------------------
-// Global Type Declaration
-// ------------------------------
-declare global {
-  interface Window {
-    __APP_CONFIG__?: {
-      SERVER_URL: string;
-    };
-  }
-}

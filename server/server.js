@@ -126,11 +126,33 @@ app.use(
 // ------------------------------
 // 8. ROUTES
 // ------------------------------
-app.use("/auth", authRoutes);
-app.use("/roles", roleRoutes);
-app.use("/invite", inviteRoutes);
-app.use("/users", userRoutes);
-app.use("/profile", userProfileRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/roles", roleRoutes);
+app.use("/api/invite", inviteRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/profile", userProfileRoutes);
+// Serve static React files
+const __dirname = path.resolve();
+
+app.use(
+  express.static(path.join(__dirname, "public"), {
+    maxAge: "1y",
+    etag: false,
+    setHeaders: (res, filePath) => {
+      // Never cache index.html
+      if (filePath.endsWith("index.html")) {
+        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+      }
+    },
+  })
+);
+
+// React Router fallback
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+
 
 // ------------------------------
 // 9. GLOBAL ERROR HANDLER
