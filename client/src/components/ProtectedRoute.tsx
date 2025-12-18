@@ -1,8 +1,6 @@
-// src/components/ProtectedRoute.tsx
 import { Navigate, Outlet, useLocation } from "react-router-dom";
-import { useEffect, useState } from "react";
-import api from "../utils/api";
 import { Box, CircularProgress } from "@mui/material";
+import { useAuth } from "../context/AuthContext";
 
 interface Permission {
   view: boolean;
@@ -18,40 +16,16 @@ interface ModulePermissions {
 interface ProtectedProps {
   roles?: string[];
   permission?: {
-    module: keyof ModulePermissions; // "users"
-    action: keyof Permission;        // "view" | "create" | "edit" | "delete"
+    module: keyof ModulePermissions;
+    action: keyof Permission;
   };
 }
 
-
-export default function ProtectedRoute({
-  roles,
-  permission,
-}: ProtectedProps) {
+export default function ProtectedRoute({ roles, permission }: ProtectedProps) {
   const location = useLocation();
-  const [loading, setLoading] = useState(true);
-  const [authUser, setAuthUser] = useState<any>(null);
+  const { user, loading } = useAuth();
 
-  useEffect(() => {
-    let mounted = true;
-
-    api
-      .get("/auth/me")
-      .then((res) => {
-        if (mounted) setAuthUser(res.data.user);
-      })
-      .catch(() => {
-        if (mounted) setAuthUser(null);
-      })
-      .finally(() => {
-        if (mounted) setLoading(false);
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
+  // ⏳ Wait for auth to resolve
   if (loading) {
     return (
       <Box sx={{ p: 5, textAlign: "center" }}>
@@ -60,75 +34,52 @@ export default function ProtectedRoute({
     );
   }
 
-  // ❌ Not logged in → redirect to login
-  if (!authUser) {
+  // ❌ Not logged in
+  if (!user) {
     return (
       <Navigate
-        to={`/login?msg=session_expired`}
+        to="/login?msg=session_expired"
         replace
         state={{ from: location }}
       />
     );
   }
 
-
-  //force password change
+  // 🔐 Force password change
   if (
-  authUser.mustChangePassword &&
-  location.pathname !== "/force-password-change"
-) {
-  return (
-    <Navigate
-      to="/force-password-change"
-      replace
-      state={{ from: location }}
-    />
-  );
-}
+    user.mustChangePassword &&
+    location.pathname !== "/force-password-change"
+  ) {
+    return <Navigate to="/force-password-change" replace />;
+  }
 
-  // ----------------------------------------
-  // ✅ ROLE NAME CHECK
-  // ----------------------------------------
+  // 👑 ADMIN OVERRIDE
+  const isAdmin = user.roles?.some((r: any) => r.name === "admin");
+  if (isAdmin) {
+    return <Outlet />;
+  }
+
+  // 🎭 Role check
   if (roles?.length) {
-    const roleNames = authUser.roles.map((r: any) => r.name);
-    const hasRole = roles.some((role) => roleNames.includes(role));
-
-    if (!hasRole) {
-      return (
-        <Navigate
-          to="/login?msg=unauthorized"
-          replace
-          state={{ from: location }}
-        />
-      );
+    const roleNames = user.roles.map((r: any) => r.name);
+    if (!roles.some((r) => roleNames.includes(r))) {
+      return <Navigate to="/login?msg=unauthorized" replace />;
     }
   }
 
-  // ----------------------------------------
-  // ✅ PERMISSION CHECK
-  // ----------------------------------------
+  // 🔑 Permission check
   if (permission) {
     const { module, action } = permission;
 
-    // user may have multiple roles; allow if ANY role grants permission
-    const hasPermission = authUser.roles.some((role: any) => {
+    const hasPermission = user.roles.some((role: any) => {
       const perms = role.permissions?.[module];
-      return perms && perms[action] === true;
+      return perms?.[action] === true;
     });
 
     if (!hasPermission) {
-      return (
-        <Navigate
-          to="/login?msg=unauthorized"
-          replace
-          state={{ from: location }}
-        />
-      );
+      return <Navigate to="/login?msg=unauthorized" replace />;
     }
   }
 
-  // ----------------------------------------
-  // ✅ Allowed
-  // ----------------------------------------
   return <Outlet />;
 }

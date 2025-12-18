@@ -52,16 +52,10 @@ import BarChartIcon from "@mui/icons-material/BarChart";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 
+
 import api from "../../utils/api";
-import useCurrentUser from "../../hooks/useCurrentUser";
-import { hasPermission } from "../../utils/permissions";
 
-/* ---------- PERMISSIONS ---------- */
-
-const NO_PERMISSION_TOOLTIP =
-  "You do not have permission to perform this action.";
-
-/* ---------- Types / helpers (UNCHANGED) ---------- */
+// ---------- Types ----------
 
 interface Permission {
   view: boolean;
@@ -124,7 +118,7 @@ interface RolesResponse {
   roles: ApiRole[];
 }
 
-/* ---------- Helpers (UNCHANGED) ---------- */
+// ---------- Helpers ----------
 
 const defaultPermission: Permission = {
   view: false,
@@ -145,21 +139,94 @@ const createEmptyModulePermissions = (): ModulePermissions => ({
   reports: { ...defaultPermission },
 });
 
-const cloneModulePermissions = (permissions: ModulePermissions): ModulePermissions =>
-  JSON.parse(JSON.stringify(permissions));
+const cloneModulePermissions = (
+  permissions: ModulePermissions
+): ModulePermissions => ({
+  students: { ...permissions.students },
+  classes: { ...permissions.classes },
+  reportCards: { ...permissions.reportCards },
+  communications: { ...permissions.communications },
+  applications: { ...permissions.applications },
+  financial: { ...permissions.financial },
+  users: { ...permissions.users },
+  settings: { ...permissions.settings },
+  reports: { ...permissions.reports },
+});
 
-/* ---------- Component ---------- */
+const modules: {
+  key: ModuleKey;
+  name: string;
+  icon: React.ElementType;
+  color: string;
+}[] = [
+  {
+    key: "students",
+    name: "Student Management",
+    icon: SchoolIcon,
+    color: "#1976d2",
+  },
+  {
+    key: "classes",
+    name: "Classes & Attendance",
+    icon: ClassIcon,
+    color: "#388e3c",
+  },
+  {
+    key: "reportCards",
+    name: "Report Cards & Grades",
+    icon: GradeIcon,
+    color: "#f57c00",
+  },
+  {
+    key: "communications",
+    name: "Communications",
+    icon: EmailIcon,
+    color: "#7b1fa2",
+  },
+  {
+    key: "applications",
+    name: "Applications",
+    icon: AssignmentIcon,
+    color: "#0097a7",
+  },
+  {
+    key: "financial",
+    name: "Financial Management",
+    icon: AttachMoneyIcon,
+    color: "#689f38",
+  },
+  {
+    key: "users",
+    name: "User Management",
+    icon: PeopleIcon,
+    color: "#d32f2f",
+  },
+  {
+    key: "settings",
+    name: "School Settings",
+    icon: SettingsIcon,
+    color: "#5d4037",
+  },
+  {
+    key: "reports",
+    name: "Reports & Analytics",
+    icon: BarChartIcon,
+    color: "#455a64",
+  },
+];
+
+const createEmptyRoleForm = (): RoleFormState => ({
+  name: "",
+  displayName: "",
+  description: "",
+  permissions: createEmptyModulePermissions(),
+});
+
+// ---------- Component ----------
 
 export default function RoleManagement() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-
-  const { user: currentUser, loading: userLoading } = useCurrentUser();
-
-  const canView = hasPermission(currentUser, "users", "view");
-  const canCreate = hasPermission(currentUser, "users", "create");
-  const canEdit = hasPermission(currentUser, "users", "edit");
-  const canDelete = hasPermission(currentUser, "users", "delete");
 
   const [snackbar, setSnackbar] = useState<SnackbarState>({
     open: false,
@@ -169,176 +236,850 @@ export default function RoleManagement() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRole, setEditingRole] = useState<Role | null>(null);
-  const [newRole, setNewRole] = useState<RoleFormState>(() => ({
-    name: "",
-    displayName: "",
-    description: "",
-    permissions: createEmptyModulePermissions(),
-  }));
+  const [newRole, setNewRole] = useState<RoleFormState>(() =>
+    createEmptyRoleForm()
+  );
 
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
 
-  /* ---------- Load Roles ---------- */
+  // ---------- Snackbar ----------
+
+  const handleSnackbarClose = useCallback(
+    (_event?: unknown, reason?: string) => {
+      if (reason === "clickaway") return;
+      setSnackbar((prev) => ({ ...prev, open: false }));
+    },
+    []
+  );
+
+  const openSnackbar = useCallback(
+    (message: string, severity: AlertColor = "success") => {
+      setSnackbar({ open: true, message, severity });
+    },
+    []
+  );
+
+  // ---------- Load Roles from API ----------
 
   const loadRoles = useCallback(async () => {
     try {
       setLoading(true);
       const { data } = await api.get<RolesResponse>("/roles");
+
       setRoles(
-        data.roles.map((r) => ({
-          id: r._id,
-          _id: r._id,
-          name: r.name,
-          displayName: r.displayName,
-          description: r.description,
-          isSystem: r.isSystem,
-          userCount: r.userCount ?? 0,
-          color: r.color ?? "#0097a7",
-          permissions: cloneModulePermissions(r.permissions),
-        }))
+        data.roles.map(
+          (r): Role => ({
+            id: r._id,
+            name: r.name,
+            displayName: r.displayName,
+            description: r.description,
+            isSystem: r.isSystem,
+            userCount: r.userCount ?? 0,
+            color: r.color ?? "#0097a7",
+            permissions: cloneModulePermissions(r.permissions),
+            _id: ""
+          })
+        )
       );
+    } catch (err) {
+      console.error("Error loading roles:", err);
+      openSnackbar("Failed to load roles", "error");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [openSnackbar]);
 
   useEffect(() => {
-    if (canView) loadRoles();
-  }, [loadRoles, canView]);
+    loadRoles();
+  }, [loadRoles]);
 
-  /* ---------- Guard ---------- */
+  // ---------- Handlers ----------
 
-  if (userLoading) {
-    return (
-      <Box sx={{ display: "flex", justifyContent: "center", mt: 6 }}>
-        <Typography>Loading…</Typography>
-      </Box>
-    );
-  }
+  const handleCreateRole = useCallback(() => {
+    setEditingRole(null);
+    setNewRole(createEmptyRoleForm());
+    setDialogOpen(true);
+  }, []);
 
-  if (!canView) {
-    return (
-      <Alert severity="error">
-        You do not have permission to view role management.
-      </Alert>
-    );
-  }
+  const handleEditRole = useCallback(
+    (role: Role) => {
+      if (role.isSystem) {
+        openSnackbar("System roles cannot be edited", "error");
+        return;
+      }
+      setEditingRole(role);
+      setNewRole({
+        name: role.name,
+        displayName: role.displayName,
+        description: role.description,
+        permissions: cloneModulePermissions(role.permissions),
+      });
+      setDialogOpen(true);
+    },
+    [openSnackbar]
+  );
 
-  /* ---------- Render ---------- */
+  const handleDuplicateRole = useCallback((role: Role) => {
+    setEditingRole(null);
+    setNewRole({
+      name: "",
+      displayName: `${role.displayName} (Copy)`,
+      description: role.description,
+      permissions: cloneModulePermissions(role.permissions),
+    });
+    setDialogOpen(true);
+  }, []);
+
+  const handleDeleteRole = useCallback(
+    async (roleId: string) => {
+      const role = roles.find((r) => r._id === roleId);
+      if (role?.isSystem) {
+        openSnackbar("System roles cannot be deleted", "error");
+        return;
+      }
+
+      try {
+        await api.delete(`/roles/${roleId}`);
+        openSnackbar("Role deleted successfully", "success");
+        await loadRoles();
+      } catch (err) {
+        console.error("Error deleting role:", err);
+        openSnackbar("Failed to delete role", "error");
+      }
+    },
+    [roles, openSnackbar, loadRoles]
+  );
+
+  const validateRoleForm = (roleForm: RoleFormState): string | null => {
+    if (!roleForm.name.trim() || !roleForm.displayName.trim()) {
+      return "Please fill in all required fields";
+    }
+
+    const namePattern = /^[a-z0-9_]+$/;
+    if (!namePattern.test(roleForm.name)) {
+      return "Role name can only contain lowercase letters, numbers, and underscores";
+    }
+
+    return null;
+  };
+
+  const handleSaveRole = useCallback(async () => {
+    const error = validateRoleForm(newRole);
+    if (error) {
+      openSnackbar(error, "error");
+      return;
+    }
+
+    const normalizedName = newRole.name.toLowerCase();
+
+    const payload = {
+      name: normalizedName,
+      displayName: newRole.displayName.trim(),
+      description: newRole.description.trim(),
+      permissions: newRole.permissions,
+    };
+
+    try {
+      if (editingRole) {
+        // Update existing role
+        await api.put(`/roles/${editingRole.id}`, payload);
+        openSnackbar("Role updated successfully", "success");
+      } else {
+        // Create new role
+        await api.post("/roles", payload);
+        openSnackbar("Role created successfully", "success");
+      }
+
+      setDialogOpen(false);
+      await loadRoles();
+    } catch (err) {
+      console.error("Error saving role:", err);
+      openSnackbar("Failed to save role", "error");
+    }
+  }, [newRole, editingRole, openSnackbar, loadRoles]);
+
+  const handlePermissionChange = useCallback(
+    (moduleKey: ModuleKey, permissionKey: keyof Permission, value: boolean) => {
+      setNewRole((prev) => ({
+        ...prev,
+        permissions: {
+          ...prev.permissions,
+          [moduleKey]: {
+            ...prev.permissions[moduleKey],
+            [permissionKey]: value,
+          },
+        },
+      }));
+    },
+    []
+  );
+
+  const handleSelectAllModule = useCallback(
+    (moduleKey: ModuleKey, value: boolean) => {
+      setNewRole((prev) => ({
+        ...prev,
+        permissions: {
+          ...prev.permissions,
+          [moduleKey]: {
+            view: value,
+            create: value,
+            edit: value,
+            delete: value,
+          },
+        },
+      }));
+    },
+    []
+  );
+
+  const getPermissionSummary = useCallback(
+    (permissions: ModulePermissions): string => {
+      let total = 0;
+      let granted = 0;
+
+      (Object.values(permissions) as Permission[]).forEach((module) => {
+        Object.values(module).forEach((perm) => {
+          total += 1;
+          if (perm) granted += 1;
+        });
+      });
+
+      return `${granted}/${total}`;
+    },
+    []
+  );
+
+  const sortedRoles = useMemo(
+    () =>
+      [...roles].sort((a, b) => {
+        if (a.isSystem && !b.isSystem) return -1;
+        if (!a.isSystem && b.isSystem) return 1;
+        return a.displayName.localeCompare(b.displayName);
+      }),
+    [roles]
+  );
+
+  // ---------- Render ----------
 
   return (
     <Box>
       <Snackbar
         open={snackbar.open}
         autoHideDuration={4000}
-        onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
+        onClose={handleSnackbarClose}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
       >
-        <Alert severity={snackbar.severity} variant="filled">
+        <Alert
+          severity={snackbar.severity}
+          variant="filled"
+          onClose={handleSnackbarClose}
+        >
           {snackbar.message}
         </Alert>
       </Snackbar>
 
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Stack direction="row" justifyContent="space-between">
-          <Typography variant="h5" fontWeight={600}>
-            Role Management
-          </Typography>
-
-          <Tooltip
-            title={!canCreate ? NO_PERMISSION_TOOLTIP : ""}
-            disableHoverListener={canCreate}
-          >
-            <span>
-              <Button
-                startIcon={<AddIcon />}
-                variant="contained"
-                disabled={!canCreate}
-                onClick={() => setDialogOpen(true)}
+      {/* Header */}
+      <Paper
+        elevation={2}
+        sx={{
+          p: { xs: 2, sm: 3 },
+          mb: 3,
+          background: "linear-gradient(135deg, #5e35b1 0%, #4527a0 100%)",
+          color: "white",
+        }}
+      >
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          justifyContent="space-between"
+          alignItems={{ xs: "flex-start", sm: "center" }}
+          spacing={2}
+        >
+          <Box>
+            <Typography variant="h5" sx={{ fontWeight: 600, mb: 0.5 }}>
+              Role Management
+            </Typography>
+            <Typography variant="body2" sx={{ opacity: 0.9 }}>
+              Create custom roles and manage access permissions
+            </Typography>
+            {loading && (
+              <Typography
+                variant="caption"
+                sx={{ opacity: 0.9, display: "block", mt: 0.5 }}
               >
-                Create Role
-              </Button>
-            </span>
-          </Tooltip>
+                Loading roles...
+              </Typography>
+            )}
+          </Box>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={handleCreateRole}
+            sx={{
+              bgcolor: "white",
+              color: "#5e35b1",
+              "&:hover": { bgcolor: "#f5f5f5" },
+              fontWeight: 600,
+            }}
+          >
+            Create Custom Role
+          </Button>
         </Stack>
       </Paper>
 
-      <Stack spacing={2}>
-        {roles.map((role) => (
-          <Card key={role.id}>
-            <CardContent>
-              <Stack direction="row" justifyContent="space-between">
-                <Typography fontWeight={600}>{role.displayName}</Typography>
+      {/* Info Alert */}
+      <Alert severity="info" sx={{ mb: 3 }}>
+        <Typography variant="body2">
+          System roles (Administrator, Principal, Teacher, Business Office,
+          Parent) are predefined and cannot be edited or deleted. You can create
+          custom roles with specific permissions tailored to your school&apos;s
+          needs.
+        </Typography>
+      </Alert>
 
-                {!role.isSystem && (
-                  <Stack direction="row" spacing={1}>
-                    <Tooltip
-                      title={!canEdit ? NO_PERMISSION_TOOLTIP : "Edit"}
-                      disableHoverListener={canEdit}
-                    >
-                      <span>
-                        <IconButton
-                          disabled={!canEdit}
-                          onClick={() => {
-                            setEditingRole(role);
-                            setNewRole({
-                              name: role.name,
-                              displayName: role.displayName,
-                              description: role.description,
-                              permissions: cloneModulePermissions(role.permissions),
-                            });
-                            setDialogOpen(true);
-                          }}
-                        >
-                          <EditIcon />
-                        </IconButton>
-                      </span>
-                    </Tooltip>
-
-                    <Tooltip
-                      title={!canDelete ? NO_PERMISSION_TOOLTIP : "Delete"}
-                      disableHoverListener={canDelete}
-                    >
-                      <span>
-                        <IconButton
-                          disabled={!canDelete}
-                          onClick={async () => {
-                            await api.delete(`/roles/${role.id}`);
-                            loadRoles();
-                          }}
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      </span>
-                    </Tooltip>
-                  </Stack>
-                )}
-              </Stack>
-            </CardContent>
-          </Card>
-        ))}
-      </Stack>
-
-      {/* Dialog remains unchanged except Save button */}
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>{editingRole ? "Edit Role" : "Create Role"}</DialogTitle>
-        <DialogContent />
-        <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Tooltip
-            title={!canEdit && editingRole ? NO_PERMISSION_TOOLTIP : ""}
-            disableHoverListener={canEdit || !editingRole}
+      {/* Roles layout */}
+      <Box
+        sx={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 3,
+        }}
+      >
+        {sortedRoles.map((role) => (
+          <Box
+            key={role._id}
+            sx={{
+              width: {
+                xs: "100%",
+                sm: "calc(50% - 12px)",
+                lg: "calc(33.333% - 16px)",
+              },
+              flexGrow: 1,
+              minWidth: { xs: "100%", sm: 260 },
+            }}
           >
-            <span>
-              <Button
-                variant="contained"
-                startIcon={<SaveIcon />}
-                disabled={editingRole ? !canEdit : !canCreate}
+            <Card
+              elevation={3}
+              sx={{
+                height: "100%",
+                display: "flex",
+                flexDirection: "column",
+                transition: "all 0.3s",
+                "&:hover": {
+                  transform: "translateY(-4px)",
+                  boxShadow: 6,
+                },
+              }}
+            >
+              <CardContent sx={{ p: 3, flexGrow: 1 }}>
+                <Stack spacing={2}>
+                  {/* Header */}
+                  <Stack
+                    direction="row"
+                    justifyContent="space-between"
+                    alignItems="flex-start"
+                  >
+                    <Box sx={{ flexGrow: 1 }}>
+                      <Stack
+                        direction="row"
+                        spacing={1}
+                        alignItems="center"
+                        sx={{ mb: 1 }}
+                      >
+                        <SecurityIcon sx={{ color: role.color, fontSize: 24 }} />
+                        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                          {role.displayName}
+                        </Typography>
+                      </Stack>
+                      {role.isSystem && (
+                        <Chip
+                          icon={<LockIcon />}
+                          label="System Role"
+                          size="small"
+                          sx={{
+                            bgcolor: "rgba(0,0,0,0.08)",
+                            height: 24,
+                            fontSize: "0.75rem",
+                          }}
+                        />
+                      )}
+                    </Box>
+                    {!role.isSystem && (
+                      <Stack direction="row" spacing={0.5}>
+                        <Tooltip title="Duplicate">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleDuplicateRole(role)}
+                            sx={{ color: "primary.main" }}
+                            aria-label={`Duplicate ${role.displayName} role`}
+                          >
+                            <ContentCopyIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Edit">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleEditRole(role)}
+                            sx={{ color: "primary.main" }}
+                            aria-label={`Edit ${role.displayName} role`}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Delete">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleDeleteRole(role.id)}
+                            sx={{ color: "error.main" }}
+                            aria-label={`Delete ${role.displayName} role`}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
+                    )}
+                  </Stack>
+
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ minHeight: 40 }}
+                  >
+                    {role.description}
+                  </Typography>
+
+                  <Divider />
+
+                  {/* Stats */}
+                  <Stack direction="row" spacing={3}>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Users
+                      </Typography>
+                      <Typography
+                        variant="h6"
+                        sx={{ fontWeight: 600, color: role.color }}
+                      >
+                        {role.userCount}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Permissions
+                      </Typography>
+                      <Typography
+                        variant="h6"
+                        sx={{ fontWeight: 600, color: role.color }}
+                      >
+                        {getPermissionSummary(role.permissions)}
+                      </Typography>
+                    </Box>
+                  </Stack>
+
+                  {/* Quick Permission Overview */}
+                  <Box sx={{ pt: 1 }}>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ display: "block", mb: 1 }}
+                    >
+                      Key Permissions:
+                    </Typography>
+                    <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                      {modules.map((module) => {
+                        const modPerms = role.permissions[module.key];
+                        const hasAnyPerm =
+                          modPerms.view ||
+                          modPerms.create ||
+                          modPerms.edit ||
+                          modPerms.delete;
+                        if (!hasAnyPerm) return null;
+                        return (
+                          <Chip
+                            key={module.key}
+                            label={module.name.replace(" & ", " ")}
+                            size="small"
+                            sx={{
+                              height: 22,
+                              fontSize: "0.7rem",
+                              bgcolor: `${module.color}15`,
+                              color: module.color,
+                              fontWeight: 500,
+                            }}
+                          />
+                        );
+                      })}
+                    </Stack>
+                  </Box>
+                </Stack>
+              </CardContent>
+            </Card>
+          </Box>
+        ))}
+      </Box>
+
+      {/* Create/Edit Role Dialog */}
+      <Dialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+        fullScreen={isMobile}
+      >
+        <DialogTitle
+          sx={{
+            background: "linear-gradient(135deg, #5e35b1 0%, #4527a0 100%)",
+            color: "white",
+            fontWeight: 600,
+          }}
+        >
+          {editingRole ? "Edit Role" : "Create Custom Role"}
+        </DialogTitle>
+        <DialogContent sx={{ pt: 3 }}>
+          <Stack spacing={3}>
+            {/* Basic Info */}
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600 }}>
+                Basic Information
+              </Typography>
+
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                spacing={2}
+                sx={{ mb: 2 }}
               >
-                Save
-              </Button>
-            </span>
-          </Tooltip>
+                <Box sx={{ flex: 1 }}>
+                  <TextField
+                    fullWidth
+                    label="Role Name *"
+                    placeholder="e.g., guidance_counselor"
+                    value={newRole.name}
+                    onChange={(e) =>
+                      setNewRole((prev) => ({
+                        ...prev,
+                        name: e.target.value
+                          .toLowerCase()
+                          .replace(/\s+/g, "_"),
+                      }))
+                    }
+                    size="small"
+                    helperText="Lowercase, no spaces (underscores only)"
+                    disabled={!!editingRole}
+                  />
+                </Box>
+                <Box sx={{ flex: 1 }}>
+                  <TextField
+                    fullWidth
+                    label="Display Name *"
+                    placeholder="e.g., Guidance Counselor"
+                    value={newRole.displayName}
+                    onChange={(e) =>
+                      setNewRole((prev) => ({
+                        ...prev,
+                        displayName: e.target.value,
+                      }))
+                    }
+                    size="small"
+                  />
+                </Box>
+              </Stack>
+
+              <TextField
+                fullWidth
+                label="Description"
+                placeholder="Brief description of this role's responsibilities"
+                value={newRole.description}
+                onChange={(e) =>
+                  setNewRole((prev) => ({
+                    ...prev,
+                    description: e.target.value,
+                  }))
+                }
+                size="small"
+                multiline
+                rows={2}
+              />
+            </Box>
+
+            <Divider />
+
+            {/* Permissions */}
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600 }}>
+                Module Permissions
+              </Typography>
+
+              {isMobile ? (
+                // Mobile: Accordion View
+                <Stack spacing={1}>
+                  {modules.map((module) => {
+                    const ModuleIcon = module.icon;
+                    const modPerms = newRole.permissions[module.key];
+                    const hasAnyPerm =
+                      modPerms.view ||
+                      modPerms.create ||
+                      modPerms.edit ||
+                      modPerms.delete;
+
+                    return (
+                      <Accordion key={module.key}>
+                        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                          <Stack
+                            direction="row"
+                            spacing={1.5}
+                            alignItems="center"
+                          >
+                            <ModuleIcon
+                              sx={{ color: module.color, fontSize: 20 }}
+                            />
+                            <Typography
+                              variant="body2"
+                              sx={{ fontWeight: 500 }}
+                            >
+                              {module.name}
+                            </Typography>
+                            {hasAnyPerm && (
+                              <Chip
+                                label="Active"
+                                size="small"
+                                color="primary"
+                                sx={{ height: 20, fontSize: "0.7rem" }}
+                              />
+                            )}
+                          </Stack>
+                        </AccordionSummary>
+                        <AccordionDetails>
+                          <Stack spacing={1}>
+                            <FormControlLabel
+                              control={
+                                <Checkbox
+                                  checked={modPerms.view}
+                                  onChange={(e) =>
+                                    handlePermissionChange(
+                                      module.key,
+                                      "view",
+                                      e.target.checked
+                                    )
+                                  }
+                                  size="small"
+                                />
+                              }
+                              label={
+                                <Typography variant="body2">View</Typography>
+                              }
+                            />
+                            <FormControlLabel
+                              control={
+                                <Checkbox
+                                  checked={modPerms.create}
+                                  onChange={(e) =>
+                                    handlePermissionChange(
+                                      module.key,
+                                      "create",
+                                      e.target.checked
+                                    )
+                                  }
+                                  size="small"
+                                />
+                              }
+                              label={
+                                <Typography variant="body2">Create</Typography>
+                              }
+                            />
+                            <FormControlLabel
+                              control={
+                                <Checkbox
+                                  checked={modPerms.edit}
+                                  onChange={(e) =>
+                                    handlePermissionChange(
+                                      module.key,
+                                      "edit",
+                                      e.target.checked
+                                    )
+                                  }
+                                  size="small"
+                                />
+                              }
+                              label={
+                                <Typography variant="body2">Edit</Typography>
+                              }
+                            />
+                            <FormControlLabel
+                              control={
+                                <Checkbox
+                                  checked={modPerms.delete}
+                                  onChange={(e) =>
+                                    handlePermissionChange(
+                                      module.key,
+                                      "delete",
+                                      e.target.checked
+                                    )
+                                  }
+                                  size="small"
+                                />
+                              }
+                              label={
+                                <Typography variant="body2">Delete</Typography>
+                              }
+                            />
+                            <Button
+                              size="small"
+                              onClick={() =>
+                                handleSelectAllModule(
+                                  module.key,
+                                  !hasAnyPerm
+                                )
+                              }
+                              variant="outlined"
+                              fullWidth
+                            >
+                              {hasAnyPerm ? "Clear All" : "Select All"}
+                            </Button>
+                          </Stack>
+                        </AccordionDetails>
+                      </Accordion>
+                    );
+                  })}
+                </Stack>
+              ) : (
+                // Desktop: Table View
+                <TableContainer component={Paper} variant="outlined">
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow sx={{ bgcolor: "#f5f5f5" }}>
+                        <TableCell sx={{ fontWeight: 600 }}>Module</TableCell>
+                        <TableCell align="center" sx={{ fontWeight: 600 }}>
+                          View
+                        </TableCell>
+                        <TableCell align="center" sx={{ fontWeight: 600 }}>
+                          Create
+                        </TableCell>
+                        <TableCell align="center" sx={{ fontWeight: 600 }}>
+                          Edit
+                        </TableCell>
+                        <TableCell align="center" sx={{ fontWeight: 600 }}>
+                          Delete
+                        </TableCell>
+                        <TableCell align="center" sx={{ fontWeight: 600 }}>
+                          All
+                        </TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {modules.map((module) => {
+                        const ModuleIcon = module.icon;
+                        const modPerms = newRole.permissions[module.key];
+                        const allChecked =
+                          modPerms.view &&
+                          modPerms.create &&
+                          modPerms.edit &&
+                          modPerms.delete;
+
+                        return (
+                          <TableRow key={module.key} hover>
+                            <TableCell>
+                              <Stack
+                                direction="row"
+                                spacing={1.5}
+                                alignItems="center"
+                              >
+                                <ModuleIcon
+                                  sx={{ color: module.color, fontSize: 20 }}
+                                />
+                                <Typography
+                                  variant="body2"
+                                  sx={{ fontWeight: 500 }}
+                                >
+                                  {module.name}
+                                </Typography>
+                              </Stack>
+                            </TableCell>
+                            <TableCell align="center">
+                              <Checkbox
+                                checked={modPerms.view}
+                                onChange={(e) =>
+                                  handlePermissionChange(
+                                    module.key,
+                                    "view",
+                                    e.target.checked
+                                  )
+                                }
+                                size="small"
+                              />
+                            </TableCell>
+                            <TableCell align="center">
+                              <Checkbox
+                                checked={modPerms.create}
+                                onChange={(e) =>
+                                  handlePermissionChange(
+                                    module.key,
+                                    "create",
+                                    e.target.checked
+                                  )
+                                }
+                                size="small"
+                              />
+                            </TableCell>
+                            <TableCell align="center">
+                              <Checkbox
+                                checked={modPerms.edit}
+                                onChange={(e) =>
+                                  handlePermissionChange(
+                                    module.key,
+                                    "edit",
+                                    e.target.checked
+                                  )
+                                }
+                                size="small"
+                              />
+                            </TableCell>
+                            <TableCell align="center">
+                              <Checkbox
+                                checked={modPerms.delete}
+                                onChange={(e) =>
+                                  handlePermissionChange(
+                                    module.key,
+                                    "delete",
+                                    e.target.checked
+                                  )
+                                }
+                                size="small"
+                              />
+                            </TableCell>
+                            <TableCell align="center">
+                              <Checkbox
+                                checked={allChecked}
+                                onChange={(e) =>
+                                  handleSelectAllModule(
+                                    module.key,
+                                    e.target.checked
+                                  )
+                                }
+                                size="small"
+                                color="secondary"
+                              />
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </Box>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, pt: 2 }}>
+          <Button onClick={() => setDialogOpen(false)} variant="outlined">
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSaveRole}
+            variant="contained"
+            startIcon={<SaveIcon />}
+          >
+            {editingRole ? "Update Role" : "Create Role"}
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

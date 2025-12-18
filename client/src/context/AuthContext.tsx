@@ -2,11 +2,13 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import api from "../utils/api";
 
 export interface AuthUser {
+  mustChangePassword: boolean;
   id: string;
   email: string;
   name: string;
-  roles: string[]; // ["admin", "teacher"]
+  roles: any[]; // or define a proper Role type
 }
+
 
 interface AuthContextValue {
   user: AuthUser | null;
@@ -28,7 +30,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Load session on mount
   const refreshUser = async () => {
     try {
       const { data } = await api.get("/auth/me");
@@ -36,7 +37,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } catch {
       setUser(null);
     } finally {
-      setLoading(false);
+      setLoading(false); // ✅ ALWAYS stop loading
     }
   };
 
@@ -45,6 +46,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       await api.post("/auth/logout");
     } catch {}
     setUser(null);
+    setLoading(false);
     window.location.href = "/login?message=session_expired";
   };
 
@@ -58,3 +60,4 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     </AuthContext.Provider>
   );
 };
+

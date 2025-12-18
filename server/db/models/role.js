@@ -19,21 +19,36 @@ const roleSchema = new mongoose.Schema(
     isSystem: { type: Boolean, default: false },
     color: { type: String, default: "#0097a7" },
 
-    permissions: {
-      students: { type: permissionSchema, default: () => ({}) },
-      classes: { type: permissionSchema, default: () => ({}) },
-      reportCards: { type: permissionSchema, default: () => ({}) },
-      communications: { type: permissionSchema, default: () => ({}) },
-      businessOfficeCenter: { type: permissionSchema, default: () => ({}) },
-      principalCenter: { type: permissionSchema, default: () => ({}) },
-      admissions: { type: permissionSchema, default: () => ({}) },
-      enrollment: { type: permissionSchema, default: () => ({}) },
-      applications: { type: permissionSchema, default: () => ({}) },
-      financial: { type: permissionSchema, default: () => ({}) },
-      users: { type: permissionSchema, default: () => ({}) },
-      settings: { type: permissionSchema, default: () => ({}) },
-      reports: { type: permissionSchema, default: () => ({}) },
-    },
+  permissions: {
+  students: permissionSchema,
+  classes: permissionSchema,
+  attendance: permissionSchema,
+  reportCards: permissionSchema,
+  grades: permissionSchema,
+
+  applications: permissionSchema,
+  admissions: permissionSchema,
+  enrollment: permissionSchema,
+
+  communications_email: permissionSchema,
+  communications_sms: permissionSchema,
+  communications_voice: permissionSchema,
+
+  financial: permissionSchema,
+  tuition: permissionSchema,
+  donations: permissionSchema,
+
+  users: permissionSchema,
+  roles: permissionSchema,
+  invites: permissionSchema,
+
+  reports: permissionSchema,
+  analytics: permissionSchema,
+
+  settings: permissionSchema,
+  integrations: permissionSchema,
+}
+
   },
   { timestamps: true }
 );

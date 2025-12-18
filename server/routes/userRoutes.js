@@ -1,5 +1,5 @@
 import express from "express";
-import { requireAuth, requireRole, requirePermission } from "../middleware/auth.js";
+import { requireAuth, requirePermission } from "../middleware/auth.js";
 import {
   getAllUsers,
   updateUser,

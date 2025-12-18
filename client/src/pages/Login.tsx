@@ -22,9 +22,15 @@ import { Alert, AlertDescription } from "../components/ui/alert";
 
 import nachlasLogo from "../assets/nachlasLogo.png";
 
+import { useAuth } from "../context/AuthContext";
+
+
+
 export default function Login() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
+
+  const { refreshUser } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -67,24 +73,24 @@ const handleSubmit = async (e: React.FormEvent) => {
     });
 
     if (res.data.requiresPasswordChange) {
-  navigate("/force-password-change");
-  return;
-}
-
+      navigate("/force-password-change");
+      return;
+    }
 
     if (res.data.mfaRequired) {
-      // redirect to MFA page if needed
       navigate("/mfa");
       return;
     }
 
-    // Login success
-    await api.get("/auth/me"); // optional sanity check
-    navigate("/");
+    // ✅ THIS IS THE FIX
+    await refreshUser();
+
+    navigate("/", { replace: true });
   } catch (err: any) {
     setError(err.response?.data?.message || "Login failed");
   }
 };
+
 
 
   return (

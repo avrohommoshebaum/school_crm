@@ -1,4 +1,5 @@
 import Role from "../db/models/role.js";
+import { normalizePermissions } from "../utils/normalizePermissions.js";
 
 export const getAllRoles = async (req, res) => {
   const roles = await Role.aggregate([
@@ -26,14 +27,16 @@ export const createRole = async (req, res) => {
   const { name, displayName, description, permissions, color } = req.body;
 
   const existing = await Role.findOne({ name });
-  if (existing) return res.status(400).json({ message: "Role already exists" });
+  if (existing)
+    return res.status(400).json({ message: "Role already exists" });
 
   const role = await Role.create({
     name,
     displayName,
     description,
-    permissions,
     color,
+    isSystem: false,
+    permissions: normalizePermissions(permissions),
   });
 
   res.status(201).json({ role });
@@ -41,12 +44,20 @@ export const createRole = async (req, res) => {
 
 export const updateRole = async (req, res) => {
   const role = await Role.findById(req.params.id);
-  if (!role) return res.status(404).json({ message: "Role not found" });
+  if (!role)
+    return res.status(404).json({ message: "Role not found" });
 
   if (role.isSystem)
     return res.status(400).json({ message: "System roles cannot be edited" });
 
-  Object.assign(role, req.body);
+  const { displayName, description, color, permissions } = req.body;
+
+  if (displayName !== undefined) role.displayName = displayName;
+  if (description !== undefined) role.description = description;
+  if (color !== undefined) role.color = color;
+  if (permissions !== undefined)
+    role.permissions = normalizePermissions(permissions);
+
   await role.save();
 
   res.json({ role });

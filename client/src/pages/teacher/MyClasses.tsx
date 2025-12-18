@@ -20,6 +20,8 @@ import AssignmentIcon from "@mui/icons-material/Assignment";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import { useNavigate } from "react-router";
 
+
+import SamplePageOverlay from "../../components/samplePageOverlay";
 /* ---------------- Mock Auth ---------------- */
 
 const currentTeacher = {
@@ -118,6 +120,8 @@ export default function MyClasses() {
 
   return (
     <Box>
+      {/* Overlay */}
+      <SamplePageOverlay />
       {/* Welcome Snackbar */}
       <Snackbar
         open={welcomeOpen}
