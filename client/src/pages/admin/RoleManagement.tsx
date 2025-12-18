@@ -54,6 +54,10 @@ import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 
 
 import api from "../../utils/api";
+import { PERMISSIONS } from "../../config/permissions";
+import { useAuth } from "../../context/AuthContext";
+import { hasPermission } from "../../utils/permissions";
+
 
 // ---------- Types ----------
 
@@ -64,19 +68,18 @@ interface Permission {
   delete: boolean;
 }
 
-interface ModulePermissions {
-  students: Permission;
-  classes: Permission;
-  reportCards: Permission;
-  communications: Permission;
-  applications: Permission;
-  financial: Permission;
-  users: Permission;
-  settings: Permission;
-  reports: Permission;
-}
+type RolePermissions = Record<
+  string,
+  {
+    view: boolean;
+    create: boolean;
+    edit: boolean;
+    delete: boolean;
+  }
+>;
 
-type ModuleKey = keyof ModulePermissions;
+
+
 
 interface Role {
   _id: string;
@@ -86,7 +89,7 @@ interface Role {
   description: string;
   isSystem: boolean;
   userCount: number;
-  permissions: ModulePermissions;
+  permissions: RolePermissions;
   color: string;
 }
 
@@ -94,7 +97,7 @@ interface RoleFormState {
   name: string;
   displayName: string;
   description: string;
-  permissions: ModulePermissions;
+  permissions: RolePermissions;
 }
 
 interface SnackbarState {
@@ -111,7 +114,7 @@ interface ApiRole {
   isSystem: boolean;
   userCount?: number;
   color?: string;
-  permissions: ModulePermissions;
+  permissions: RolePermissions;
 }
 
 interface RolesResponse {
@@ -127,99 +130,34 @@ const defaultPermission: Permission = {
   delete: false,
 };
 
-const createEmptyModulePermissions = (): ModulePermissions => ({
-  students: { ...defaultPermission },
-  classes: { ...defaultPermission },
-  reportCards: { ...defaultPermission },
-  communications: { ...defaultPermission },
-  applications: { ...defaultPermission },
-  financial: { ...defaultPermission },
-  users: { ...defaultPermission },
-  settings: { ...defaultPermission },
-  reports: { ...defaultPermission },
-});
 
-const cloneModulePermissions = (
-  permissions: ModulePermissions
-): ModulePermissions => ({
-  students: { ...permissions.students },
-  classes: { ...permissions.classes },
-  reportCards: { ...permissions.reportCards },
-  communications: { ...permissions.communications },
-  applications: { ...permissions.applications },
-  financial: { ...permissions.financial },
-  users: { ...permissions.users },
-  settings: { ...permissions.settings },
-  reports: { ...permissions.reports },
-});
+const emptyPermission = {
+  view: false,
+  create: false,
+  edit: false,
+  delete: false,
+};
 
-const modules: {
-  key: ModuleKey;
-  name: string;
-  icon: React.ElementType;
-  color: string;
-}[] = [
-  {
-    key: "students",
-    name: "Student Management",
-    icon: SchoolIcon,
-    color: "#1976d2",
-  },
-  {
-    key: "classes",
-    name: "Classes & Attendance",
-    icon: ClassIcon,
-    color: "#388e3c",
-  },
-  {
-    key: "reportCards",
-    name: "Report Cards & Grades",
-    icon: GradeIcon,
-    color: "#f57c00",
-  },
-  {
-    key: "communications",
-    name: "Communications",
-    icon: EmailIcon,
-    color: "#7b1fa2",
-  },
-  {
-    key: "applications",
-    name: "Applications",
-    icon: AssignmentIcon,
-    color: "#0097a7",
-  },
-  {
-    key: "financial",
-    name: "Financial Management",
-    icon: AttachMoneyIcon,
-    color: "#689f38",
-  },
-  {
-    key: "users",
-    name: "User Management",
-    icon: PeopleIcon,
-    color: "#d32f2f",
-  },
-  {
-    key: "settings",
-    name: "School Settings",
-    icon: SettingsIcon,
-    color: "#5d4037",
-  },
-  {
-    key: "reports",
-    name: "Reports & Analytics",
-    icon: BarChartIcon,
-    color: "#455a64",
-  },
-];
+const createEmptyPermissions = (): RolePermissions =>
+  Object.fromEntries(
+    PERMISSIONS.map(p => [p.key, { ...emptyPermission }])
+  );
+
+const clonePermissions = (permissions: RolePermissions): RolePermissions =>
+  Object.fromEntries(
+    PERMISSIONS.map(p => [
+      p.key,
+      { ...(permissions?.[p.key] ?? emptyPermission) },
+    ])
+  );
+
 
 const createEmptyRoleForm = (): RoleFormState => ({
   name: "",
   displayName: "",
   description: "",
-  permissions: createEmptyModulePermissions(),
+  permissions: createEmptyPermissions(),
+
 });
 
 // ---------- Component ----------
@@ -233,6 +171,17 @@ export default function RoleManagement() {
     message: "",
     severity: "success",
   });
+
+
+
+    const { user } = useAuth();
+
+    const canViewRoles = hasPermission(user, "roles", "view");
+const canCreateRoles = hasPermission(user, "roles", "create");
+const canEditRoles = hasPermission(user, "roles", "edit");
+const canDeleteRoles = hasPermission(user, "roles", "delete");
+
+
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRole, setEditingRole] = useState<Role | null>(null);
@@ -277,7 +226,7 @@ export default function RoleManagement() {
             isSystem: r.isSystem,
             userCount: r.userCount ?? 0,
             color: r.color ?? "#0097a7",
-            permissions: cloneModulePermissions(r.permissions),
+            permissions: clonePermissions(r.permissions),
             _id: ""
           })
         )
@@ -313,7 +262,7 @@ export default function RoleManagement() {
         name: role.name,
         displayName: role.displayName,
         description: role.description,
-        permissions: cloneModulePermissions(role.permissions),
+        permissions: clonePermissions(role.permissions),
       });
       setDialogOpen(true);
     },
@@ -326,7 +275,7 @@ export default function RoleManagement() {
       name: "",
       displayName: `${role.displayName} (Copy)`,
       description: role.description,
-      permissions: cloneModulePermissions(role.permissions),
+      permissions: clonePermissions(role.permissions),
     });
     setDialogOpen(true);
   }, []);
@@ -400,7 +349,7 @@ export default function RoleManagement() {
   }, [newRole, editingRole, openSnackbar, loadRoles]);
 
   const handlePermissionChange = useCallback(
-    (moduleKey: ModuleKey, permissionKey: keyof Permission, value: boolean) => {
+    (moduleKey: string, permissionKey: keyof Permission, value: boolean) => {
       setNewRole((prev) => ({
         ...prev,
         permissions: {
@@ -416,7 +365,7 @@ export default function RoleManagement() {
   );
 
   const handleSelectAllModule = useCallback(
-    (moduleKey: ModuleKey, value: boolean) => {
+    (moduleKey: string, value: boolean) => {
       setNewRole((prev) => ({
         ...prev,
         permissions: {
@@ -434,7 +383,7 @@ export default function RoleManagement() {
   );
 
   const getPermissionSummary = useCallback(
-    (permissions: ModulePermissions): string => {
+    (permissions: RolePermissions): string => {
       let total = 0;
       let granted = 0;
 
@@ -462,8 +411,19 @@ export default function RoleManagement() {
 
   // ---------- Render ----------
 
+  if (!canViewRoles) {
+  return (
+    <Alert severity="error">
+      You do not have permission to view role management.
+    </Alert>
+  );
+}
+
+
   return (
     <Box>
+
+
       <Snackbar
         open={snackbar.open}
         autoHideDuration={4000}
@@ -515,6 +475,7 @@ export default function RoleManagement() {
             variant="contained"
             startIcon={<AddIcon />}
             onClick={handleCreateRole}
+            disabled={!canCreateRoles}
             sx={{
               bgcolor: "white",
               color: "#5e35b1",
@@ -536,6 +497,13 @@ export default function RoleManagement() {
           needs.
         </Typography>
       </Alert>
+            
+
+{!canEditRoles && (
+  <Alert severity="info" sx={{ mb: 2 }}>
+    You have view-only access. Editing is disabled.
+  </Alert>
+)}
 
       {/* Roles layout */}
       <Box
@@ -610,6 +578,7 @@ export default function RoleManagement() {
                           <IconButton
                             size="small"
                             onClick={() => handleDuplicateRole(role)}
+                            disabled={!canCreateRoles}
                             sx={{ color: "primary.main" }}
                             aria-label={`Duplicate ${role.displayName} role`}
                           >
@@ -620,6 +589,7 @@ export default function RoleManagement() {
                           <IconButton
                             size="small"
                             onClick={() => handleEditRole(role)}
+                            disabled={!canEditRoles}
                             sx={{ color: "primary.main" }}
                             aria-label={`Edit ${role.displayName} role`}
                           >
@@ -630,6 +600,7 @@ export default function RoleManagement() {
                           <IconButton
                             size="small"
                             onClick={() => handleDeleteRole(role.id)}
+                            disabled={!canDeleteRoles}
                             sx={{ color: "error.main" }}
                             aria-label={`Delete ${role.displayName} role`}
                           >
@@ -686,29 +657,23 @@ export default function RoleManagement() {
                       Key Permissions:
                     </Typography>
                     <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-                      {modules.map((module) => {
-                        const modPerms = role.permissions[module.key];
-                        const hasAnyPerm =
-                          modPerms.view ||
-                          modPerms.create ||
-                          modPerms.edit ||
-                          modPerms.delete;
-                        if (!hasAnyPerm) return null;
-                        return (
-                          <Chip
-                            key={module.key}
-                            label={module.name.replace(" & ", " ")}
-                            size="small"
-                            sx={{
-                              height: 22,
-                              fontSize: "0.7rem",
-                              bgcolor: `${module.color}15`,
-                              color: module.color,
-                              fontWeight: 500,
-                            }}
-                          />
-                        );
-                      })}
+                      {PERMISSIONS.map(({ key, label }) => {
+  const perms = role.permissions[key];
+  const hasAny =
+    perms?.view || perms?.create || perms?.edit || perms?.delete;
+
+  if (!hasAny) return null;
+
+  return (
+    <Chip
+      key={key}
+      label={label}
+      size="small"
+      sx={{ height: 22, fontSize: "0.7rem" }}
+    />
+  );
+})}
+
                     </Stack>
                   </Box>
                 </Stack>
@@ -812,134 +777,40 @@ export default function RoleManagement() {
               {isMobile ? (
                 // Mobile: Accordion View
                 <Stack spacing={1}>
-                  {modules.map((module) => {
-                    const ModuleIcon = module.icon;
-                    const modPerms = newRole.permissions[module.key];
-                    const hasAnyPerm =
-                      modPerms.view ||
-                      modPerms.create ||
-                      modPerms.edit ||
-                      modPerms.delete;
+                  {PERMISSIONS.map(({ key, label }) => {
+  const perms = newRole.permissions[key];
+  const allChecked =
+    perms.view && perms.create && perms.edit && perms.delete;
 
-                    return (
-                      <Accordion key={module.key}>
-                        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                          <Stack
-                            direction="row"
-                            spacing={1.5}
-                            alignItems="center"
-                          >
-                            <ModuleIcon
-                              sx={{ color: module.color, fontSize: 20 }}
-                            />
-                            <Typography
-                              variant="body2"
-                              sx={{ fontWeight: 500 }}
-                            >
-                              {module.name}
-                            </Typography>
-                            {hasAnyPerm && (
-                              <Chip
-                                label="Active"
-                                size="small"
-                                color="primary"
-                                sx={{ height: 20, fontSize: "0.7rem" }}
-                              />
-                            )}
-                          </Stack>
-                        </AccordionSummary>
-                        <AccordionDetails>
-                          <Stack spacing={1}>
-                            <FormControlLabel
-                              control={
-                                <Checkbox
-                                  checked={modPerms.view}
-                                  onChange={(e) =>
-                                    handlePermissionChange(
-                                      module.key,
-                                      "view",
-                                      e.target.checked
-                                    )
-                                  }
-                                  size="small"
-                                />
-                              }
-                              label={
-                                <Typography variant="body2">View</Typography>
-                              }
-                            />
-                            <FormControlLabel
-                              control={
-                                <Checkbox
-                                  checked={modPerms.create}
-                                  onChange={(e) =>
-                                    handlePermissionChange(
-                                      module.key,
-                                      "create",
-                                      e.target.checked
-                                    )
-                                  }
-                                  size="small"
-                                />
-                              }
-                              label={
-                                <Typography variant="body2">Create</Typography>
-                              }
-                            />
-                            <FormControlLabel
-                              control={
-                                <Checkbox
-                                  checked={modPerms.edit}
-                                  onChange={(e) =>
-                                    handlePermissionChange(
-                                      module.key,
-                                      "edit",
-                                      e.target.checked
-                                    )
-                                  }
-                                  size="small"
-                                />
-                              }
-                              label={
-                                <Typography variant="body2">Edit</Typography>
-                              }
-                            />
-                            <FormControlLabel
-                              control={
-                                <Checkbox
-                                  checked={modPerms.delete}
-                                  onChange={(e) =>
-                                    handlePermissionChange(
-                                      module.key,
-                                      "delete",
-                                      e.target.checked
-                                    )
-                                  }
-                                  size="small"
-                                />
-                              }
-                              label={
-                                <Typography variant="body2">Delete</Typography>
-                              }
-                            />
-                            <Button
-                              size="small"
-                              onClick={() =>
-                                handleSelectAllModule(
-                                  module.key,
-                                  !hasAnyPerm
-                                )
-                              }
-                              variant="outlined"
-                              fullWidth
-                            >
-                              {hasAnyPerm ? "Clear All" : "Select All"}
-                            </Button>
-                          </Stack>
-                        </AccordionDetails>
-                      </Accordion>
-                    );
-                  })}
+  return (
+    <TableRow key={key}>
+      <TableCell>{label}</TableCell>
+
+      {(["view", "create", "edit", "delete"] as const).map(action => (
+        <TableCell align="center" key={action}>
+          <Checkbox
+            checked={perms[action]}
+            disabled={!canEditRoles}
+            onChange={(e) =>
+              handlePermissionChange(key, action, e.target.checked)
+            }
+          />
+        </TableCell>
+      ))}
+
+      <TableCell align="center">
+        <Checkbox
+          checked={allChecked}
+          disabled={!canEditRoles}
+          onChange={(e) =>
+            handleSelectAllModule(key, e.target.checked)
+          }
+        />
+      </TableCell>
+    </TableRow>
+  );
+})}
+
                 </Stack>
               ) : (
                 // Desktop: Table View
@@ -966,102 +837,40 @@ export default function RoleManagement() {
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {modules.map((module) => {
-                        const ModuleIcon = module.icon;
-                        const modPerms = newRole.permissions[module.key];
-                        const allChecked =
-                          modPerms.view &&
-                          modPerms.create &&
-                          modPerms.edit &&
-                          modPerms.delete;
+                      {PERMISSIONS.map(({ key, label }) => {
+  const perms = newRole.permissions[key];
+  const allChecked =
+    perms.view && perms.create && perms.edit && perms.delete;
 
-                        return (
-                          <TableRow key={module.key} hover>
-                            <TableCell>
-                              <Stack
-                                direction="row"
-                                spacing={1.5}
-                                alignItems="center"
-                              >
-                                <ModuleIcon
-                                  sx={{ color: module.color, fontSize: 20 }}
-                                />
-                                <Typography
-                                  variant="body2"
-                                  sx={{ fontWeight: 500 }}
-                                >
-                                  {module.name}
-                                </Typography>
-                              </Stack>
-                            </TableCell>
-                            <TableCell align="center">
-                              <Checkbox
-                                checked={modPerms.view}
-                                onChange={(e) =>
-                                  handlePermissionChange(
-                                    module.key,
-                                    "view",
-                                    e.target.checked
-                                  )
-                                }
-                                size="small"
-                              />
-                            </TableCell>
-                            <TableCell align="center">
-                              <Checkbox
-                                checked={modPerms.create}
-                                onChange={(e) =>
-                                  handlePermissionChange(
-                                    module.key,
-                                    "create",
-                                    e.target.checked
-                                  )
-                                }
-                                size="small"
-                              />
-                            </TableCell>
-                            <TableCell align="center">
-                              <Checkbox
-                                checked={modPerms.edit}
-                                onChange={(e) =>
-                                  handlePermissionChange(
-                                    module.key,
-                                    "edit",
-                                    e.target.checked
-                                  )
-                                }
-                                size="small"
-                              />
-                            </TableCell>
-                            <TableCell align="center">
-                              <Checkbox
-                                checked={modPerms.delete}
-                                onChange={(e) =>
-                                  handlePermissionChange(
-                                    module.key,
-                                    "delete",
-                                    e.target.checked
-                                  )
-                                }
-                                size="small"
-                              />
-                            </TableCell>
-                            <TableCell align="center">
-                              <Checkbox
-                                checked={allChecked}
-                                onChange={(e) =>
-                                  handleSelectAllModule(
-                                    module.key,
-                                    e.target.checked
-                                  )
-                                }
-                                size="small"
-                                color="secondary"
-                              />
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
+  return (
+    <TableRow key={key}>
+      <TableCell>{label}</TableCell>
+
+      {(["view", "create", "edit", "delete"] as const).map(action => (
+        <TableCell align="center" key={action}>
+          <Checkbox
+            checked={perms[action]}
+            disabled={!canEditRoles}
+            onChange={(e) =>
+              handlePermissionChange(key, action, e.target.checked)
+            }
+          />
+        </TableCell>
+      ))}
+
+      <TableCell align="center">
+        <Checkbox
+          checked={allChecked}
+          disabled={!canEditRoles}
+          onChange={(e) =>
+            handleSelectAllModule(key, e.target.checked)
+          }
+        />
+      </TableCell>
+    </TableRow>
+  );
+})}
+
                     </TableBody>
                   </Table>
                 </TableContainer>
@@ -1077,6 +886,7 @@ export default function RoleManagement() {
             onClick={handleSaveRole}
             variant="contained"
             startIcon={<SaveIcon />}
+             disabled={editingRole ? !canEditRoles : !canCreateRoles}
           >
             {editingRole ? "Update Role" : "Create Role"}
           </Button>
