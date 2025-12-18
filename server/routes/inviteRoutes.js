@@ -9,7 +9,7 @@ import { requireAuth, requirePermission } from "../middleware/auth.js";
 
 const router = express.Router();
 
-router.post("/", requireAuth, requirePermission("invite", "create"), createInvite);
+router.post("/", requireAuth, requirePermission("invites", "create"), createInvite);
 router.get("/:token", getInviteDetails);
 router.post("/:token/complete", completeInvite);
 

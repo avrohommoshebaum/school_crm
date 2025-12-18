@@ -37,8 +37,8 @@ const userSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["pending", "active", "inactive"],
-      default: "pending",
+      enum: ["invited", "active", "inactive"],
+      default: "invited",
     },
 
     lastLogin: Date,
