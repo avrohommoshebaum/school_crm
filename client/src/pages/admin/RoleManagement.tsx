@@ -123,12 +123,6 @@ interface RolesResponse {
 
 // ---------- Helpers ----------
 
-const defaultPermission: Permission = {
-  view: false,
-  create: false,
-  edit: false,
-  delete: false,
-};
 
 
 const emptyPermission = {
@@ -493,7 +487,7 @@ const canDeleteRoles = hasPermission(user, "roles", "delete");
         <Typography variant="body2">
           System roles (Administrator, Principal, Teacher, Business Office,
           Parent) are predefined and cannot be edited or deleted. You can create
-          custom roles with specific permissions tailored to your school&apos;s
+          custom roles with specific permissions tailored to Nachlas Bais Yaakov&apos;s
           needs.
         </Typography>
       </Alert>

@@ -77,7 +77,7 @@ type CoreRoleName =
   | "business_office"
   | "parent";
 
-type UserStatus = "active" | "inactive" | "pending";
+type UserStatus = "active" | "inactive" | "invited";
 
 interface RoleOption {
   _id: string;
@@ -488,8 +488,8 @@ const handleResetPassword = () => {
   const filteredUsers = users.filter((user) => {
     const q = searchQuery.toLowerCase();
     const matchesSearch =
-      user.name.toLowerCase().includes(q) ||
-      user.email.toLowerCase().includes(q);
+  (user.name ?? "").toLowerCase().includes(q) ||
+  (user.email ?? "").toLowerCase().includes(q);
 
     if (!matchesSearch) return false;
 
@@ -501,13 +501,20 @@ const handleResetPassword = () => {
     return user.roles.some((r) => r.name === coreRole);
   });
 
-  const getInitials = (name: string) =>
-    name
+  const getInitials = (name?: string, email?: string) => {
+  if (name && name.trim()) {
+    return name
       .split(" ")
       .filter(Boolean)
       .map((n) => n[0])
       .join("")
       .toUpperCase();
+  }
+
+  // Fallback for invited users (no name yet)
+  return email?.[0]?.toUpperCase() ?? "?";
+};
+
 
   const countByCoreRole = (roleName: CoreRoleName) =>
     users.filter((u) => u.roles.some((r) => r.name === roleName)).length;
@@ -564,6 +571,12 @@ const handleResetPassword = () => {
           >
             User Management
           </Typography>
+
+            {!canCreateUsers && (
+              <Alert severity="info" sx={{ mb: 2 }}>
+                You have view-only access. Editing is disabled.
+              </Alert>
+            )}
 
           <Box
             sx={{
@@ -626,6 +639,9 @@ const handleResetPassword = () => {
                 <SearchIcon />
               </IconButton>
             )}
+
+          
+            
 <Tooltip
   title={!canCreateUsers ? NO_PERMISSION_TOOLTIP : ""}
   disableHoverListener={canCreateUsers}
@@ -803,7 +819,7 @@ const handleResetPassword = () => {
                       ) : user.status === "inactive" ? (
                         <Chip label="Inactive" color="error" size="small" />
                       ) : (
-                        <Chip label="Pending" color="warning" size="small" />
+                        <Chip label="Invited" color="warning" size="small" />
                       )}
                     </Stack>
 
@@ -1018,7 +1034,7 @@ const handleResetPassword = () => {
                         />
                       ) : (
                         <Chip
-                          label="Pending"
+                          label="Invite sent"
                           color="warning"
                           size="small"
                           sx={{
@@ -1098,7 +1114,7 @@ const handleResetPassword = () => {
 </Tooltip>
 
 
-        {selectedUser?.status === "pending" && (
+        {selectedUser?.status === "invited" && (
           <MenuItem onClick={handleResendInvite}>
             <ListItemIcon>
               <EmailIcon fontSize="small" />

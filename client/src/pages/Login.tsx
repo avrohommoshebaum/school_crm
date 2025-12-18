@@ -148,7 +148,10 @@ const handleSubmit = async (e: React.FormEvent) => {
         {/* Logo & Titles */}
         <Box sx={{ textAlign: "center", mb: 4 }}>
           <Box sx={{ mb: 2 }}>
-            <img src={nachlasLogo} alt="Nachlas Bais Yaakov Logo" style={{ height: 120 }} />
+            <img  src="https://storage.cloud.google.com/nachlas_app_logos/logo%20blue%20for%20id%20badge.png"
+  alt="Nachlas Bais Yaakov"
+  style={{ width: "145px", height: "85px", marginRight: "12px" }}
+/>
           </Box>
           <Typography variant="h5" color="primary" sx={{ mb: 0.5 }}>
             Nachlas Bais Yaakov
@@ -156,13 +159,7 @@ const handleSubmit = async (e: React.FormEvent) => {
           <Typography variant="body2" color="text.secondary">
             School Management Portal
           </Typography>
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{ mt: 0.5, display: "block" }}
-          >
-            213 Newport Ave, Lakewood, NJ 08701
-          </Typography>
+
         </Box>
 
         {/* AUTH MESSAGES (session expired / forbidden) */}

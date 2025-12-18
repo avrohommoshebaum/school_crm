@@ -61,7 +61,6 @@ import { Outlet, useNavigate, useLocation, Link as RouterLink } from "react-rout
 import type { OverridableComponent } from "@mui/material/OverridableComponent";
 import type { SvgIconTypeMap } from "@mui/material/SvgIcon";
 
-import nachlasLogo from "../assets/nachlasLogo.png";
 import api from "../utils/api";
 import { usePermissions } from "../hooks/usePermissions";
 import { useAuth } from "../context/AuthContext";
@@ -274,7 +273,12 @@ export default function LayoutMUI() {
           </IconButton>
 
           <Box sx={{ display: "flex", alignItems: "center", flexGrow: 1, justifyContent: { xs: "center", sm: "flex-start" } }}>
-            <img src={nachlasLogo} alt="Nachlas Bais Yaakov" style={{ width: "50px", height: "50px", marginRight: "12px" }} />
+            <img
+  src="https://storage.cloud.google.com/nachlas_app_logos/logo%20blue%20for%20id%20badge.png"
+  alt="Nachlas Bais Yaakov"
+  style={{ width: "83px", height: "50px", marginRight: "12px" }}
+/>
+
             <Box sx={{ display: { xs: "none", sm: "block" } }}>
               <Typography variant="h6" sx={{ fontWeight: "bold", color: "#1976d2", lineHeight: 1.2 }}>
                 Nachlas Bais Yaakov
