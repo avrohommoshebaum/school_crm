@@ -20,9 +20,12 @@ export function requirePermission(moduleKey, action) {
       return next();
     }
 
-    // 1️⃣ User-level override
+    // 1️⃣ User-level override (handle both Map and object)
     const overrideKey = `${moduleKey}.${action}`;
-    if (req.user.permissionsOverride?.get?.(overrideKey) === true) {
+    const overrideValue = req.user.permissionsOverride?.get 
+      ? req.user.permissionsOverride.get(overrideKey)  // Map
+      : req.user.permissionsOverride?.[overrideKey];   // Object
+    if (overrideValue === true) {
       return next();
     }
 

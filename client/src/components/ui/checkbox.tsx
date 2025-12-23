@@ -20,19 +20,31 @@ const AppCheckbox: React.FC<AppCheckboxProps> = ({
 }) => {
   return (
     <Checkbox
-      icon={<CheckIcon sx={{ opacity: 0 }} />} // placeholder for consistent size
       checkedIcon={<CheckIcon />}
       sx={{
         width: 20,
         height: 20,
         padding: 0.5,
         borderRadius: "4px",
-        color: "grey.600",
+        color: "grey.400",
+        border: "2px solid",
+        borderColor: "grey.400",
+        backgroundColor: "transparent",
         "&.Mui-checked": {
           color: "primary.main",
+          borderColor: "primary.main",
+          backgroundColor: "primary.main",
+          "& .MuiSvgIcon-root": {
+            color: "white",
+          },
+        },
+        "&:hover": {
+          borderColor: "grey.600",
+          backgroundColor: "rgba(0, 0, 0, 0.04)",
         },
         "&.Mui-disabled": {
-          color: "grey.400",
+          color: "grey.300",
+          borderColor: "grey.300",
         },
         ...sx,
       }}

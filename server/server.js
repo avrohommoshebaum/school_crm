@@ -3,21 +3,22 @@ import dotenv from "dotenv";
 import cors from "cors";
 import helmet from "helmet";
 import session from "express-session";
-import MongoStore from "connect-mongo";
 import passport from "passport";
-import expressMongoSanitize from "@exortek/express-mongo-sanitize";
 import rateLimit from "express-rate-limit";
 import path from "path";
 
 
-
-// Load .env only in development
+// Load .env FIRST in local development (before secrets)
 if (process.env.NODE_ENV !== "production") {
   dotenv.config();
+  console.log("✅ Loaded .env file for local development");
 }
 
+// Load secrets from Google Secret Manager (production) or use .env (local)
+import { loadSecrets } from "./config/secrets.js";
+
 // DB connection
-import mongooseConnect from "./db/mongooseconnect.js";
+import firestoreConnect from "./db/firestoreconnect.js";
 
 // Passport + session configuration
 import configureSession from "./config/session.js";
@@ -34,6 +35,44 @@ import userProfileRoutes from "./routes/userProfileRoutes.js";
 // App init
 const app = express();
 
+// Initialize everything asynchronously
+async function initialize() {
+  try {
+    console.log("🔧 Initializing server...");
+    await loadSecrets();
+    console.log("✅ Secrets loaded");
+    await firestoreConnect();
+    console.log("✅ Firestore connected");
+    await configureSession(app);
+    console.log("✅ Session configured");
+    configurePassport(app);
+    console.log("✅ Passport configured");
+    
+    // Apply session timeout middleware AFTER session is configured
+    app.use(
+      sessionTimout({
+        idleTimeoutMs: 30 * 60 * 1000, // 30 minutes
+      })
+    );
+    
+    // Register routes AFTER session and passport are configured
+    app.use("/api/auth", authRoutes);
+    app.use("/api/roles", roleRoutes);
+    app.use("/api/invite", inviteRoutes);
+    app.use("/api/users", userRoutes);
+    app.use("/api/profile", userProfileRoutes);
+    
+    console.log("✅ Routes registered");
+    console.log("✅ Initialization complete");
+  } catch (error) {
+    console.error("❌ Initialization error:", error);
+    console.error("Stack:", error.stack);
+    throw error; // Re-throw to be caught by the caller
+  }
+}
+
+app.set("trust proxy", 1);
+
 // ------------------------------
 // 1. SECURITY HEADERS (HELMET)
 // ------------------------------
@@ -48,12 +87,18 @@ app.use(
   helmet.contentSecurityPolicy({
     directives: {
       defaultSrc: ["'self'"],
-      imgSrc: ["'self'", "data:"],
+      imgSrc: [
+        "'self'",
+        "data:",
+        "https://storage.googleapis.com",
+        "https://storage.cloud.google.com"
+      ],
       scriptSrc: ["'self'", "'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
     },
   })
 );
+
 
 // ------------------------------
 // 2. CORS (STRICT)
@@ -92,7 +137,7 @@ app.use(express.urlencoded({ extended: true }));
 // ------------------------------
 // 4. INPUT SANITIZATION
 // ------------------------------
-app.use(expressMongoSanitize());
+// Note: MongoDB-specific sanitization removed. Consider adding general input validation if needed.
 
 // ------------------------------
 // 5. RATE LIMITING
@@ -102,55 +147,49 @@ const authLimiter = rateLimit({
   max: 40,
   message: "Too many login attempts. Try again later.",
 });
-app.use("/auth/login", authLimiter);
+app.use("/api/auth/login", authLimiter);
 
 // ------------------------------
-// 6. SESSION CONFIGURATION
+// 6. SESSION CONFIGURATION & PASSPORT INITIALIZATION
 // ------------------------------
-configureSession(app);
-
-// ------------------------------
-// 7. PASSPORT INITIALIZATION
-// ------------------------------
-configurePassport(app);
-
-// ------------------------------
-// 7.5 SESSION IDLE TIMEOUT
-// ------------------------------
-app.use(
-  sessionTimout({
-    idleTimeoutMs: 30 * 60 * 1000, // 30 minutes
-  })
-);
-
-// ------------------------------
-// 8. ROUTES
-// ------------------------------
-app.use("/api/auth", authRoutes);
-app.use("/api/roles", roleRoutes);
-app.use("/api/invite", inviteRoutes);
-app.use("/api/users", userRoutes);
-app.use("/api/profile", userProfileRoutes);
+// These will be initialized in the initialize() function before server starts
+// Routes are also registered in initialize() to ensure session is configured first
 // Serve static React files
 const __dirname = path.resolve();
+const publicPath = path.join(__dirname, "public");
 
-app.use(
-  express.static(path.join(__dirname, "public"), {
-    maxAge: "1y",
-    etag: false,
-    setHeaders: (res, filePath) => {
-      // Never cache index.html
-      if (filePath.endsWith("index.html")) {
-        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
-      }
-    },
-  })
-);
+// Only serve static files if public folder exists
+try {
+  const fs = await import("fs");
+  if (fs.existsSync(publicPath)) {
+    app.use(
+      express.static(publicPath, {
+        maxAge: "1y",
+        etag: false,
+        setHeaders: (res, filePath) => {
+          // Never cache index.html
+          if (filePath.endsWith("index.html")) {
+            res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+          }
+        },
+      })
+    );
 
-// React Router fallback
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
-});
+    // React Router fallback
+    app.get(/^\/(?!api).*/, (req, res) => {
+      res.sendFile(path.join(publicPath, "index.html"));
+    });
+  } else {
+    console.warn("⚠️ Public folder not found. Static files will not be served.");
+    // API-only fallback
+    app.get(/^\/(?!api).*/, (req, res) => {
+      res.status(404).json({ message: "Frontend not built. Please build React app." });
+    });
+  }
+} catch (error) {
+  console.error("Error setting up static file serving:", error);
+}
+
 
 
 
@@ -165,9 +204,14 @@ app.use((err, req, res, next) => {
 // ------------------------------
 // 10. START SERVER
 // ------------------------------
-mongooseConnect().then(() => {
-  const PORT = process.env.PORT || 3000;
+// Initialize everything, then start the server
+const PORT = process.env.PORT || 3000;
+
+initialize().then(() => {
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT} (${process.env.NODE_ENV})`);
   });
+}).catch((error) => {
+  console.error("❌ Failed to start server:", error);
+  process.exit(1);
 });

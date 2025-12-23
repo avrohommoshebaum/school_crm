@@ -1,1 +1,7 @@
 .env
+# Firebase service account keys (never commit these!)
+*-firebase*.json
+*service-account*.json
+firebase-service-account.json
+service-account-key.json
+credible-runner-*.json

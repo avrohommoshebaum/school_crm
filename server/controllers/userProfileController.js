@@ -1,13 +1,15 @@
-import User from "../db/models/user.js";
-import UserSettings from "../db/models/userSettings.js";
+import { userService } from "../db/services/userService.js";
+import { userSettingsService } from "../db/services/userSettingsService.js";
 
 export const getMe = async (req, res) => {
-  const user = await User.findById(req.user._id).populate("roles")
+  const userId = req.user._id || req.user.id;
+  const user = await userService.findById(userId);
+  const userWithRoles = await userService.populateRoles(user);
 
-  const settings = await UserSettings.findOne({ user: req.user._id });
+  const settings = await userSettingsService.findByUserId(userId);
 
   res.json({
-    user,
+    user: userWithRoles,
     settings,
   });
 };
@@ -35,45 +37,41 @@ export const updateProfile = async (req, res) => {
     if (req.body[field] !== undefined) updates[field] = req.body[field];
   });
 
-const user = await User.findById(req.user._id);
-Object.assign(user, updates);
-await user.save();
+  const userId = req.user._id || req.user.id;
+  const user = await userService.update(userId, updates);
 
   res.json({ user });
 };
 
 export const updateSettings = async (req, res) => {
-  const settings = await UserSettings.findOneAndUpdate(
-    { user: req.user._id },
-    req.body,
-    { new: true, upsert: true }
-  );
+  const userId = req.user._id || req.user.id;
+  const settings = await userSettingsService.upsert(userId, req.body);
 
   res.json({ settings });
 };
 
 export const changePassword = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
+    const userId = req.user._id || req.user.id;
+    const user = await userService.findById(userId);
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Use the wrapped async version
-    await user.changePassword(req.body.currentPassword, req.body.newPassword);
+    // Verify current password
+    const isValid = await userService.verifyPassword(user, req.body.currentPassword);
+    if (!isValid) {
+      return res.status(400).json({ message: "Current password is incorrect" });
+    }
 
-    await user.save();
+    // Set new password
+    await userService.setPassword(userId, req.body.newPassword);
 
     return res.json({ message: "Password updated successfully" });
 
   } catch (err) {
     console.error("Change password error:", err);
-
-    if (err.name === "IncorrectPasswordError") {
-      return res.status(400).json({ message: "Current password is incorrect" });
-    }
-
     return res.status(400).json({ message: err.message || "Failed to change password" });
   }
 };

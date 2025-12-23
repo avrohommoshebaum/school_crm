@@ -31,6 +31,7 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  CircularProgress,
 } from "@mui/material";
 import type { AlertColor } from "@mui/material/Alert";
 
@@ -185,6 +186,11 @@ const canDeleteRoles = hasPermission(user, "roles", "delete");
 
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
+  const [saving, setSaving] = useState<boolean>(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [roleToDelete, setRoleToDelete] = useState<Role | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   // ---------- Snackbar ----------
 
@@ -275,24 +281,52 @@ const canDeleteRoles = hasPermission(user, "roles", "delete");
   }, []);
 
   const handleDeleteRole = useCallback(
-    async (roleId: string) => {
-      const role = roles.find((r) => r._id === roleId);
-      if (role?.isSystem) {
+    (roleId: string) => {
+      const role = roles.find((r) => r._id === roleId || r.id === roleId);
+      if (!role) {
+        openSnackbar("Role not found", "error");
+        return;
+      }
+      if (role.isSystem) {
         openSnackbar("System roles cannot be deleted", "error");
         return;
       }
-
-      try {
-        await api.delete(`/roles/${roleId}`);
-        openSnackbar("Role deleted successfully", "success");
-        await loadRoles();
-      } catch (err) {
-        console.error("Error deleting role:", err);
-        openSnackbar("Failed to delete role", "error");
-      }
+      setRoleToDelete(role);
+      setDeleteDialogOpen(true);
+      setDeleteConfirmText("");
     },
-    [roles, openSnackbar, loadRoles]
+    [roles, openSnackbar]
   );
+
+  const confirmDeleteRole = useCallback(async () => {
+    if (!roleToDelete) return;
+
+    if (deleteConfirmText !== roleToDelete.displayName) {
+      openSnackbar(
+        "The typed name does not match the role's display name",
+        "error"
+      );
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      await api.delete(`/roles/${roleToDelete.id}`);
+      openSnackbar("Role deleted successfully", "success");
+      setDeleteDialogOpen(false);
+      setRoleToDelete(null);
+      setDeleteConfirmText("");
+      await loadRoles();
+    } catch (err: any) {
+      console.error("Error deleting role:", err);
+      openSnackbar(
+        err?.response?.data?.message || "Failed to delete role",
+        "error"
+      );
+    } finally {
+      setDeleting(false);
+    }
+  }, [roleToDelete, deleteConfirmText, openSnackbar, loadRoles]);
 
   const validateRoleForm = (roleForm: RoleFormState): string | null => {
     if (!roleForm.name.trim() || !roleForm.displayName.trim()) {
@@ -313,6 +347,8 @@ const canDeleteRoles = hasPermission(user, "roles", "delete");
       openSnackbar(error, "error");
       return;
     }
+
+    setSaving(true);
 
     const normalizedName = newRole.name.toLowerCase();
 
@@ -336,9 +372,14 @@ const canDeleteRoles = hasPermission(user, "roles", "delete");
 
       setDialogOpen(false);
       await loadRoles();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error saving role:", err);
-      openSnackbar("Failed to save role", "error");
+      openSnackbar(
+        err?.response?.data?.message || "Failed to save role",
+        "error"
+      );
+    } finally {
+      setSaving(false);
     }
   }, [newRole, editingRole, openSnackbar, loadRoles]);
 
@@ -680,21 +721,34 @@ const canDeleteRoles = hasPermission(user, "roles", "delete");
       {/* Create/Edit Role Dialog */}
       <Dialog
         open={dialogOpen}
-        onClose={() => setDialogOpen(false)}
+        onClose={() => {
+          if (!saving) {
+            setDialogOpen(false);
+          }
+        }}
         maxWidth="md"
         fullWidth
         fullScreen={isMobile}
+        PaperProps={{
+          sx: {
+            m: { xs: 0, sm: 3 },
+            maxHeight: { xs: "100%", sm: "calc(100% - 64px)" },
+            width: { xs: "100%", sm: "auto" },
+          },
+        }}
       >
         <DialogTitle
           sx={{
             background: "linear-gradient(135deg, #5e35b1 0%, #4527a0 100%)",
             color: "white",
             fontWeight: 600,
+            px: { xs: 2, sm: 3 },
+            pt: { xs: 2, sm: 3 },
           }}
         >
           {editingRole ? "Edit Role" : "Create Custom Role"}
         </DialogTitle>
-        <DialogContent sx={{ pt: 3 }}>
+        <DialogContent sx={{ pt: 3, px: { xs: 2, sm: 3 }, pb: { xs: 2, sm: 3 } }}>
           <Stack spacing={3}>
             {/* Basic Info */}
             <Box>
@@ -772,39 +826,66 @@ const canDeleteRoles = hasPermission(user, "roles", "delete");
                 // Mobile: Accordion View
                 <Stack spacing={1}>
                   {PERMISSIONS.map(({ key, label }) => {
-  const perms = newRole.permissions[key];
-  const allChecked =
-    perms.view && perms.create && perms.edit && perms.delete;
+                    const perms = newRole.permissions[key];
+                    const allChecked =
+                      perms.view && perms.create && perms.edit && perms.delete;
 
-  return (
-    <TableRow key={key}>
-      <TableCell>{label}</TableCell>
-
-      {(["view", "create", "edit", "delete"] as const).map(action => (
-        <TableCell align="center" key={action}>
-          <Checkbox
-            checked={perms[action]}
-            disabled={!canEditRoles}
-            onChange={(e) =>
-              handlePermissionChange(key, action, e.target.checked)
-            }
-          />
-        </TableCell>
-      ))}
-
-      <TableCell align="center">
-        <Checkbox
-          checked={allChecked}
-          disabled={!canEditRoles}
-          onChange={(e) =>
-            handleSelectAllModule(key, e.target.checked)
-          }
-        />
-      </TableCell>
-    </TableRow>
-  );
-})}
-
+                    return (
+                      <Accordion key={key} defaultExpanded={false}>
+                        <AccordionSummary
+                          expandIcon={<ExpandMoreIcon />}
+                          sx={{
+                            "& .MuiAccordionSummary-content": {
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                            },
+                          }}
+                        >
+                          <Typography variant="body2" fontWeight={500}>
+                            {label}
+                          </Typography>
+                          <Checkbox
+                            checked={allChecked}
+                            disabled={!canEditRoles}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) =>
+                              handleSelectAllModule(key, e.target.checked)
+                            }
+                            sx={{ ml: 2 }}
+                          />
+                        </AccordionSummary>
+                        <AccordionDetails>
+                          <Stack spacing={1.5}>
+                            {(["view", "create", "edit", "delete"] as const).map(
+                              (action) => (
+                                <FormControlLabel
+                                  key={action}
+                                  control={
+                                    <Checkbox
+                                      checked={perms[action]}
+                                      disabled={!canEditRoles}
+                                      onChange={(e) =>
+                                        handlePermissionChange(
+                                          key,
+                                          action,
+                                          e.target.checked
+                                        )
+                                      }
+                                    />
+                                  }
+                                  label={
+                                    <Typography variant="body2" sx={{ textTransform: "capitalize" }}>
+                                      {action}
+                                    </Typography>
+                                  }
+                                />
+                              )
+                            )}
+                          </Stack>
+                        </AccordionDetails>
+                      </Accordion>
+                    );
+                  })}
                 </Stack>
               ) : (
                 // Desktop: Table View
@@ -872,17 +953,169 @@ const canDeleteRoles = hasPermission(user, "roles", "delete");
             </Box>
           </Stack>
         </DialogContent>
-        <DialogActions sx={{ p: 3, pt: 2 }}>
-          <Button onClick={() => setDialogOpen(false)} variant="outlined">
+        <DialogActions
+          sx={{
+            px: { xs: 2, sm: 3 },
+            py: 2,
+            flexDirection: { xs: "column-reverse", sm: "row" },
+            gap: 1,
+          }}
+        >
+          <Button
+            onClick={() => setDialogOpen(false)}
+            variant="outlined"
+            disabled={saving}
+            sx={{ width: { xs: "100%", sm: "auto" } }}
+          >
             Cancel
           </Button>
           <Button
             onClick={handleSaveRole}
             variant="contained"
-            startIcon={<SaveIcon />}
-             disabled={editingRole ? !canEditRoles : !canCreateRoles}
+            startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <SaveIcon />}
+            disabled={
+              saving ||
+              (editingRole ? !canEditRoles : !canCreateRoles)
+            }
+            sx={{ width: { xs: "100%", sm: "auto" } }}
           >
-            {editingRole ? "Update Role" : "Create Role"}
+            {saving
+              ? editingRole
+                ? "Updating..."
+                : "Creating..."
+              : editingRole
+              ? "Update Role"
+              : "Create Role"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Role Confirmation Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => {
+          if (!deleting) {
+            setDeleteDialogOpen(false);
+            setRoleToDelete(null);
+            setDeleteConfirmText("");
+          }
+        }}
+        maxWidth="sm"
+        fullWidth
+        fullScreen={isMobile}
+        PaperProps={{
+          sx: {
+            m: { xs: 0, sm: 3 },
+            maxHeight: { xs: "100%", sm: "calc(100% - 64px)" },
+            width: { xs: "100%", sm: "auto" },
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            px: { xs: 2, sm: 3 },
+            pt: { xs: 2, sm: 3 },
+            pb: 1,
+          }}
+        >
+          <Box>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+              <DeleteIcon color="error" />
+              <Typography variant="h6">Delete Role</Typography>
+            </Box>
+            {roleToDelete && (
+              <Typography
+                variant="body1"
+                sx={{
+                  mt: 1,
+                  fontWeight: 600,
+                  color: "error.main",
+                  fontSize: "1.1rem",
+                }}
+              >
+                Confirm deletion of: <strong>{roleToDelete.displayName}</strong>
+              </Typography>
+            )}
+          </Box>
+        </DialogTitle>
+
+        <DialogContent sx={{ px: { xs: 2, sm: 3 }, pb: { xs: 2, sm: 3 } }}>
+          <Stack spacing={3} sx={{ mt: 1 }}>
+            <Alert severity="error" icon={<DeleteIcon />}>
+              This action cannot be undone. This will permanently delete the role
+              and remove it from all users who have it assigned.
+            </Alert>
+
+            <Box>
+              <Typography variant="body1" sx={{ mb: 2, fontWeight: 500 }}>
+                To confirm deletion, type the role's display name below:
+              </Typography>
+
+              <TextField
+                fullWidth
+                label={`Type "${roleToDelete?.displayName || ""}" to confirm`}
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder={roleToDelete?.displayName || ""}
+                disabled={deleting || !roleToDelete?.displayName}
+                autoFocus
+                error={
+                  deleteConfirmText.length > 0 &&
+                  deleteConfirmText !== (roleToDelete?.displayName || "")
+                }
+                helperText={
+                  !roleToDelete?.displayName
+                    ? "Loading role information..."
+                    : deleteConfirmText.length > 0 &&
+                      deleteConfirmText !== roleToDelete.displayName
+                    ? "The name does not match"
+                    : `Type "${roleToDelete.displayName}" exactly as shown`
+                }
+                sx={{ mb: 1 }}
+              />
+            </Box>
+          </Stack>
+        </DialogContent>
+
+        <DialogActions
+          sx={{
+            px: { xs: 2, sm: 3 },
+            py: 2,
+            flexDirection: { xs: "column-reverse", sm: "row" },
+            gap: 1,
+          }}
+        >
+          <Button
+            onClick={() => {
+              setDeleteDialogOpen(false);
+              setRoleToDelete(null);
+              setDeleteConfirmText("");
+            }}
+            variant="outlined"
+            disabled={deleting}
+            sx={{ width: { xs: "100%", sm: "auto" } }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={confirmDeleteRole}
+            variant="contained"
+            color="error"
+            disabled={
+              deleting ||
+              !roleToDelete?.displayName ||
+              deleteConfirmText !== roleToDelete.displayName
+            }
+            startIcon={
+              deleting ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : (
+                <DeleteIcon />
+              )
+            }
+            sx={{ width: { xs: "100%", sm: "auto" } }}
+          >
+            {deleting ? "Deleting..." : "Delete Role"}
           </Button>
         </DialogActions>
       </Dialog>

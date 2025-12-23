@@ -206,8 +206,13 @@ const NO_PERMISSION_TOOLTIP =
 
 
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
-const [tempPassword, setTempPassword] = useState("");
-const [requireChange, setRequireChange] = useState(true);
+  const [resetMethod, setResetMethod] = useState<"password" | "email">("password");
+  const [tempPassword, setTempPassword] = useState("");
+  const [requireChange, setRequireChange] = useState(true);
+  const [resetting, setResetting] = useState(false);
+  const [inviting, setInviting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [resendingInvite, setResendingInvite] = useState(false);
 
 
   const [snackbar, setSnackbar] = useState<SnackbarState>({
@@ -248,6 +253,59 @@ const [requireChange, setRequireChange] = useState(true);
   // LOADERS
   // -----------------------------
 
+  // Helper function to safely format dates
+  const formatDate = (dateValue: any): string | null => {
+    if (!dateValue) return null;
+    
+    try {
+      // Handle Firestore Timestamp objects (has toDate method)
+      if (dateValue.toDate && typeof dateValue.toDate === 'function') {
+        return dateValue.toDate().toLocaleString();
+      }
+      
+      // Handle Firestore Timestamp objects (has seconds/nanoseconds)
+      if (dateValue.seconds !== undefined) {
+        return new Date(dateValue.seconds * 1000).toLocaleString();
+      }
+      
+      // Handle regular Date objects or ISO strings
+      const date = new Date(dateValue);
+      if (isNaN(date.getTime())) {
+        return null;
+      }
+      return date.toLocaleString();
+    } catch (err) {
+      console.error("Date formatting error:", err, dateValue);
+      return null;
+    }
+  };
+
+  const formatDateShort = (dateValue: any): string | null => {
+    if (!dateValue) return null;
+    
+    try {
+      // Handle Firestore Timestamp objects (has toDate method)
+      if (dateValue.toDate && typeof dateValue.toDate === 'function') {
+        return dateValue.toDate().toLocaleDateString();
+      }
+      
+      // Handle Firestore Timestamp objects (has seconds/nanoseconds)
+      if (dateValue.seconds !== undefined) {
+        return new Date(dateValue.seconds * 1000).toLocaleDateString();
+      }
+      
+      // Handle regular Date objects or ISO strings
+      const date = new Date(dateValue);
+      if (isNaN(date.getTime())) {
+        return null;
+      }
+      return date.toLocaleDateString();
+    } catch (err) {
+      console.error("Date formatting error:", err, dateValue);
+      return null;
+    }
+  };
+
   const loadUsers = async () => {
     try {
       setLoading(true);
@@ -260,16 +318,14 @@ const [requireChange, setRequireChange] = useState(true);
         name: u.name,
         email: u.email,
         status: u.status,
-roles: (u.roles || []).map((r: { _id: any; id: any; name: any; displayName: any; color: any; }) => ({
-  _id: r._id || r.id,  
-  name: r.name,
-  displayName: r.displayName,
-  color: r.color,
-})),
-
-
-        lastLogin: u.lastLogin ? new Date(u.lastLogin).toLocaleString() : null,
-        createdAt: new Date(u.createdAt).toLocaleDateString(),
+        roles: (u.roles || []).map((r: { _id: any; id: any; name: any; displayName: any; color: any; }) => ({
+          _id: r._id || r.id,  
+          name: r.name,
+          displayName: r.displayName,
+          color: r.color,
+        })),
+        lastLogin: formatDate(u.lastLogin),
+        createdAt: formatDateShort(u.createdAt) || "—",
       }));
 
       setUsers(formatted);
@@ -333,6 +389,7 @@ roles: (u.roles || []).map((r: { _id: any; id: any; name: any; displayName: any;
       return;
     }
 
+    setInviting(true);
     try {
       await api.post("/invite", {
         email: inviteForm.email,
@@ -349,6 +406,8 @@ roles: (u.roles || []).map((r: { _id: any; id: any; name: any; displayName: any;
         err?.response?.data?.message || "Error sending invite",
         "error"
       );
+    } finally {
+      setInviting(false);
     }
   };
 
@@ -416,6 +475,7 @@ roles: (u.roles || []).map((r: { _id: any; id: any; name: any; displayName: any;
   const confirmDelete = async () => {
     if (!selectedUser) return;
 
+    setDeleting(true);
     try {
       await api.delete(`/users/${selectedUser._id}`);
       showSnackbar("User deleted!", "success");
@@ -428,6 +488,8 @@ roles: (u.roles || []).map((r: { _id: any; id: any; name: any; displayName: any;
         err?.response?.data?.message || "Unable to delete user",
         "error"
       );
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -476,9 +538,23 @@ const handleResetPassword = () => {
 };
 
 
-  const handleResendInvite = () => {
+  const handleResendInvite = async () => {
+    if (!selectedUser) return;
     handleMenuClose();
-    showSnackbar("Resend invite not implemented yet", "error");
+
+    setResendingInvite(true);
+    try {
+      await api.post(`/invite/resend/${selectedUser._id}`);
+      showSnackbar("Invitation resent successfully!", "success");
+    } catch (err: any) {
+      console.error(err);
+      showSnackbar(
+        err?.response?.data?.message || "Error resending invitation",
+        "error"
+      );
+    } finally {
+      setResendingInvite(false);
+    }
   };
 
   // -----------------------------
@@ -1115,11 +1191,20 @@ const handleResetPassword = () => {
 
 
         {selectedUser?.status === "invited" && (
-          <MenuItem onClick={handleResendInvite}>
+          <MenuItem 
+            onClick={handleResendInvite}
+            disabled={resendingInvite}
+          >
             <ListItemIcon>
-              <EmailIcon fontSize="small" />
+              {resendingInvite ? (
+                <CircularProgress size={16} />
+              ) : (
+                <EmailIcon fontSize="small" />
+              )}
             </ListItemIcon>
-            <ListItemText>Resend Invitation</ListItemText>
+            <ListItemText>
+              {resendingInvite ? "Resending..." : "Resend Invitation"}
+            </ListItemText>
           </MenuItem>
         )}
 <Tooltip
@@ -1189,21 +1274,37 @@ const handleResetPassword = () => {
       {/* Invite User Dialog */}
       <Dialog
         open={inviteDialogOpen}
-        onClose={() => setInviteDialogOpen(false)}
+        onClose={() => {
+          if (!inviting) {
+            setInviteDialogOpen(false);
+          }
+        }}
         maxWidth="sm"
         fullWidth
+        fullScreen={isMobile}
         PaperProps={{
           sx: {
-            m: { xs: 2, sm: 3 },
-            maxHeight: { xs: "calc(100% - 32px)", sm: "calc(100% - 64px)" },
+            m: { xs: 0, sm: 3 },
+            maxHeight: { xs: "100%", sm: "calc(100% - 64px)" },
+            width: { xs: "100%", sm: "auto" },
           },
         }}
       >
-        <DialogTitle sx={{ fontSize: { xs: "1.125rem", sm: "1.25rem" } }}>
-          Invite New User
+        <DialogTitle
+          sx={{
+            px: { xs: 2, sm: 3 },
+            pt: { xs: 2, sm: 3 },
+            pb: 1,
+          }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <PersonAddIcon color="primary" />
+            <Typography variant="h6">Invite New User</Typography>
+          </Box>
         </DialogTitle>
-        <DialogContent>
-          <Stack spacing={3} sx={{ mt: 2 }}>
+
+        <DialogContent sx={{ px: { xs: 2, sm: 3 }, pb: { xs: 2, sm: 3 } }}>
+          <Stack spacing={3} sx={{ mt: 1 }}>
             <TextField
               fullWidth
               label="Full Name (optional)"
@@ -1231,67 +1332,137 @@ const handleResetPassword = () => {
               }
               placeholder="user@example.com"
               size="small"
+              required
+              error={inviteForm.email.length > 0 && !inviteForm.email.includes("@")}
+              helperText={
+                inviteForm.email.length > 0 && !inviteForm.email.includes("@")
+                  ? "Please enter a valid email address"
+                  : ""
+              }
             />
 
-            <FormControl fullWidth size="small">
-              <InputLabel>Roles</InputLabel>
-              <Select
-                multiple
-                value={inviteForm.roleIds}
-                label="Roles"
-                onChange={(e) =>
-                  setInviteForm((prev) => ({
-                    ...prev,
-                    roleIds:
-                      typeof e.target.value === "string"
-                        ? e.target.value.split(",")
-                        : (e.target.value as string[]),
-                  }))
-                }
-                renderValue={(selected) => {
-                  const labels = roles
-                    .filter((r) => selected.includes(r._id))
-                    .map((r) => r.displayName);
-                  return labels.join(", ");
-                }}
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 600 }}>
+                Select Roles *
+              </Typography>
+              <FormControl
+                fullWidth
+                size="small"
+                error={inviteForm.roleIds.length === 0 && inviteForm.email.length > 0}
               >
-                {roles.map((role) => (
-                  <MenuItem key={role._id} value={role._id}>
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <Checkbox
-                        checked={inviteForm.roleIds.includes(role._id)}
-                        sx={{ padding: 0, mr: 1 }}
-                      />
-                      <Typography
-                        sx={{ fontSize: { xs: "0.875rem", sm: "1rem" } }}
-                      >
-                        {role.displayName}
+                <InputLabel id="roles-select-label">Roles</InputLabel>
+                <Select
+                  labelId="roles-select-label"
+                  multiple
+                  value={inviteForm.roleIds}
+                  label="Roles"
+                  onChange={(e) =>
+                    setInviteForm((prev) => ({
+                      ...prev,
+                      roleIds:
+                        typeof e.target.value === "string"
+                          ? e.target.value.split(",")
+                          : (e.target.value as string[]),
+                    }))
+                  }
+                  renderValue={(selected) => {
+                    if (selected.length === 0) {
+                      return (
+                        <Typography color="text.secondary">Select roles...</Typography>
+                      );
+                    }
+                    return (
+                      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+                        {selected.map((roleId) => {
+                          const role = roles.find((r) => r._id === roleId);
+                          if (!role) return null;
+                          return (
+                            <Chip
+                              key={roleId}
+                              label={role.displayName}
+                              size="small"
+                              sx={{
+                                backgroundColor: role.color || "#546e7a",
+                                color: "white",
+                                fontSize: "0.75rem",
+                                height: 24,
+                              }}
+                            />
+                          );
+                        })}
+                      </Box>
+                    );
+                  }}
+                  MenuProps={{
+                    PaperProps: {
+                      style: {
+                        maxHeight: 300,
+                      },
+                    },
+                  }}
+                >
+                  {roles.length === 0 ? (
+                    <MenuItem disabled>
+                      <Typography variant="body2" color="text.secondary">
+                        No roles available
                       </Typography>
-                    </Stack>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+                    </MenuItem>
+                  ) : (
+                    roles.map((role) => (
+                      <MenuItem key={role._id} value={role._id}>
+                        <Checkbox
+                          checked={inviteForm.roleIds.includes(role._id)}
+                          sx={{ mr: 1.5 }}
+                        />
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 1,
+                            flex: 1,
+                          }}
+                        >
+                          <Box
+                            sx={{
+                              width: 12,
+                              height: 12,
+                              borderRadius: "50%",
+                              backgroundColor: role.color || "#546e7a",
+                            }}
+                          />
+                          <Typography variant="body2">{role.displayName}</Typography>
+                        </Box>
+                      </MenuItem>
+                    ))
+                  )}
+                </Select>
+                {inviteForm.roleIds.length === 0 && inviteForm.email.length > 0 && (
+                  <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.75 }}>
+                    At least one role must be selected
+                  </Typography>
+                )}
+              </FormControl>
+            </Box>
 
-            <Alert
-              severity="info"
-              sx={{ fontSize: { xs: "0.8125rem", sm: "0.875rem" } }}
-            >
+            <Alert severity="info" icon={<EmailIcon />}>
               An invitation email will be sent to the user with instructions to
               set up their account.
             </Alert>
           </Stack>
         </DialogContent>
+
         <DialogActions
           sx={{
             px: { xs: 2, sm: 3 },
             py: 2,
-            flexDirection: { xs: "column", sm: "row" },
+            flexDirection: { xs: "column-reverse", sm: "row" },
             gap: 1,
           }}
         >
           <Button
             onClick={() => setInviteDialogOpen(false)}
+            variant="outlined"
+            disabled={inviting}
             sx={{ width: { xs: "100%", sm: "auto" } }}
           >
             Cancel
@@ -1299,10 +1470,21 @@ const handleResetPassword = () => {
           <Button
             onClick={handleInviteUser}
             variant="contained"
-            disabled={!inviteForm.email}
+            disabled={
+              inviting ||
+              !inviteForm.email ||
+              inviteForm.roleIds.length === 0
+            }
+            startIcon={
+              inviting ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : (
+                <PersonAddIcon />
+              )
+            }
             sx={{ width: { xs: "100%", sm: "auto" } }}
           >
-            Send Invitation
+            {inviting ? "Sending..." : "Send Invitation"}
           </Button>
         </DialogActions>
       </Dialog>
@@ -1438,7 +1620,11 @@ const handleResetPassword = () => {
       {/* Delete Confirmation Dialog */}
       <Dialog
         open={deleteDialogOpen}
-        onClose={() => setDeleteDialogOpen(false)}
+        onClose={() => {
+          if (!deleting) {
+            setDeleteDialogOpen(false);
+          }
+        }}
         maxWidth="xs"
         fullWidth
         PaperProps={{
@@ -1479,6 +1665,7 @@ const handleResetPassword = () => {
         >
           <Button
             onClick={() => setDeleteDialogOpen(false)}
+            disabled={deleting}
             sx={{ width: { xs: "100%", sm: "auto" } }}
           >
             Cancel
@@ -1487,81 +1674,299 @@ const handleResetPassword = () => {
             onClick={confirmDelete}
             variant="contained"
             color="error"
+            disabled={deleting}
+            startIcon={deleting ? <CircularProgress size={16} color="inherit" /> : null}
             sx={{ width: { xs: "100%", sm: "auto" } }}
           >
-            Delete User
+            {deleting ? "Deleting..." : "Delete User"}
           </Button>
         </DialogActions>
       </Dialog>
 
-      <Dialog open={resetDialogOpen} onClose={() => setResetDialogOpen(false)}>
-  <DialogTitle>Reset Password</DialogTitle>
-
-  <DialogContent>
-    <Stack spacing={2} mt={1}>
-      <Alert severity="info">
-        You can either email a reset link or set a temporary password.
-      </Alert>
-
-      <TextField
-        label="Temporary Password"
-        type="password"
-        value={tempPassword}
-        onChange={e => setTempPassword(e.target.value)}
+      {/* Reset Password Dialog */}
+      <Dialog
+        open={resetDialogOpen}
+        onClose={() => {
+          setResetDialogOpen(false);
+          setResetMethod("password");
+          setTempPassword("");
+          setRequireChange(true);
+        }}
+        maxWidth="sm"
         fullWidth
-        size="small"
-      />
+        fullScreen={isMobile}
+        PaperProps={{
+          sx: {
+            m: { xs: 0, sm: 3 },
+            maxHeight: { xs: "100%", sm: "calc(100% - 64px)" },
+            width: { xs: "100%", sm: "auto" },
+          },
+        }}
+      >
+        <DialogTitle sx={{ px: { xs: 2, sm: 3 }, pt: { xs: 2, sm: 3 } }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <LockResetIcon color="primary" />
+            <Typography variant="h6">Reset Password</Typography>
+          </Box>
+          {selectedUser && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+              {selectedUser.name} ({selectedUser.email})
+            </Typography>
+          )}
+        </DialogTitle>
 
-      <FormControlLabel
-        control={
-          <Checkbox
-            checked={requireChange}
-            onChange={e => setRequireChange(e.target.checked)}
-          />
-        }
-        label="Require user to change password on next login"
-      />
-    </Stack>
-  </DialogContent>
+        <DialogContent sx={{ px: { xs: 2, sm: 3 }, pb: { xs: 2, sm: 3 } }}>
+          <Stack spacing={3} sx={{ mt: 1, width: "100%", maxWidth: "100%" }}>
+            {/* Method Selection */}
+            <Box sx={{ width: "100%", maxWidth: "100%", overflow: "hidden" }}>
+              <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 600 }}>
+                Choose Reset Method
+              </Typography>
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                spacing={1.5}
+                sx={{
+                  width: "100%",
+                  "& > *": {
+                    flex: 1,
+                    minWidth: 0, // Prevents overflow
+                  },
+                }}
+              >
+                <Card
+                  onClick={() => setResetMethod("password")}
+                  sx={{
+                    cursor: "pointer",
+                    border: 2,
+                    borderColor:
+                      resetMethod === "password" ? "primary.main" : "divider",
+                    backgroundColor:
+                      resetMethod === "password"
+                        ? "action.selected"
+                        : "background.paper",
+                    transition: "all 0.2s",
+                    width: "100%",
+                    maxWidth: "100%",
+                    "&:hover": {
+                      borderColor: "primary.main",
+                      backgroundColor: "action.hover",
+                    },
+                  }}
+                >
+                  <CardContent sx={{ p: { xs: 1.5, sm: 2 }, "&:last-child": { pb: { xs: 1.5, sm: 2 } } }}>
+                    <Stack spacing={1} alignItems="center" textAlign="center">
+                      <LockResetIcon
+                        color={resetMethod === "password" ? "primary" : "action"}
+                        sx={{ fontSize: 32 }}
+                      />
+                      <Typography variant="subtitle2" fontWeight={600}>
+                        Set Temporary Password
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Create a temporary password that the user must change on
+                        next login
+                      </Typography>
+                    </Stack>
+                  </CardContent>
+                </Card>
 
-  <DialogActions>
-    <Button onClick={() => setResetDialogOpen(false)}>Cancel</Button>
+                <Card
+                  onClick={() => setResetMethod("email")}
+                  sx={{
+                    cursor: "pointer",
+                    border: 2,
+                    borderColor:
+                      resetMethod === "email" ? "primary.main" : "divider",
+                    backgroundColor:
+                      resetMethod === "email"
+                        ? "action.selected"
+                        : "background.paper",
+                    transition: "all 0.2s",
+                    width: "100%",
+                    maxWidth: "100%",
+                    "&:hover": {
+                      borderColor: "primary.main",
+                      backgroundColor: "action.hover",
+                    },
+                  }}
+                >
+                  <CardContent sx={{ p: { xs: 1.5, sm: 2 }, "&:last-child": { pb: { xs: 1.5, sm: 2 } } }}>
+                    <Stack spacing={1} alignItems="center" textAlign="center">
+                      <EmailIcon
+                        color={resetMethod === "email" ? "primary" : "action"}
+                        sx={{ fontSize: 32 }}
+                      />
+                      <Typography variant="subtitle2" fontWeight={600}>
+                        Send Reset Link
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Email a secure password reset link to the user's email
+                        address
+                      </Typography>
+                    </Stack>
+                  </CardContent>
+                </Card>
+              </Stack>
+            </Box>
 
-    <Button
-      onClick={async () => {
-        try {
-          await api.post(`/users/${selectedUser!._id}/reset-password`, {
-            tempPassword,
-            requireChange,
-          });
-          showSnackbar("Password reset successfully", "success");
-          setResetDialogOpen(false);
-        } catch {
-          showSnackbar("Failed to reset password", "error");
-        }
-      }}
-      variant="contained"
-      disabled={!tempPassword}
-    >
-      Set Password
-    </Button>
+            <Divider />
 
-    <Button
-      onClick={async () => {
-        try {
-          await api.post(`/users/${selectedUser!._id}/send-reset-email`);
-          showSnackbar("Reset email sent", "success");
-          setResetDialogOpen(false);
-        } catch {
-          showSnackbar("Failed to send reset email", "error");
-        }
-      }}
-      color="secondary"
-    >
-      Email Reset Link
-    </Button>
-  </DialogActions>
-</Dialog>
+            {/* Temporary Password Form */}
+            {resetMethod === "password" && (
+              <Stack spacing={2}>
+                {requireChange && (
+                  <Alert severity="info" icon={<LockResetIcon />}>
+                    The user will be required to change this password on their next
+                    login.
+                  </Alert>
+                )}
+
+                <TextField
+                  label="Temporary Password"
+                  type="password"
+                  value={tempPassword}
+                  onChange={(e) => setTempPassword(e.target.value)}
+                  fullWidth
+                  required
+                  helperText="Minimum 8 characters"
+                  error={tempPassword.length > 0 && tempPassword.length < 8}
+                />
+
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={requireChange}
+                      onChange={(e) => setRequireChange(e.target.checked)}
+                    />
+                  }
+                  label="Require password change on next login"
+                />
+              </Stack>
+            )}
+
+            {/* Email Reset Form */}
+            {resetMethod === "email" && (
+              <Stack spacing={2}>
+                <Alert severity="info" icon={<EmailIcon />}>
+                  A password reset link will be sent to{" "}
+                  <strong>{selectedUser?.email}</strong>. The link will expire
+                  in 1 hour.
+                </Alert>
+
+                <Box
+                  sx={{
+                    p: 2,
+                    bgcolor: "grey.50",
+                    borderRadius: 1,
+                    border: "1px solid",
+                    borderColor: "divider",
+                  }}
+                >
+                  <Typography variant="body2" color="text.secondary">
+                    <strong>What happens next:</strong>
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                    • User receives an email with a reset link
+                    <br />• User clicks the link to set a new password
+                    <br />• Link expires after 1 hour
+                  </Typography>
+                </Box>
+              </Stack>
+            )}
+          </Stack>
+        </DialogContent>
+
+        <DialogActions
+          sx={{
+            px: { xs: 2, sm: 3 },
+            py: 2,
+            flexDirection: { xs: "column-reverse", sm: "row" },
+            gap: 1,
+          }}
+        >
+          <Button
+            onClick={() => {
+              setResetDialogOpen(false);
+              setResetMethod("password");
+              setTempPassword("");
+              setRequireChange(true);
+            }}
+            sx={{ width: { xs: "100%", sm: "auto" } }}
+          >
+            Cancel
+          </Button>
+
+          {resetMethod === "password" ? (
+            <Button
+              onClick={async () => {
+                if (!tempPassword || tempPassword.length < 8) {
+                  showSnackbar(
+                    "Password must be at least 8 characters",
+                    "error"
+                  );
+                  return;
+                }
+
+                setResetting(true);
+                try {
+                  await api.post(`/users/${selectedUser!._id}/reset-password`, {
+                    tempPassword,
+                    requireChange,
+                  });
+                  showSnackbar("Temporary password set successfully", "success");
+                  setResetDialogOpen(false);
+                  setTempPassword("");
+                  setRequireChange(true);
+                } catch (err: any) {
+                  showSnackbar(
+                    err?.response?.data?.message ||
+                      "Failed to set temporary password",
+                    "error"
+                  );
+                } finally {
+                  setResetting(false);
+                }
+              }}
+              variant="contained"
+              disabled={!tempPassword || tempPassword.length < 8 || resetting}
+              startIcon={resetting ? <CircularProgress size={16} /> : <LockResetIcon />}
+              sx={{ width: { xs: "100%", sm: "auto" } }}
+            >
+              {resetting ? "Setting Password..." : "Set Temporary Password"}
+            </Button>
+          ) : (
+            <Button
+              onClick={async () => {
+                setResetting(true);
+                try {
+                  await api.post(
+                    `/users/${selectedUser!._id}/send-reset-email`
+                  );
+                  showSnackbar(
+                    "Password reset email sent successfully",
+                    "success"
+                  );
+                  setResetDialogOpen(false);
+                } catch (err: any) {
+                  showSnackbar(
+                    err?.response?.data?.message ||
+                      "Failed to send reset email",
+                    "error"
+                  );
+                } finally {
+                  setResetting(false);
+                }
+              }}
+              variant="contained"
+              disabled={resetting}
+              startIcon={resetting ? <CircularProgress size={16} /> : <EmailIcon />}
+              sx={{ width: { xs: "100%", sm: "auto" } }}
+            >
+              {resetting ? "Sending..." : "Send Reset Email"}
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
       </>
     )}
   </Box>

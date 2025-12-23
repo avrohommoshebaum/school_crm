@@ -1,19 +1,19 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-import mongooseConnect from "../db/mongooseconnect.js";
-import Role from "../db/models/role.js";
-import User from "../db/models/user.js";
-import Invitation from "../db/models/invitation.js";
+import firestoreConnect from "../db/firestoreconnect.js";
+import { roleService } from "../db/services/roleService.js";
+import { userService } from "../db/services/userService.js";
+import { invitationService } from "../db/services/invitationService.js";
 import crypto from "crypto";
 
 const createInitialAdmin = async () => {
-  await mongooseConnect();
+  await firestoreConnect();
 
   const email = "rabbi.baum@nachlasby.com";
 
   console.log("🔍 Checking if user already exists...");
-  let existing = await User.findOne({ email });
+  let existing = await userService.findByEmail(email);
 
   if (existing) {
     console.log("❗ User already exists. Aborting bootstrap.");
@@ -21,10 +21,10 @@ const createInitialAdmin = async () => {
   }
 
   console.log("🔍 Ensuring admin role exists...");
-  let adminRole = await Role.findOne({ name: "admin" });
+  let adminRole = await roleService.findByName("admin");
 
   if (!adminRole) {
-    adminRole = await Role.create({
+    adminRole = await roleService.create({
       name: "admin",
       displayName: "Administrator",
       description: "System Administrator",
@@ -47,14 +47,25 @@ const createInitialAdmin = async () => {
     console.log("✔️ Admin role already exists.");
   }
 
+  console.log("📨 Creating user with 'invited' status...");
+  
+  // Create the user first (required for invite completion)
+  const user = await userService.create({
+    email,
+    roles: [adminRole._id || adminRole.id],
+    status: "invited",
+    invitedBy: null, // no admin exists yet
+  });
+  console.log("✔️ User created with ID:", user._id || user.id);
+
   console.log("📨 Creating one-time invite for:", email);
 
   const token = crypto.randomBytes(32).toString("hex");
 
-  const invite = await Invitation.create({
+  const invite = await invitationService.create({
     email,
     token,
-    roles: [adminRole._id],
+    roles: [adminRole._id || adminRole.id],
     createdBy: null,      // no admin exists yet
     expiresAt: new Date(Date.now() + 24 * 3600 * 1000 * 7), // 7 days
   });
@@ -68,7 +79,7 @@ const createInitialAdmin = async () => {
   console.log("-----------------------------------------");
 
   process.exit(0);
-}
+};
 
 export default createInitialAdmin;
 
@@ -77,4 +88,3 @@ createInitialAdmin().catch((err) => {
   console.error("❌ Bootstrap error:", err);
   process.exit(1);
 });
-

@@ -8,8 +8,8 @@ import Typography from "@mui/material/Typography";
 import Link from "@mui/material/Link";
 import IconButton from "@mui/material/IconButton";
 import FormControlLabel from "@mui/material/FormControlLabel";
+import CircularProgress from "@mui/material/CircularProgress";
 
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 
@@ -19,8 +19,6 @@ import { Label } from "../components/ui/label";
 import { AppCheckbox } from "../components/ui/checkbox";
 
 import { Alert, AlertDescription } from "../components/ui/alert";
-
-import nachlasLogo from "../assets/nachlasLogo.png";
 
 import { useAuth } from "../context/AuthContext";
 
@@ -39,6 +37,7 @@ export default function Login() {
   const [error, setError] = useState("");
   const [authMessage, setAuthMessage] = useState<string | null>(null);
   const [fadeIn, setFadeIn] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   // ------------------------------
   // Handle ?message=session_expired / forbidden
@@ -65,6 +64,7 @@ export default function Login() {
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
   setError("");
+  setLoading(true);
 
   try {
     const res = await api.post("/auth/login", {
@@ -88,6 +88,8 @@ const handleSubmit = async (e: React.FormEvent) => {
     navigate("/", { replace: true });
   } catch (err: any) {
     setError(err.response?.data?.message || "Login failed");
+  } finally {
+    setLoading(false);
   }
 };
 
@@ -97,74 +99,57 @@ const handleSubmit = async (e: React.FormEvent) => {
     <Box
       sx={{
         minHeight: "100vh",
-        background: "linear-gradient(135deg, #e3f2fd, #bbdefb, #90caf9)",
+        background: "#f5f5f5",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        p: 2,
-        position: "relative",
-        overflow: "hidden",
+        p: { xs: 2, sm: 3 },
       }}
     >
-      {/* Back to site */}
-      <Box
-        sx={{
-          position: "absolute",
-          top: 24,
-          left: 24,
-          display: "flex",
-          alignItems: "center",
-          gap: 1,
-        }}
-      >
-        <Link
-          href="https://nachlasby.com"
-          underline="none"
-          sx={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 1,
-            color: "primary.main",
-            "&:hover": { color: "primary.dark" },
-          }}
-        >
-          <ArrowBackIcon fontSize="small" />
-          <Typography variant="body2">Back to site</Typography>
-        </Link>
-      </Box>
-
       <Paper
-        elevation={8}
+        elevation={2}
         sx={{
           width: "100%",
-          maxWidth: 420,
-          borderRadius: 4,
-          p: 4,
-          transition: "all 700ms ease",
+          maxWidth: { xs: "100%", sm: 420 },
+          borderRadius: 2,
+          p: { xs: 3, sm: 4 },
+          transition: "all 300ms ease",
           opacity: fadeIn ? 1 : 0,
           transform: fadeIn ? "translateY(0)" : "translateY(16px)",
         }}
       >
         {/* Logo & Titles */}
         <Box sx={{ textAlign: "center", mb: 4 }}>
-          <Box sx={{ mb: 2 }}>
-            <img  src="https://storage.cloud.google.com/nachlas_app_logos/logo%20blue%20for%20id%20badge.png"
-  alt="Nachlas Bais Yaakov"
-  style={{ width: "145px", height: "85px", marginRight: "12px" }}
-/>
+          <Box sx={{ mb: 2, display: "flex", justifyContent: "center" }}>
+            <img
+              src="https://storage.googleapis.com/nachlas_app_logos/logo%20blue%20for%20id%20badge.png"
+              alt="Nachlas Bais Yaakov"
+              style={{
+                width: "auto",
+                height: "85px",
+                maxWidth: "100%",
+                objectFit: "contain",
+              }}
+            />
           </Box>
-          <Typography variant="h5" color="primary" sx={{ mb: 0.5 }}>
+          <Typography
+            variant="h5"
+            sx={{
+              mb: 0.5,
+              fontWeight: 600,
+              color: "text.primary",
+            }}
+          >
             Nachlas Bais Yaakov
           </Typography>
           <Typography variant="body2" color="text.secondary">
             School Management Portal
           </Typography>
-
         </Box>
 
         {/* AUTH MESSAGES (session expired / forbidden) */}
         {authMessage && (
-          <Alert variant="default" sx={{ mb: 2 }}>
+          <Alert variant="default" sx={{ mb: 3 }}>
             <AlertDescription>{authMessage}</AlertDescription>
           </Alert>
         )}
@@ -180,7 +165,8 @@ const handleSubmit = async (e: React.FormEvent) => {
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              sx={{ mt: 0.5 }}
+              required
+              sx={{ mt: 1 }}
             />
           </Box>
 
@@ -194,14 +180,21 @@ const handleSubmit = async (e: React.FormEvent) => {
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              sx={{ mt: 0.5 }}
+              required
+              sx={{ mt: 1 }}
               InputProps={{
                 endAdornment: (
                   <IconButton
                     edge="end"
                     onClick={() => setShowPassword((prev) => !prev)}
+                    size="small"
+                    sx={{ mr: 0.5 }}
                   >
-                    {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                    {showPassword ? (
+                      <VisibilityOffIcon fontSize="small" />
+                    ) : (
+                      <VisibilityIcon fontSize="small" />
+                    )}
                   </IconButton>
                 ),
               }}
@@ -212,8 +205,10 @@ const handleSubmit = async (e: React.FormEvent) => {
           <Box
             sx={{
               display: "flex",
-              alignItems: "center",
+              flexDirection: { xs: "column", sm: "row" },
+              alignItems: { xs: "flex-start", sm: "center" },
               justifyContent: "space-between",
+              gap: { xs: 1, sm: 0 },
             }}
           >
             <FormControlLabel
@@ -226,22 +221,32 @@ const handleSubmit = async (e: React.FormEvent) => {
               label={<Typography variant="body2">Remember me</Typography>}
             />
 
-           <Link component={RouterLink} to="/forgot-password" variant="body2">
-  Forgot password?
-</Link>
-
+            <Link
+              component={RouterLink}
+              to="/forgot-password"
+              variant="body2"
+              sx={{ textDecoration: "none" }}
+            >
+              Forgot password?
+            </Link>
           </Box>
 
           {/* Error alert */}
           {error && (
-            <Alert variant="destructive">
+            <Alert variant="destructive" sx={{ mt: 1 }}>
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
 
           {/* Submit */}
-          <Button type="submit" fullWidth sx={{ mt: 1 }}>
-            Sign In
+          <Button
+            type="submit"
+            fullWidth
+            disabled={loading}
+            sx={{ mt: 2, py: 1.5 }}
+            startIcon={loading ? <CircularProgress size={16} color="inherit" /> : null}
+          >
+            {loading ? "Signing in..." : "Sign In"}
           </Button>
         </Box>
 

@@ -1,0 +1,22 @@
+# This file specifies files that are *not* uploaded to Google Cloud
+# using gcloud. It follows the same syntax as .gitignore
+
+node_modules/
+npm-debug.log
+.env
+.env.local
+*.log
+.git/
+.gitignore
+.DS_Store
+coverage/
+.nyc_output/
+credible-runner-468819-f9-*.json
+*-firebase*.json
+*service-account*.json
+README-CLOUDRUN.md
+COST-ANALYSIS.md
+SETUP-BUDGET-ALERTS.md
+DEPLOY.md
+deploy.sh
+deploy.ps1

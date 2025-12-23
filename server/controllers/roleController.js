@@ -1,36 +1,19 @@
-import Role from "../db/models/role.js";
+import { roleService } from "../db/services/roleService.js";
 import { normalizePermissions } from "../utils/normalizePermissions.js";
 
 export const getAllRoles = async (req, res) => {
-  const roles = await Role.aggregate([
-    {
-      $lookup: {
-        from: "users",
-        localField: "_id",
-        foreignField: "roles",
-        as: "users",
-      },
-    },
-    {
-      $addFields: {
-        userCount: { $size: "$users" },
-      },
-    },
-    { $project: { users: 0 } }, 
-    { $sort: { isSystem: -1, displayName: 1 } },
-  ]);
-
+  const roles = await roleService.findAllWithUserCount();
   res.json({ roles });
 }
 
 export const createRole = async (req, res) => {
   const { name, displayName, description, permissions, color } = req.body;
 
-  const existing = await Role.findOne({ name });
+  const existing = await roleService.findByName(name);
   if (existing)
     return res.status(400).json({ message: "Role already exists" });
 
-  const role = await Role.create({
+  const role = await roleService.create({
     name,
     displayName,
     description,
@@ -43,7 +26,7 @@ export const createRole = async (req, res) => {
 };
 
 export const updateRole = async (req, res) => {
-  const role = await Role.findById(req.params.id);
+  const role = await roleService.findById(req.params.id);
   if (!role)
     return res.status(404).json({ message: "Role not found" });
 
@@ -52,25 +35,26 @@ export const updateRole = async (req, res) => {
 
   const { displayName, description, color, permissions } = req.body;
 
-  if (displayName !== undefined) role.displayName = displayName;
-  if (description !== undefined) role.description = description;
-  if (color !== undefined) role.color = color;
+  const updates = {};
+  if (displayName !== undefined) updates.displayName = displayName;
+  if (description !== undefined) updates.description = description;
+  if (color !== undefined) updates.color = color;
   if (permissions !== undefined)
-    role.permissions = normalizePermissions(permissions);
+    updates.permissions = normalizePermissions(permissions);
 
-  await role.save();
+  const updatedRole = await roleService.update(role._id || role.id, updates);
 
-  res.json({ role });
+  res.json({ role: updatedRole });
 };
 
 export const deleteRole = async (req, res) => {
-  const role = await Role.findById(req.params.id);
+  const role = await roleService.findById(req.params.id);
   if (!role) return res.status(404).json({ message: "Role not found" });
 
   if (role.isSystem)
     return res.status(400).json({ message: "System roles cannot be deleted" });
 
-  await role.deleteOne();
+  await roleService.delete(role._id || role.id);
 
   res.json({ message: "Role deleted" });
 };

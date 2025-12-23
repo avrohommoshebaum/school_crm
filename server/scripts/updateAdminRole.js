@@ -1,24 +1,24 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-import mongooseConnect from "../db/mongooseconnect.js";
-import Role from "../db/models/role.js";
+import firestoreConnect from "../db/firestoreconnect.js";
+import { roleService } from "../db/services/roleService.js";
 import buildFullPermissions from "../utils/buildFullPermissions.js";
 
 const run = async () => {
-  await mongooseConnect();
+  await firestoreConnect();
 
-  const admin = await Role.findOne({ name: "admin" });
+  const admin = await roleService.findByName("admin");
 
   if (!admin) {
     console.log("❌ Admin role not found");
     process.exit(1);
   }
 
-  admin.permissions = buildFullPermissions();
-  admin.isSystem = true;
-
-  await admin.save();
+  await roleService.update(admin._id || admin.id, {
+    permissions: buildFullPermissions(),
+    isSystem: true,
+  });
 
   console.log("✅ Admin role updated with full permissions");
   process.exit(0);

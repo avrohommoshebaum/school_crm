@@ -274,7 +274,7 @@ export default function LayoutMUI() {
 
           <Box sx={{ display: "flex", alignItems: "center", flexGrow: 1, justifyContent: { xs: "center", sm: "flex-start" } }}>
             <img
-  src="https://storage.cloud.google.com/nachlas_app_logos/logo%20blue%20for%20id%20badge.png"
+  src="https://storage.googleapis.com/nachlas_app_logos/logo%20blue%20for%20id%20badge.png"
   alt="Nachlas Bais Yaakov"
   style={{ width: "83px", height: "50px", marginRight: "12px" }}
 />

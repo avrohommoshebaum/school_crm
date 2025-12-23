@@ -7,9 +7,12 @@ export function can(user, moduleKey, action) {
   const isAdmin = roles.some((r) => r.name === "admin");
   if (isAdmin) return true;
 
-  // 1️⃣ User-level override (fine-grained future feature)
+  // 1️⃣ User-level override (handle both Map and object)
   const overrideKey = `${moduleKey}.${action}`;
-  if (user.permissionsOverride?.get?.(overrideKey) === true) {
+  const overrideValue = user.permissionsOverride?.get 
+    ? user.permissionsOverride.get(overrideKey)  // Map
+    : user.permissionsOverride?.[overrideKey];   // Object
+  if (overrideValue === true) {
     return true;
   }
 

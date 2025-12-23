@@ -1,4 +1,5 @@
 import express from "express";
+import { requireAuth } from "../middleware/auth.js";
 import {
   getMe,
   updateProfile,
@@ -8,9 +9,10 @@ import {
 
 const router = express.Router();
 
-router.get("/me", getMe);
-router.put("/me/profile", updateProfile);
-router.put("/me/settings", updateSettings);
-router.put("/me/password", changePassword);
+// All profile routes require authentication
+router.get("/me", requireAuth, getMe);
+router.put("/me/profile", requireAuth, updateProfile);
+router.put("/me/settings", requireAuth, updateSettings);
+router.put("/me/password", requireAuth, changePassword);
 
 export default router;

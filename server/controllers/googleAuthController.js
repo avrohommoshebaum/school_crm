@@ -1,5 +1,4 @@
 import passport from "passport";
-import User from "../db/models/user.js";
 
 export const googleLogin = passport.authenticate("google", {
   scope: ["profile", "email"],

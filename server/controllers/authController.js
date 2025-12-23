@@ -1,14 +1,16 @@
 import passport from "passport";
-import User from "../db/models/user.js";
+import { userService } from "../db/services/userService.js";
+import crypto from "crypto";
+import sendResetEmail from "../utils/email/sendResetEmail.js";
 
 function sanitizeUser(user) {
   return {
-    id: user._id,
+    id: user._id || user.id,
     name: user.name,
     email: user.email,
     status: user.status,
     roles: (user.roles || []).map(r => ({
-      id: r._id,
+      id: r._id || r.id,
       name: r.name,
       displayName: r.displayName,
       color: r.color,
@@ -34,29 +36,28 @@ export const loginLocal = (req, res, next) => {
   return req.login(user, async (err) => {
     if (err) return next(err);
 
-    await user.populate("roles");
+    const userWithRoles = await userService.populateRoles(user);
 
     return res.json({
       requiresPasswordChange: true,
-      user: sanitizeUser(user),
+      user: sanitizeUser(userWithRoles),
     });
   });
 }
 
 
     if (user.mfaEnabled) {
-      req.session.mfaUserId = user._id.toString();
+      req.session.mfaUserId = (user._id || user.id).toString();
       return res.json({ mfaRequired: true });
     }
 
     req.login(user, async (err2) => {
       if (err2) return next(err2);
 
-      user.lastLogin = new Date();
-      await user.save();
-      await user.populate("roles");
+      await userService.update(user._id || user.id, { lastLogin: new Date() });
+      const userWithRoles = await userService.populateRoles(user);
 
-      return res.json({ user: sanitizeUser(user) });
+      return res.json({ user: sanitizeUser(userWithRoles) });
     });
   })(req, res, next);
 };
@@ -68,7 +69,7 @@ export const verifyMfa = async (req, res) => {
 
   if (!userId) return res.status(400).json({ message: "MFA session missing" });
 
-  const user = await User.findById(userId);
+  const user = await userService.findById(userId);
 
   if (!user?.mfaEnabled || !user?.mfaSecret) {
     return res.status(400).json({ message: "MFA disabled" });
@@ -91,11 +92,10 @@ export const verifyMfa = async (req, res) => {
 
     delete req.session.mfaUserId;
 
-    user.lastLogin = new Date();
-    await user.save();
-    await user.populate("roles");
+    await userService.update(user._id || user.id, { lastLogin: new Date() });
+    const userWithRoles = await userService.populateRoles(user);
 
-    res.json({ user: sanitizeUser(user) });
+    res.json({ user: sanitizeUser(userWithRoles) });
   });
 };
 
@@ -113,23 +113,25 @@ export const logoutUser = (req, res) => {
 export const getMe = async (req, res) => {
   if (!req.user) return res.json({ user: null });
 
-  const user = await User.findById(req.user._id)
-    .populate("roles"); 
+  const userId = req.user._id || req.user.id;
+  const user = await userService.findById(userId);
+  const userWithRoles = await userService.populateRoles(user);
 
-  res.json({ user: sanitizeUser(user) });
+  res.json({ user: sanitizeUser(userWithRoles) });
 };
 
 export const forgotPassword = async (req, res) => {
   const { email } = req.body;
-  const user = await User.findOne({ email });
+  const user = await userService.findByEmail(email);
 
   if (!user) return res.json({ message: "If account exists, email sent." });
 
   const token = crypto.randomBytes(32).toString("hex");
 
-  user.passwordResetToken = token;
-  user.passwordResetExpires = Date.now() + 1000 * 60 * 60;  
-  await user.save();
+  await userService.update(user._id || user.id, {
+    passwordResetToken: token,
+    passwordResetExpires: new Date(Date.now() + 1000 * 60 * 60),
+  });
 
   const link = `${process.env.CLIENT_URL}/reset-password?token=${token}`;
   await sendResetEmail({ to: email, resetLink: link });
@@ -141,21 +143,18 @@ export const forgotPassword = async (req, res) => {
 export const resetPassword = async (req, res) => {
   const { password } = req.body;
 
-  const user = await User.findOne({
-    passwordResetToken: req.params.token,
-    passwordResetExpires: { $gt: Date.now() },
-  });
+  const user = await userService.findByPasswordResetToken(req.params.token);
 
   if (!user)
     return res.status(400).json({ message: "Invalid or expired token" });
 
-  await user.setPassword(password);
+  await userService.setPassword(user._id || user.id, password);
 
-  user.passwordResetToken = undefined;
-  user.passwordResetExpires = undefined;
-  user.mustChangePassword = false;
-
-  await user.save();
+  await userService.update(user._id || user.id, {
+    passwordResetToken: null,
+    passwordResetExpires: null,
+    mustChangePassword: false,
+  });
 
  res.json({ message: "Password reset successful" });
 };
@@ -167,11 +166,9 @@ export const changePassword = async (req, res) => {
     return res.status(400).json({ message: "Password too short" });
   }
 
-  const user = await User.findById(req.user._id);
-
-  await user.setPassword(password);
-  user.mustChangePassword = false;
-  await user.save();
+  const userId = req.user._id || req.user.id;
+  await userService.setPassword(userId, password);
+  await userService.update(userId, { mustChangePassword: false });
 
   res.json({ message: "Password updated" });
 };
