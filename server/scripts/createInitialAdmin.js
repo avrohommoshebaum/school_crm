@@ -1,14 +1,14 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-import firestoreConnect from "../db/firestoreconnect.js";
+import { initializePostgres } from "../db/postgresConnect.js";
 import { roleService } from "../db/services/roleService.js";
 import { userService } from "../db/services/userService.js";
 import { invitationService } from "../db/services/invitationService.js";
 import crypto from "crypto";
 
 const createInitialAdmin = async () => {
-  await firestoreConnect();
+  await initializePostgres();
 
   const email = "rabbi.baum@nachlasby.com";
 

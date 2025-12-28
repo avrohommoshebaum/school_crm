@@ -104,7 +104,28 @@ export default function configurePassport(app) {
 
   passport.deserializeUser(async (id, done) => {
     try {
-      const user = await userService.findById(id);
+      // Check if ID is a valid UUID (PostgreSQL format)
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      
+      let userId = id;
+      
+      // If ID is not a UUID, it might be a Firestore ID - try to map it
+      if (!uuidRegex.test(id)) {
+        const { query } = await import("../db/postgresConnect.js");
+        const result = await query(
+          "SELECT postgres_uuid FROM id_mapping WHERE firestore_id = $1 AND entity_type = 'users' LIMIT 1",
+          [id]
+        );
+        
+        if (result.rows.length > 0) {
+          userId = result.rows[0].postgres_uuid;
+        } else {
+          // No mapping found - user needs to log in again
+          return done(null, false);
+        }
+      }
+      
+      const user = await userService.findById(userId);
       if (!user) {
         return done(null, false);
       }

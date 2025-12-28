@@ -1,12 +1,12 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-import firestoreConnect from "../db/firestoreconnect.js";
+import { initializePostgres } from "../db/postgresConnect.js";
 import { roleService } from "../db/services/roleService.js";
 import buildFullPermissions from "../utils/buildFullPermissions.js";
 
 const run = async () => {
-  await firestoreConnect();
+  await initializePostgres();
 
   const admin = await roleService.findByName("admin");
 

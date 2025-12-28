@@ -1,119 +1,155 @@
-import firestoreConnect from "../firestoreconnect.js";
+/**
+ * Invitation Service - PostgreSQL Implementation
+ * 
+ * This service handles all invitation-related database operations using PostgreSQL
+ */
+
+import { query } from "../postgresConnect.js";
 import { roleService } from "./roleService.js";
 
-const COLLECTION = "invitations";
-
-// Helper to convert Firestore doc to invitation object
-const docToInvitation = (doc) => {
-  if (!doc.exists) return null;
-  const data = doc.data();
+// Helper to convert database row to invitation object
+const rowToInvitation = (row) => {
+  if (!row) return null;
   return {
-    _id: doc.id,
-    ...data,
-    id: doc.id,
+    _id: row.id,
+    id: row.id,
+    email: row.email,
+    token: row.token,
+    roleIds: row.role_ids || [],
+    role_ids: row.role_ids || [], // Keep both for compatibility
+    accepted: row.accepted,
+    expiresAt: row.expires_at,
+    expires_at: row.expires_at, // Keep both for compatibility
+    createdAt: row.created_at,
+    created_at: row.created_at, // Keep both for compatibility
+    updatedAt: row.updated_at,
+    updated_at: row.updated_at, // Keep both for compatibility
   };
 };
 
 export const invitationService = {
-  // Find invitation by token
   async findByToken(token) {
-    const db = await firestoreConnect();
-    const snapshot = await db
-      .collection(COLLECTION)
-      .where("token", "==", token)
-      .limit(1)
-      .get();
-
-    if (snapshot.empty) return null;
-    return docToInvitation(snapshot.docs[0]);
+    if (!token) return null;
+    const result = await query("SELECT * FROM invitations WHERE token = $1 LIMIT 1", [token]);
+    return result.rows.length > 0 ? rowToInvitation(result.rows[0]) : null;
   },
 
-  // Find invitation by email
   async findByEmail(email) {
-    const db = await firestoreConnect();
-    const snapshot = await db
-      .collection(COLLECTION)
-      .where("email", "==", email.toLowerCase())
-      .limit(1)
-      .get();
-
-    if (snapshot.empty) return null;
-    return docToInvitation(snapshot.docs[0]);
+    if (!email) return null;
+    const result = await query("SELECT * FROM invitations WHERE LOWER(email) = LOWER($1) LIMIT 1", [email]);
+    return result.rows.length > 0 ? rowToInvitation(result.rows[0]) : null;
   },
 
-  // Create invitation
+  async findById(id) {
+    if (!id) return null;
+    const result = await query("SELECT * FROM invitations WHERE id = $1", [id]);
+    return result.rows.length > 0 ? rowToInvitation(result.rows[0]) : null;
+  },
+
+  async findAll() {
+    const result = await query("SELECT * FROM invitations ORDER BY created_at DESC");
+    return result.rows.map(row => rowToInvitation(row));
+  },
+
   async create(invitationData) {
-    const db = await firestoreConnect();
     const now = new Date();
 
-    const invitation = {
-      ...invitationData,
-      email: invitationData.email?.toLowerCase(),
-      accepted: invitationData.accepted || false,
-      createdAt: now,
-      updatedAt: now,
-    };
+    const result = await query(
+      `INSERT INTO invitations (email, token, role_ids, accepted, expires_at, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING *`,
+      [
+        (invitationData.email || "").toLowerCase(),
+        invitationData.token,
+        invitationData.roleIds || invitationData.role_ids || [],
+        invitationData.accepted || false,
+        invitationData.expiresAt || invitationData.expires_at || null,
+        now,
+        now,
+      ]
+    );
 
-    const docRef = db.collection(COLLECTION).doc();
-    await docRef.set(invitation);
+    return rowToInvitation(result.rows[0]);
+  },
 
-    // Set expiration using Firestore TTL (if supported) or manual cleanup
-    if (invitation.expiresAt) {
-      // Note: Firestore doesn't have automatic TTL like MongoDB, 
-      // but we can query by expiresAt in our code
+  async update(id, updates) {
+    if (!id) {
+      throw new Error("Invalid invitation id");
     }
 
-    return { _id: docRef.id, id: docRef.id, ...invitation };
+    const updateFields = [];
+    const values = [];
+    let paramIndex = 1;
+
+    // Build dynamic update query
+    if (updates.email !== undefined) {
+      updateFields.push(`email = $${paramIndex++}`);
+      values.push((updates.email || "").toLowerCase());
+    }
+    if (updates.token !== undefined) {
+      updateFields.push(`token = $${paramIndex++}`);
+      values.push(updates.token);
+    }
+    if (updates.roleIds !== undefined || updates.role_ids !== undefined) {
+      updateFields.push(`role_ids = $${paramIndex++}`);
+      values.push(updates.roleIds || updates.role_ids || []);
+    }
+    if (updates.accepted !== undefined) {
+      updateFields.push(`accepted = $${paramIndex++}`);
+      values.push(updates.accepted);
+    }
+    if (updates.expiresAt !== undefined || updates.expires_at !== undefined) {
+      updateFields.push(`expires_at = $${paramIndex++}`);
+      values.push(updates.expiresAt || updates.expires_at);
+    }
+
+    if (updateFields.length === 0) {
+      return this.findById(id);
+    }
+
+    values.push(id);
+    const result = await query(
+      `UPDATE invitations 
+       SET ${updateFields.join(", ")}, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $${paramIndex}
+       RETURNING *`,
+      values
+    );
+
+    return result.rows.length > 0 ? rowToInvitation(result.rows[0]) : null;
   },
 
-  // Update invitation
-  async update(id, updates) {
-    const db = await firestoreConnect();
-    const invitationRef = db.collection(COLLECTION).doc(id);
-    updates.updatedAt = new Date();
-    await invitationRef.update(updates);
-    return this.findById(id);
+  async delete(id) {
+    if (!id) {
+      throw new Error("Invalid invitation id");
+    }
+
+    const result = await query("DELETE FROM invitations WHERE id = $1 RETURNING id", [id]);
+    return result.rows.length > 0;
   },
 
-  // Find by ID
-  async findById(id) {
-    const db = await firestoreConnect();
-    const doc = await db.collection(COLLECTION).doc(id).get();
-    return docToInvitation(doc);
+  async deleteByToken(token) {
+    if (!token) return false;
+    const result = await query("DELETE FROM invitations WHERE token = $1 RETURNING id", [token]);
+    return result.rows.length > 0;
   },
 
-  // Populate roles
   async populateRoles(invitation) {
-    if (!invitation || !invitation.roles || !Array.isArray(invitation.roles)) {
+    if (!invitation || !invitation.roleIds || !Array.isArray(invitation.roleIds) || invitation.roleIds.length === 0) {
       return { ...invitation, roles: [] };
     }
 
-    const roles = await Promise.all(
-      invitation.roles.map((roleId) => roleService.findById(roleId))
-    );
-
+    const roles = await roleService.findByIds(invitation.roleIds);
     return {
       ...invitation,
       roles: roles.filter((r) => r !== null),
     };
   },
 
-  // Clean up expired invitations (should be called periodically)
   async cleanupExpired() {
-    const db = await firestoreConnect();
-    const now = new Date();
-    const snapshot = await db
-      .collection(COLLECTION)
-      .where("expiresAt", "<", now)
-      .get();
-
-    const batch = db.batch();
-    snapshot.docs.forEach((doc) => {
-      batch.delete(doc.ref);
-    });
-
-    await batch.commit();
-    return snapshot.size;
+    const result = await query(
+      "DELETE FROM invitations WHERE expires_at < CURRENT_TIMESTAMP RETURNING id"
+    );
+    return result.rows.length;
   },
 };
-

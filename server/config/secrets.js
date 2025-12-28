@@ -92,6 +92,7 @@ export async function loadSecrets() {
       TWILIO_ACCOUNT_SID: "TWILIO_ACCOUNT_SID",
       TWILIO_AUTH_TOKEN: "TWILIO_AUTH_TOKEN",
       TWILIO_PHONE_NUMBER: "TWILIO_PHONE_NUMBER",
+      SCHEDULER_SECRET_TOKEN: "SCHEDULER_SECRET_TOKEN",
     };
 
     // Load required secrets (must exist)

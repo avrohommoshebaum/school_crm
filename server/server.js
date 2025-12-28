@@ -18,7 +18,7 @@ if (process.env.NODE_ENV !== "production") {
 import { loadSecrets } from "./config/secrets.js";
 
 // DB connection
-import firestoreConnect from "./db/firestoreconnect.js";
+import { initializePostgres } from "./db/postgresConnect.js";
 
 // Passport + session configuration
 import configureSession from "./config/session.js";
@@ -31,6 +31,8 @@ import authRoutes from "./routes/authRoutes.js";
 import roleRoutes from "./routes/roleRoutes.js";
 import inviteRoutes from "./routes/inviteRoutes.js";
 import userProfileRoutes from "./routes/userProfileRoutes.js";
+import groupRoutes from "./routes/groupRoutes.js";
+import smsRoutes from "./routes/smsRoutes.js";
 
 // App init
 const app = express();
@@ -41,8 +43,18 @@ async function initialize() {
     console.log("🔧 Initializing server...");
     await loadSecrets();
     console.log("✅ Secrets loaded");
-    await firestoreConnect();
-    console.log("✅ Firestore connected");
+    await initializePostgres();
+    console.log("✅ PostgreSQL connected");
+    
+    // Initialize SMS schema if tables don't exist
+    const setupSMSSchema = (await import("./db/scripts/setupSMSSchema.js")).default;
+    try {
+      await setupSMSSchema();
+      console.log("✅ SMS schema verified");
+    } catch (error) {
+      console.warn("⚠️ SMS schema setup warning:", error.message);
+      // Don't fail startup if schema already exists or has minor issues
+    }
     await configureSession(app);
     console.log("✅ Session configured");
     configurePassport(app);
@@ -61,6 +73,12 @@ async function initialize() {
     app.use("/api/invite", inviteRoutes);
     app.use("/api/users", userRoutes);
     app.use("/api/profile", userProfileRoutes);
+    app.use("/api/groups", groupRoutes);
+    app.use("/api/sms", smsRoutes);
+    
+    // Initialize Twilio
+    const { initializeTwilio } = await import("./utils/twilio.js");
+    initializeTwilio();
     
     console.log("✅ Routes registered");
     console.log("✅ Initialization complete");

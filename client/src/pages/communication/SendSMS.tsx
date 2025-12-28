@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   Search,
   Smartphone,
   AlertCircle,
   Clock,
+  Loader2,
 } from "lucide-react";
 
 import {
@@ -13,16 +14,37 @@ import {
   Card,
   CardContent,
   Chip,
+  CircularProgress,
   Divider,
   InputAdornment,
   Stack,
   TextField,
   Typography,
+  Snackbar,
 } from "@mui/material";
+import type { AlertColor } from "@mui/material/Alert";
 
-import SamplePageOverlay from "../../components/samplePageOverlay";
+import api from "../../utils/api";
+
+// ---------- Types ----------
+
+type Group = {
+  _id?: string;
+  id: string;
+  name: string;
+  memberCount: number;
+  description: string;
+  pin: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+// ---------- Component ----------
 
 export default function SendSMS() {
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
   const [message, setMessage] = useState("");
   const [groupSearch, setGroupSearch] = useState("");
@@ -30,26 +52,49 @@ export default function SendSMS() {
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleTime, setScheduleTime] = useState("");
 
-  // Mock groups data
-  const groups = [
-    { id: "1", name: "All Parents", count: 450, category: "general" },
-    { id: "2", name: "Grade 1 Parents", count: 45, category: "grade" },
-    { id: "3", name: "Grade 2 Parents", count: 48, category: "grade" },
-    { id: "4", name: "Teachers", count: 25, category: "staff" },
-    { id: "5", name: "Administration", count: 8, category: "staff" },
-  ];
+  // Snackbar
+  const [snackbar, setSnackbar] = useState<{
+    open: boolean;
+    message: string;
+    severity: AlertColor;
+  }>({ open: false, message: "", severity: "success" });
+
+  // ---------- Load Groups ----------
+
+  const loadGroups = async () => {
+    try {
+      setLoading(true);
+      const { data } = await api.get("/groups");
+      setGroups(data.groups || []);
+    } catch (error: any) {
+      console.error("Error loading groups:", error);
+      showSnackbar(error?.response?.data?.message || "Error loading groups", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadGroups();
+  }, []);
+
+  // ---------- Filtered Groups ----------
 
   const filteredGroups = useMemo(
     () =>
       groups.filter((g) =>
         g.name.toLowerCase().includes(groupSearch.toLowerCase())
       ),
-    [groupSearch]
+    [groups, groupSearch]
   );
+
+  // ---------- SMS Calculations ----------
 
   const charCount = message.length;
   const maxChars = 160;
   const smsSegments = Math.ceil(charCount / maxChars) || 1;
+
+  // ---------- Handlers ----------
 
   const toggleGroup = (id: string) => {
     setSelectedGroups((prev) =>
@@ -57,38 +102,191 @@ export default function SendSMS() {
     );
   };
 
-  const handleSend = () => {
+  const showSnackbar = (message: string, severity: AlertColor) => {
+    setSnackbar({ open: true, message, severity });
+  };
+
+  const handleSend = async () => {
     if (selectedGroups.length === 0) {
-      alert("Please select at least one group.");
+      showSnackbar("Please select at least one group.", "warning");
       return;
     }
 
     if (!message.trim()) {
-      alert("Please enter a message.");
+      showSnackbar("Please enter a message.", "warning");
       return;
     }
 
-    console.log("Sending SMS:", {
-      groups: selectedGroups,
-      message,
-      segments: smsSegments,
-      scheduled: showSchedule ? { date: scheduleDate, time: scheduleTime } : null,
-    });
+    // If scheduling, validate date and time
+    if (showSchedule) {
+      if (!scheduleDate || !scheduleTime) {
+        showSnackbar("Please select both date and time for scheduling.", "warning");
+        return;
+      }
 
-    alert("SMS sent successfully via Twilio!");
+      const scheduledDateTime = new Date(`${scheduleDate}T${scheduleTime}`);
+      if (scheduledDateTime < new Date()) {
+        showSnackbar("Scheduled time must be in the future.", "warning");
+        return;
+      }
+    }
 
-    // Reset
-    setSelectedGroups([]);
-    setMessage("");
-    setShowSchedule(false);
-    setScheduleDate("");
-    setScheduleTime("");
+    try {
+      setSending(true);
+      const allErrors: Array<{ groupId: string; error: string; details?: any }> = [];
+
+      if (showSchedule && scheduleDate && scheduleTime) {
+        // Schedule SMS for each selected group
+        const scheduledDateTime = new Date(`${scheduleDate}T${scheduleTime}`);
+        
+        for (const groupId of selectedGroups) {
+          try {
+            await api.post("/sms/schedule", {
+              groupId,
+              message: message.trim(),
+              scheduledFor: scheduledDateTime.toISOString(),
+            });
+          } catch (error: any) {
+            console.error(`Error scheduling SMS for group ${groupId}:`, error);
+            const errorMsg = error?.response?.data?.error || 
+                           error?.response?.data?.message || 
+                           error?.message || 
+                           "Unknown error";
+            allErrors.push({
+              groupId,
+              error: errorMsg,
+              details: error?.response?.data?.twilioError,
+            });
+          }
+        }
+
+        if (allErrors.length > 0) {
+          showSnackbar(
+            `SMS scheduled with ${allErrors.length} error(s). Check console for details.`,
+            "warning"
+          );
+        } else {
+          showSnackbar(
+            `SMS scheduled successfully for ${selectedGroups.length} group(s)!`,
+            "success"
+          );
+        }
+      } else {
+        // Send SMS immediately to each selected group
+        const results = [];
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const groupId of selectedGroups) {
+          try {
+            const response = await api.post("/sms/send/group", {
+              groupId,
+              message: message.trim(),
+            });
+            results.push(response.data);
+            successCount += response.data.successCount || 0;
+            failCount += response.data.failCount || 0;
+            
+            // Collect errors from this group
+            if (response.data.errors && response.data.errors.length > 0) {
+              allErrors.push({
+                groupId,
+                error: `${response.data.failCount} recipient(s) failed`,
+                details: response.data.errors,
+              });
+            }
+          } catch (error: any) {
+            console.error(`Error sending SMS to group ${groupId}:`, error);
+            failCount++;
+            const errorMsg = error?.response?.data?.error || 
+                           error?.response?.data?.message || 
+                           error?.message || 
+                           "Unknown error";
+            allErrors.push({
+              groupId,
+              error: errorMsg,
+              details: error?.response?.data?.twilioError,
+            });
+          }
+        }
+
+        if (successCount > 0) {
+          const message = failCount > 0
+            ? `SMS sent to ${successCount} recipient(s), ${failCount} failed.`
+            : `SMS sent successfully! ${successCount} message(s) sent.`;
+          showSnackbar(message, failCount > 0 ? "warning" : "success");
+          
+          // Log detailed errors for debugging
+          if (allErrors.length > 0) {
+            console.error("SMS Errors by group:", allErrors);
+            // Show first error as additional info
+            const firstError = allErrors[0];
+            if (firstError.error.includes("Toll-Free") || firstError.error.includes("verification")) {
+              showSnackbar(
+                "⚠️ Some messages failed: Phone number verification required in Twilio Console",
+                "warning"
+              );
+            }
+          }
+        } else {
+          // Extract error message from response
+          const firstError = allErrors[0];
+          const errorMessage = firstError?.error || 
+                              error?.response?.data?.error || 
+                              error?.response?.data?.message ||
+                              "Failed to send SMS";
+          
+          // Provide helpful message for common Twilio errors
+          let userMessage = errorMessage;
+          if (errorMessage.includes("Toll-Free") || errorMessage.includes("verification")) {
+            userMessage = "Phone number verification required. Please verify your Twilio phone number in the Twilio Console.";
+          } else if (errorMessage.includes("Invalid phone number")) {
+            userMessage = "Invalid phone number format. Please check the recipient phone numbers.";
+          }
+          
+          showSnackbar(
+            `Failed to send SMS: ${userMessage}`,
+            "error"
+          );
+        }
+      }
+
+      // Reset form
+      setSelectedGroups([]);
+      setMessage("");
+      setShowSchedule(false);
+      setScheduleDate("");
+      setScheduleTime("");
+    } catch (error: any) {
+      console.error("Error sending/scheduling SMS:", error);
+      showSnackbar(
+        error?.response?.data?.message || "Error sending SMS. Please try again.",
+        "error"
+      );
+    } finally {
+      setSending(false);
+    }
   };
+
+  // ---------- Render ----------
+
+  if (loading) {
+    return (
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: "400px",
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ maxWidth: 1200, mx: "auto", p: 2 }}>
-      <SamplePageOverlay />
-
       <Box
         sx={{
           display: "grid",
@@ -100,7 +298,9 @@ export default function SendSMS() {
         <Card>
           <CardContent>
             <Stack spacing={2}>
-              <Typography variant="subtitle1">Select Recipients</Typography>
+              <Typography variant="subtitle1" fontWeight={600}>
+                Select Recipients
+              </Typography>
 
               <TextField
                 placeholder="Search groups..."
@@ -117,43 +317,88 @@ export default function SendSMS() {
               />
 
               <Box sx={{ maxHeight: 400, overflowY: "auto" }}>
-                <Stack spacing={1}>
-                  {filteredGroups.map((group) => {
-                    const checked = selectedGroups.includes(group.id);
-                    return (
-                      <Box
-                        key={group.id}
-                        onClick={() => toggleGroup(group.id)}
-                        sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          p: 1.5,
-                          borderRadius: 2,
-                          border: "1px solid #e5e7eb",
-                          cursor: "pointer",
-                          bgcolor: checked ? "#eff6ff" : "transparent",
-                          "&:hover": { bgcolor: checked ? "#dbeafe" : "#f9fafb" },
-                        }}
-                      >
-                        <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => toggleGroup(group.id)}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                          <Typography variant="body2" noWrap>
-                            {group.name}
-                          </Typography>
-                        </Stack>
+                {filteredGroups.length === 0 ? (
+                  <Box sx={{ textAlign: "center", py: 4 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      {groupSearch ? "No groups found" : "No groups available"}
+                    </Typography>
+                  </Box>
+                ) : (
+                  <Stack spacing={1}>
+                    {filteredGroups.map((group) => {
+                      const checked = selectedGroups.includes(group.id);
+                      return (
+                        <Box
+                          key={group.id}
+                          onClick={() => toggleGroup(group.id)}
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            p: 1.5,
+                            borderRadius: 2,
+                            border: "1px solid",
+                            borderColor: checked ? "primary.main" : "divider",
+                            cursor: "pointer",
+                            bgcolor: checked ? "primary.50" : "transparent",
+                            "&:hover": {
+                              bgcolor: checked ? "primary.100" : "action.hover",
+                            },
+                            transition: "all 0.2s",
+                          }}
+                        >
+                          <Stack
+                            direction="row"
+                            spacing={1}
+                            alignItems="center"
+                            sx={{ minWidth: 0, flex: 1 }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleGroup(group.id)}
+                              onClick={(e) => e.stopPropagation()}
+                              style={{ cursor: "pointer" }}
+                            />
+                            <Box sx={{ minWidth: 0, flex: 1 }}>
+                              <Typography
+                                variant="body2"
+                                fontWeight={checked ? 600 : 400}
+                                noWrap
+                              >
+                                {group.name}
+                              </Typography>
+                              {group.description && (
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                  noWrap
+                                >
+                                  {group.description}
+                                </Typography>
+                              )}
+                            </Box>
+                          </Stack>
 
-                        <Chip size="small" label={group.count} />
-                      </Box>
-                    );
-                  })}
-                </Stack>
+                          <Chip
+                            size="small"
+                            label={group.memberCount}
+                            sx={{ ml: 1 }}
+                          />
+                        </Box>
+                      );
+                    })}
+                  </Stack>
+                )}
               </Box>
+
+              {selectedGroups.length > 0 && (
+                <Box>
+                  <Typography variant="caption" color="text.secondary">
+                    {selectedGroups.length} group(s) selected
+                  </Typography>
+                </Box>
+              )}
             </Stack>
           </CardContent>
         </Card>
@@ -165,17 +410,18 @@ export default function SendSMS() {
               {/* Selected Groups */}
               {selectedGroups.length > 0 && (
                 <Box>
-                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                  <Typography variant="subtitle2" sx={{ mb: 1 }} fontWeight={600}>
                     Selected Groups
                   </Typography>
-                  <Stack direction="row" spacing={1} flexWrap="wrap">
+                  <Stack direction="row" spacing={1} flexWrap="wrap" gap={1}>
                     {groups
                       .filter((g) => selectedGroups.includes(g.id))
                       .map((g) => (
                         <Chip
                           key={g.id}
                           color="primary"
-                          label={`${g.name} (${g.count})`}
+                          label={`${g.name} (${g.memberCount})`}
+                          onDelete={() => toggleGroup(g.id)}
                         />
                       ))}
                   </Stack>
@@ -184,13 +430,23 @@ export default function SendSMS() {
 
               {/* Message */}
               <Box>
-                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-                  <Typography variant="subtitle1">Message</Typography>
+                <Stack
+                  direction="row"
+                  alignItems="center"
+                  justifyContent="space-between"
+                  sx={{ mb: 1 }}
+                >
+                  <Typography variant="subtitle1" fontWeight={600}>
+                    Message
+                  </Typography>
 
                   <Stack direction="row" spacing={1} alignItems="center">
                     <Typography
                       variant="caption"
-                      sx={{ color: charCount > maxChars ? "#ea580c" : "text.secondary" }}
+                      sx={{
+                        color:
+                          charCount > maxChars ? "error.main" : "text.secondary",
+                      }}
                     >
                       {charCount}/{maxChars}
                     </Typography>
@@ -209,6 +465,7 @@ export default function SendSMS() {
                   multiline
                   minRows={8}
                   fullWidth
+                  disabled={sending}
                 />
 
                 {charCount > maxChars && (
@@ -218,7 +475,8 @@ export default function SendSMS() {
                     sx={{ mt: 2 }}
                   >
                     <Typography variant="caption">
-                      Messages over 160 characters will be sent as multiple segments and may incur additional charges.
+                      Messages over 160 characters will be sent as multiple
+                      segments and may incur additional charges.
                     </Typography>
                   </Alert>
                 )}
@@ -229,6 +487,7 @@ export default function SendSMS() {
                 <Button
                   variant="text"
                   onClick={() => setShowSchedule((v) => !v)}
+                  disabled={sending}
                   sx={{ alignSelf: "flex-start" }}
                 >
                   <Clock size={16} style={{ marginRight: 6 }} />
@@ -236,13 +495,19 @@ export default function SendSMS() {
                 </Button>
 
                 {showSchedule && (
-                  <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mt: 1 }}>
+                  <Stack
+                    direction={{ xs: "column", sm: "row" }}
+                    spacing={2}
+                    sx={{ mt: 1 }}
+                  >
                     <TextField
                       type="date"
                       label="Date"
                       value={scheduleDate}
                       onChange={(e) => setScheduleDate(e.target.value)}
                       fullWidth
+                      disabled={sending}
+                      InputLabelProps={{ shrink: true }}
                     />
                     <TextField
                       type="time"
@@ -250,6 +515,8 @@ export default function SendSMS() {
                       value={scheduleTime}
                       onChange={(e) => setScheduleTime(e.target.value)}
                       fullWidth
+                      disabled={sending}
+                      InputLabelProps={{ shrink: true }}
                     />
                   </Stack>
                 )}
@@ -262,15 +529,44 @@ export default function SendSMS() {
                 variant="contained"
                 size="large"
                 onClick={handleSend}
+                disabled={sending || selectedGroups.length === 0 || !message.trim()}
                 sx={{ alignSelf: "flex-end" }}
+                startIcon={
+                  sending ? (
+                    <CircularProgress size={16} color="inherit" />
+                  ) : (
+                    <Smartphone size={16} />
+                  )
+                }
               >
-                <Smartphone size={16} style={{ marginRight: 8 }} />
-                {showSchedule && scheduleDate && scheduleTime ? "Schedule SMS" : "Send SMS"}
+                {sending
+                  ? showSchedule && scheduleDate && scheduleTime
+                    ? "Scheduling..."
+                    : "Sending..."
+                  : showSchedule && scheduleDate && scheduleTime
+                  ? "Schedule SMS"
+                  : "Send SMS"}
               </Button>
             </Stack>
           </CardContent>
         </Card>
       </Box>
+
+      {/* Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          sx={{ width: "100%" }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

@@ -1,27 +1,29 @@
-import firestoreConnect from "../firestoreconnect.js";
-// If using Admin SDK, you could do:
-// import { FieldValue } from "firebase-admin/firestore";
+/**
+ * Role Service - PostgreSQL Implementation
+ * 
+ * This service handles all role-related database operations using PostgreSQL
+ */
 
-const COLLECTION = "roles";
+import { query } from "../postgresConnect.js";
 
-// Helper to remove undefined values from object (Firestore doesn't allow undefined)
-const removeUndefined = (obj) => {
-  const cleaned = {};
-  for (const [key, value] of Object.entries(obj)) {
-    if (value !== undefined) {
-      cleaned[key] = value;
-    }
-  }
-  return cleaned;
-};
-
-const docToRole = (doc) => {
-  if (!doc.exists) return null;
-  const data = doc.data();
+// Helper to convert database row to role object
+const rowToRole = (row) => {
+  if (!row) return null;
   return {
-    _id: doc.id,
-    id: doc.id, // keep both if your app expects _id
-    ...data,
+    _id: row.id,
+    id: row.id,
+    name: row.name,
+    displayName: row.display_name,
+    display_name: row.display_name, // Keep both for compatibility
+    description: row.description,
+    color: row.color,
+    isSystem: row.is_system,
+    is_system: row.is_system, // Keep both for compatibility
+    permissions: row.permissions, // Already JSONB, will be object
+    createdAt: row.created_at,
+    created_at: row.created_at, // Keep both for compatibility
+    updatedAt: row.updated_at,
+    updated_at: row.updated_at, // Keep both for compatibility
   };
 };
 
@@ -30,9 +32,9 @@ export const roleService = {
     if (!id || typeof id !== "string" || id.trim() === "") {
       return null;
     }
-    const db = await firestoreConnect();
-    const doc = await db.collection(COLLECTION).doc(id).get();
-    return docToRole(doc);
+    
+    const result = await query("SELECT * FROM roles WHERE id = $1", [id]);
+    return result.rows.length > 0 ? rowToRole(result.rows[0]) : null;
   },
 
   async findByName(name) {
@@ -40,109 +42,123 @@ export const roleService = {
       return null;
     }
 
-    const db = await firestoreConnect();
-    const snapshot = await db
-      .collection(COLLECTION)
-      .where("name", "==", name)
-      .limit(1)
-      .get();
-
-    if (snapshot.empty) return null;
-    return docToRole(snapshot.docs[0]);
+    const result = await query("SELECT * FROM roles WHERE name = $1 LIMIT 1", [name]);
+    return result.rows.length > 0 ? rowToRole(result.rows[0]) : null;
   },
 
   async findByIds(ids) {
     if (!Array.isArray(ids) || ids.length === 0) return [];
 
-    const db = await firestoreConnect();
-    const results = await Promise.all(
-      ids.map(async (id) => {
-        if (!id) return null;
-        const doc = await db.collection(COLLECTION).doc(id).get();
-        return docToRole(doc);
-      })
-    );
-
-    return results.filter((r) => r !== null);
+    const result = await query("SELECT * FROM roles WHERE id = ANY($1)", [ids]);
+    return result.rows.map(row => rowToRole(row));
   },
 
   async findAll() {
-    const db = await firestoreConnect();
-    const snapshot = await db.collection(COLLECTION).get();
-
-    const roles = snapshot.docs.map((doc) => docToRole(doc));
+    const result = await query(`
+      SELECT * FROM roles 
+      ORDER BY is_system DESC, display_name ASC
+    `);
     
-    // Sort in memory: system roles first, then by displayName
-    return roles.sort((a, b) => {
-      // First sort by isSystem (system roles first)
-      if (a.isSystem !== b.isSystem) {
-        return b.isSystem ? 1 : -1; // true (system) comes first
-      }
-      // Then sort by displayName
-      return (a.displayName || "").localeCompare(b.displayName || "");
-    });
+    return result.rows.map(row => rowToRole(row));
   },
 
   async create(roleData) {
-    const db = await firestoreConnect();
+    const now = new Date();
 
-    // const now = FieldValue.serverTimestamp(); // preferred (if using Admin SDK)
-    const now = new Date(); // works, but serverTimestamp is nicer
+    const result = await query(
+      `INSERT INTO roles (name, display_name, description, color, is_system, permissions, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING *`,
+      [
+        roleData.name,
+        roleData.displayName || roleData.display_name,
+        roleData.description || null,
+        roleData.color || null,
+        roleData.isSystem !== undefined ? roleData.isSystem : (roleData.is_system !== undefined ? roleData.is_system : false),
+        JSON.stringify(roleData.permissions || {}),
+        now,
+        now,
+      ]
+    );
 
-    const role = {
-      ...roleData,
-      isSystem: roleData?.isSystem ?? false,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    // Remove undefined values before saving to Firestore
-    const cleanedRole = removeUndefined(role);
-
-    const docRef = db.collection(COLLECTION).doc();
-    await docRef.set(cleanedRole);
-    return { _id: docRef.id, id: docRef.id, ...cleanedRole };
+    return rowToRole(result.rows[0]);
   },
 
   async update(id, updates) {
-    if (!id || typeof id !== "string" || id.trim() === "") {
-      throw new Error("Invalid role id");
+    const updateFields = [];
+    const values = [];
+    let paramIndex = 1;
+
+    // Build dynamic update query
+    if (updates.displayName !== undefined || updates.display_name !== undefined) {
+      updateFields.push(`display_name = $${paramIndex++}`);
+      values.push(updates.displayName || updates.display_name);
+    }
+    if (updates.description !== undefined) {
+      updateFields.push(`description = $${paramIndex++}`);
+      values.push(updates.description);
+    }
+    if (updates.color !== undefined) {
+      updateFields.push(`color = $${paramIndex++}`);
+      values.push(updates.color);
+    }
+    if (updates.isSystem !== undefined || updates.is_system !== undefined) {
+      updateFields.push(`is_system = $${paramIndex++}`);
+      values.push(updates.isSystem !== undefined ? updates.isSystem : updates.is_system);
+    }
+    if (updates.permissions !== undefined) {
+      updateFields.push(`permissions = $${paramIndex++}`);
+      values.push(JSON.stringify(updates.permissions));
     }
 
-    const db = await firestoreConnect();
-    const roleRef = db.collection(COLLECTION).doc(id);
+    if (updateFields.length === 0) {
+      return this.findById(id);
+    }
 
-    // updates.updatedAt = FieldValue.serverTimestamp();
-    updates.updatedAt = new Date();
+    values.push(id);
+    const result = await query(
+      `UPDATE roles 
+       SET ${updateFields.join(", ")}, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $${paramIndex}
+       RETURNING *`,
+      values
+    );
 
-    // Remove undefined values before updating Firestore
-    const cleanedUpdates = removeUndefined(updates);
-
-    await roleRef.update(cleanedUpdates);
-    return roleService.findById(id); // avoid `this`
+    return result.rows.length > 0 ? rowToRole(result.rows[0]) : null;
   },
 
   async delete(id) {
-    if (!id || typeof id !== "string" || id.trim() === "") {
-      throw new Error("Invalid role id");
+    // First check if any users have this role
+    const usersResult = await query(
+      "SELECT id FROM users WHERE $1 = ANY(roles) LIMIT 1",
+      [id]
+    );
+
+    if (usersResult.rows.length > 0) {
+      throw new Error("Cannot delete role: role is assigned to one or more users");
     }
 
-    const db = await firestoreConnect();
-    await db.collection(COLLECTION).doc(id).delete();
+    const result = await query("DELETE FROM roles WHERE id = $1 RETURNING id", [id]);
+    return result.rows.length > 0;
   },
 
   async findAllWithUserCount() {
-    const db = await firestoreConnect();
-    const roles = await roleService.findAll(); // avoid `this`
+    const roles = await this.findAll();
+    
+    // Get user count for each role
+    const rolesWithCounts = await Promise.all(
+      roles.map(async (role) => {
+        const result = await query(
+          "SELECT COUNT(*) as count FROM users WHERE $1 = ANY(roles)",
+          [role.id]
+        );
+        return {
+          ...role,
+          userCount: parseInt(result.rows[0].count, 10),
+        };
+      })
+    );
 
-    const usersSnapshot = await db.collection("users").get();
-    const users = usersSnapshot.docs.map((doc) => doc.data());
-
-    return roles.map((role) => {
-      const userCount = users.filter((user) =>
-        user.roles?.includes(role._id)
-      ).length;
-      return { ...role, userCount };
-    });
+    return rolesWithCounts;
   },
 };

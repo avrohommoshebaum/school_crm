@@ -1,69 +1,98 @@
-import firestoreConnect from "../firestoreconnect.js";
+/**
+ * User Settings Service - PostgreSQL Implementation
+ * 
+ * This service handles all user settings-related database operations using PostgreSQL
+ */
 
-const COLLECTION = "userSettings";
+import { query } from "../postgresConnect.js";
 
-// Helper to convert Firestore doc to settings object
-const docToSettings = (doc) => {
-  if (!doc.exists) return null;
-  const data = doc.data();
+// Helper to convert database row to settings object
+const rowToSettings = (row) => {
+  if (!row) return null;
   return {
-    _id: doc.id,
-    ...data,
-    id: doc.id,
+    _id: row.id,
+    id: row.id,
+    user: row.user_id,
+    userId: row.user_id,
+    user_id: row.user_id, // Keep all variants for compatibility
+    settings: row.settings || {}, // JSONB object
+    createdAt: row.created_at,
+    created_at: row.created_at, // Keep both for compatibility
+    updatedAt: row.updated_at,
+    updated_at: row.updated_at, // Keep both for compatibility
   };
 };
 
 export const userSettingsService = {
-  // Find settings by user ID
   async findByUserId(userId) {
-    const db = await firestoreConnect();
-    const snapshot = await db
-      .collection(COLLECTION)
-      .where("user", "==", userId)
-      .limit(1)
-      .get();
-
-    if (snapshot.empty) return null;
-    return docToSettings(snapshot.docs[0]);
+    if (!userId) return null;
+    const result = await query("SELECT * FROM user_settings WHERE user_id = $1 LIMIT 1", [userId]);
+    return result.rows.length > 0 ? rowToSettings(result.rows[0]) : null;
   },
 
-  // Create or update settings
   async upsert(userId, settingsData) {
-    const db = await firestoreConnect();
-    const existing = await this.findByUserId(userId);
+    if (!userId) {
+      throw new Error("User ID is required");
+    }
 
+    const existing = await this.findByUserId(userId);
     const now = new Date();
-    const settings = {
-      user: userId,
+
+    // Merge with existing settings if they exist
+    const existingSettings = existing?.settings || {};
+    const mergedSettings = {
+      ...existingSettings,
       ...settingsData,
-      updatedAt: now,
     };
 
     if (existing) {
       // Update existing
-      await db.collection(COLLECTION).doc(existing._id).update(settings);
-      return { _id: existing._id, id: existing._id, ...settings };
+      const result = await query(
+        `UPDATE user_settings 
+         SET settings = $1, updated_at = CURRENT_TIMESTAMP
+         WHERE user_id = $2
+         RETURNING *`,
+        [JSON.stringify(mergedSettings), userId]
+      );
+      return rowToSettings(result.rows[0]);
     } else {
       // Create new
-      settings.createdAt = now;
-      const docRef = db.collection(COLLECTION).doc();
-      await docRef.set(settings);
-      return { _id: docRef.id, id: docRef.id, ...settings };
+      const result = await query(
+        `INSERT INTO user_settings (user_id, settings, created_at, updated_at)
+         VALUES ($1, $2, $3, $4)
+         RETURNING *`,
+        [userId, JSON.stringify(mergedSettings), now, now]
+      );
+      return rowToSettings(result.rows[0]);
     }
   },
 
-  // Update settings
   async update(userId, updates) {
-    const db = await firestoreConnect();
+    if (!userId) {
+      throw new Error("User ID is required");
+    }
+
     const existing = await this.findByUserId(userId);
 
     if (!existing) {
       return this.upsert(userId, updates);
     }
 
-    updates.updatedAt = new Date();
-    await db.collection(COLLECTION).doc(existing._id).update(updates);
-    return this.findByUserId(userId);
+    // Merge with existing settings
+    const existingSettings = existing.settings || {};
+    const mergedSettings = {
+      ...existingSettings,
+      ...updates,
+    };
+
+    const result = await query(
+      `UPDATE user_settings 
+       SET settings = $1, updated_at = CURRENT_TIMESTAMP
+       WHERE user_id = $2
+       RETURNING *`,
+      [JSON.stringify(mergedSettings), userId]
+    );
+
+    return rowToSettings(result.rows[0]);
   },
 };
-
