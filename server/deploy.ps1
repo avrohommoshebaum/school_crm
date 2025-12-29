@@ -30,6 +30,17 @@ if (-not (Test-Path "public") -or (Get-ChildItem "public" -ErrorAction SilentlyC
 # Deploy to Cloud Run
 Write-Host "Deploying to Cloud Run..." -ForegroundColor Cyan
 
+# Cloud SQL instance connection name (PROJECT:REGION:INSTANCE)
+# Update this if your Cloud SQL instance name is different
+$CLOUDSQL_INSTANCE = "${PROJECT_ID}:us-central1:free-trial-first-project"
+
+# Client URL - use your custom domain or Cloud Run URL
+# Update this to your custom domain if you have one
+$CLIENT_URL = "https://portal.nachlasby.org"
+
+Write-Host "Cloud SQL Instance: $CLOUDSQL_INSTANCE" -ForegroundColor Cyan
+Write-Host "Client URL: $CLIENT_URL" -ForegroundColor Cyan
+
 gcloud run deploy school-app `
   --source . `
   --region us-central1 `
@@ -40,16 +51,16 @@ gcloud run deploy school-app `
   --min-instances 0 `
   --max-instances 20 `
   --timeout 300 `
-  --set-env-vars "NODE_ENV=production,GOOGLE_CLOUD_PROJECT=$PROJECT_ID,SENDGRID_FROM=notifications@nachlasby.org"
+  --add-cloudsql-instances "$CLOUDSQL_INSTANCE" `
+  --set-env-vars "NODE_ENV=production,GOOGLE_CLOUD_PROJECT=$PROJECT_ID,CLIENT_URL=$CLIENT_URL,SENDGRID_FROM=notifications@nachlasby.org"
 
 Write-Host "Getting Cloud Run URL..." -ForegroundColor Cyan
 $SERVICE_URL = (gcloud run services describe school-app --region us-central1 --format 'value(status.url)')
 
 if ($SERVICE_URL) {
-    Write-Host "Updating CLIENT_URL environment variable..." -ForegroundColor Cyan
-    gcloud run services update school-app `
-      --region us-central1 `
-      --set-env-vars "NODE_ENV=production,GOOGLE_CLOUD_PROJECT=$PROJECT_ID,CLIENT_URL=$SERVICE_URL,SENDGRID_FROM=notifications@nachlasby.org"
+    Write-Host "Service deployed successfully!" -ForegroundColor Green
+    Write-Host "Cloud Run URL: $SERVICE_URL" -ForegroundColor Cyan
+    Write-Host "Client URL (for invites): $CLIENT_URL" -ForegroundColor Cyan
     
     Write-Host "Deployment complete!" -ForegroundColor Green
     Write-Host "Your app URL: $SERVICE_URL" -ForegroundColor Cyan

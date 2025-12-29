@@ -5,3 +5,4 @@
 firebase-service-account.json
 service-account-key.json
 credible-runner-*.json
+node_modules

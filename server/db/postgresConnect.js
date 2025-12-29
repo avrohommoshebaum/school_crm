@@ -41,25 +41,42 @@ export async function initializePostgres() {
 
     if (process.env.NODE_ENV === "production") {
       // In production, try to get from Google Secret Manager
-      const dbHost = await getSecret("DB_HOST");
-      const dbPort = await getSecret("DB_PORT");
-      const dbName = await getSecret("DB_NAME");
-      const dbUser = await getSecret("DB_USER");
-      const dbPassword = await getSecret("DB_PASSWORD");
+      let dbHost = await getSecret("DB_HOST") || process.env.DB_HOST;
+      const dbPort = await getSecret("DB_PORT") || process.env.DB_PORT;
+      const dbName = await getSecret("DB_NAME") || process.env.DB_NAME;
+      const dbUser = await getSecret("DB_USER") || process.env.DB_USER;
+      const dbPassword = await getSecret("DB_PASSWORD") || process.env.DB_PASSWORD;
+
+      // Check if DB_HOST is a Cloud SQL connection name (PROJECT:REGION:INSTANCE)
+      // If so, convert it to Unix socket path for Cloud Run
+      const isUnixSocket = dbHost && dbHost.startsWith('/cloudsql/');
+      const isCloudSQLConnectionName = dbHost && dbHost.includes(':') && !dbHost.startsWith('/') && !dbHost.match(/^\d+\.\d+\.\d+\.\d+$/);
+      
+      if (isCloudSQLConnectionName) {
+        // This looks like a Cloud SQL connection name (PROJECT:REGION:INSTANCE)
+        // Convert to Unix socket path for Cloud Run
+        // Note: You must also add --add-cloudsql-instances to your Cloud Run deploy command
+        dbHost = `/cloudsql/${dbHost}`;
+        console.log(`🔧 Converting Cloud SQL connection name to Unix socket: ${dbHost}`);
+      }
 
       config = {
-        host: dbHost || process.env.DB_HOST,
-        port: parseInt(dbPort || process.env.DB_PORT || "5432"),
-        database: dbName || process.env.DB_NAME,
-        user: dbUser || process.env.DB_USER,
-        password: dbPassword || process.env.DB_PASSWORD,
-        ssl: {
-          rejectUnauthorized: false, // For Cloud SQL connections
+        host: dbHost,
+        // Unix sockets don't use ports, but pg library will ignore it if host is a socket path
+        port: parseInt(dbPort || "5432"),
+        database: dbName,
+        user: dbUser,
+        password: dbPassword,
+        // Unix sockets don't use SSL, TCP/IP connections do
+        ssl: (isUnixSocket || dbHost?.startsWith('/cloudsql/')) ? false : {
+          rejectUnauthorized: false, // For Cloud SQL IP connections
         },
         max: 20, // Maximum number of clients in the pool
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 10000, // Increased timeout for Cloud SQL
       };
+      
+      console.log(`🔧 Database config: host=${dbHost}, port=${config.port}, database=${dbName}, user=${dbUser}, ssl=${config.ssl ? 'enabled' : 'disabled'}`);
     } else {
       // Local development or when connecting to Cloud SQL from local machine
       const useSSL = process.env.DB_SSL === "true" || process.env.DB_HOST?.includes("googleapis.com") || process.env.DB_HOST?.match(/^\d+\.\d+\.\d+\.\d+$/);

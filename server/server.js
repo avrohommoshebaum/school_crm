@@ -41,12 +41,19 @@ const app = express();
 async function initialize() {
   try {
     console.log("🔧 Initializing server...");
+    console.log(`🔧 NODE_ENV: ${process.env.NODE_ENV}`);
+    console.log(`🔧 GOOGLE_CLOUD_PROJECT: ${process.env.GOOGLE_CLOUD_PROJECT || 'not set'}`);
+    
+    console.log("🔧 Step 1: Loading secrets...");
     await loadSecrets();
     console.log("✅ Secrets loaded");
+    
+    console.log("🔧 Step 2: Connecting to PostgreSQL...");
     await initializePostgres();
     console.log("✅ PostgreSQL connected");
     
     // Initialize SMS schema if tables don't exist
+    console.log("🔧 Step 3: Verifying SMS schema...");
     const setupSMSSchema = (await import("./db/scripts/setupSMSSchema.js")).default;
     try {
       await setupSMSSchema();
@@ -55,8 +62,12 @@ async function initialize() {
       console.warn("⚠️ SMS schema setup warning:", error.message);
       // Don't fail startup if schema already exists or has minor issues
     }
+    
+    console.log("🔧 Step 4: Configuring session...");
     await configureSession(app);
     console.log("✅ Session configured");
+    
+    console.log("🔧 Step 5: Configuring Passport...");
     configurePassport(app);
     console.log("✅ Passport configured");
     
@@ -68,6 +79,7 @@ async function initialize() {
     );
     
     // Register routes AFTER session and passport are configured
+    console.log("🔧 Step 6: Registering routes...");
     app.use("/api/auth", authRoutes);
     app.use("/api/roles", roleRoutes);
     app.use("/api/invite", inviteRoutes);
@@ -77,14 +89,17 @@ async function initialize() {
     app.use("/api/sms", smsRoutes);
     
     // Initialize Twilio
+    console.log("🔧 Step 7: Initializing Twilio...");
     const { initializeTwilio } = await import("./utils/twilio.js");
     initializeTwilio();
+    console.log("✅ Twilio initialized");
     
     console.log("✅ Routes registered");
     console.log("✅ Initialization complete");
   } catch (error) {
     console.error("❌ Initialization error:", error);
-    console.error("Stack:", error.stack);
+    console.error("❌ Error message:", error.message);
+    console.error("❌ Error stack:", error.stack);
     throw error; // Re-throw to be caught by the caller
   }
 }
@@ -123,6 +138,7 @@ app.use(
 // ------------------------------
 const allowedOrigins = [
   process.env.CLIENT_URL?.replace(/\/$/, ""),
+  "https://portal.nachlasby.org",
   "http://localhost:5173",
   "http://localhost:5174",
 ];
@@ -222,14 +238,21 @@ app.use((err, req, res, next) => {
 // ------------------------------
 // 10. START SERVER
 // ------------------------------
-// Initialize everything, then start the server
+// Use PORT environment variable (Cloud Run automatically sets PORT=8080)
+// We must listen on whatever PORT Cloud Run provides
 const PORT = process.env.PORT || 3000;
+const HOST = '0.0.0.0'; // Required for Cloud Run - must listen on all interfaces
 
+console.log(`🔧 Starting server on PORT=${PORT} (from process.env.PORT=${process.env.PORT || 'not set'})`);
+
+// Initialize everything first (database, sessions, routes), then start listening
 initialize().then(() => {
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT} (${process.env.NODE_ENV})`);
+  app.listen(PORT, HOST, () => {
+    console.log(`✅ Server running on ${HOST}:${PORT} (${process.env.NODE_ENV})`);
   });
 }).catch((error) => {
   console.error("❌ Failed to start server:", error);
+  console.error("❌ Error message:", error.message);
+  console.error("❌ Stack trace:", error.stack);
   process.exit(1);
 });
