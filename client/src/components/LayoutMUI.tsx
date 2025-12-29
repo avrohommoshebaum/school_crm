@@ -20,6 +20,7 @@ import {
   useMediaQuery,
   useTheme,
 } from "@mui/material";
+import nachlasLogo from "../assets/nachlasLogo.png";
 
 import MenuIcon from "@mui/icons-material/Menu";
 import MenuOpenIcon from "@mui/icons-material/MenuOpen";
@@ -274,10 +275,10 @@ export default function LayoutMUI() {
 
           <Box sx={{ display: "flex", alignItems: "center", flexGrow: 1, justifyContent: { xs: "center", sm: "flex-start" } }}>
             <img
-  src="https://storage.googleapis.com/nachlas_app_logos/logo%20blue%20for%20id%20badge.png"
-  alt="Nachlas Bais Yaakov"
-  style={{ width: "83px", height: "50px", marginRight: "12px" }}
-/>
+              src={nachlasLogo}
+              alt="Nachlas Bais Yaakov"
+              style={{ width: "83px", height: "50px", marginRight: "12px" }}
+            />
 
             <Box sx={{ display: { xs: "none", sm: "block" } }}>
               <Typography variant="h6" sx={{ fontWeight: "bold", color: "#1976d2", lineHeight: 1.2 }}>

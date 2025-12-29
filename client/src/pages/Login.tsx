@@ -21,6 +21,7 @@ import { AppCheckbox } from "../components/ui/checkbox";
 import { Alert, AlertDescription } from "../components/ui/alert";
 
 import { useAuth } from "../context/AuthContext";
+import nachlasLogo from "../assets/nachlasLogo.png";
 
 
 
@@ -122,7 +123,7 @@ const handleSubmit = async (e: React.FormEvent) => {
         <Box sx={{ textAlign: "center", mb: 4 }}>
           <Box sx={{ mb: 2, display: "flex", justifyContent: "center" }}>
             <img
-              src="https://storage.googleapis.com/nachlas_app_logos/logo%20blue%20for%20id%20badge.png"
+              src={nachlasLogo}
               alt="Nachlas Bais Yaakov"
               style={{
                 width: "auto",
