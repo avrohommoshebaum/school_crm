@@ -12,13 +12,16 @@ import {
   Stack,
   InputAdornment,
   IconButton,
+  useTheme,
 } from "@mui/material";
 
 import { useSearchParams, useNavigate } from "react-router-dom";
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 
 import api from "../../utils/api";
+import nachlasLogo from "../../assets/nachlasLogo.png";
 
 interface InviteDetails {
   email: string;
@@ -28,7 +31,7 @@ interface InviteDetails {
 const AcceptInvite: React.FC = () => {
   const [searchParams] = useSearchParams();
   const token = searchParams.get("token");
-
+  const theme = useTheme();
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
@@ -158,8 +161,8 @@ const AcceptInvite: React.FC = () => {
       setLoading(true);
       await api.post(`/invite/${token}/complete`, { name, password });
 
-      // After success → auto-redirect to dashboard
-      navigate("/", { replace: true });
+      // After success → redirect to success page (no auto-login)
+      navigate("/invite/success", { replace: true });
     } catch (err: any) {
       setError(err?.response?.data?.message || "Unable to complete invite.");
       setLoading(false);
@@ -199,39 +202,81 @@ const AcceptInvite: React.FC = () => {
   return (
     <Box
       sx={{
-        mt: { xs: 6, sm: 10 },
+        minHeight: "100vh",
         display: "flex",
+        alignItems: "center",
         justifyContent: "center",
         px: 2,
+        py: 4,
+        background: `linear-gradient(135deg, ${theme.palette.primary.light}15 0%, ${theme.palette.secondary?.light || theme.palette.primary.light}15 100%)`,
       }}
     >
       <Paper
-        elevation={4}
+        elevation={8}
         sx={{
-          p: { xs: 3, sm: 4 },
+          p: { xs: 3, sm: 5 },
           width: "100%",
-          maxWidth: 500,
-          borderRadius: 2,
+          maxWidth: 520,
+          borderRadius: 3,
+          boxShadow: "0 8px 32px rgba(0,0,0,0.1)",
         }}
       >
+        {/* Logo */}
+        <Box sx={{ display: "flex", justifyContent: "center", mb: 3 }}>
+          <img
+            src={nachlasLogo}
+            alt="Nachlas Bais Yaakov"
+            style={{
+              height: "80px",
+              width: "auto",
+              objectFit: "contain",
+            }}
+          />
+        </Box>
+
         <Typography
-          variant="h5"
-          sx={{ fontWeight: 600, mb: 1, textAlign: "center", color: "#1976d2" }}
+          variant="h4"
+          sx={{
+            fontWeight: 700,
+            mb: 1,
+            textAlign: "center",
+            color: theme.palette.primary.main,
+          }}
         >
           Complete Your Account Setup
         </Typography>
 
         <Typography
-          variant="body2"
+          variant="body1"
           color="text.secondary"
           textAlign="center"
-          sx={{ mb: 3 }}
+          sx={{ mb: 4 }}
         >
-          You were invited to join Nachlas Bais Yaakov Portal.
+          You've been invited to join the Nachlas Bais Yaakov Portal.
+          <br />
+          Please complete your account setup below.
         </Typography>
 
-        <Alert severity="info" sx={{ mb: 3 }}>
-          You are signing up as: <strong>{invite.email}</strong>
+        <Alert
+          severity="info"
+          sx={{
+            mb: 3,
+            borderRadius: 2,
+            "& .MuiAlert-icon": {
+              alignItems: "center",
+            },
+          }}
+          icon={<CheckCircleIcon />}
+        >
+          <Typography variant="body2">
+            <strong>Email:</strong> {invite.email}
+          </Typography>
+          {invite.roles && invite.roles.length > 0 && (
+            <Typography variant="body2" sx={{ mt: 0.5 }}>
+              <strong>Role{invite.roles.length > 1 ? "s" : ""}:</strong>{" "}
+              {invite.roles.map((r) => r.displayName).join(", ")}
+            </Typography>
+          )}
         </Alert>
 
         <Box component="form" onSubmit={handleSubmit}>
@@ -315,15 +360,33 @@ const AcceptInvite: React.FC = () => {
             variant="contained"
             fullWidth
             disabled={loading || !isFormValid()}
-            sx={{ py: 1.2, fontWeight: 600 }}
+            sx={{
+              py: 1.5,
+              fontWeight: 600,
+              fontSize: "1rem",
+              textTransform: "none",
+              borderRadius: 2,
+              boxShadow: 2,
+              "&:hover": {
+                boxShadow: 4,
+              },
+            }}
           >
-            {loading ? <CircularProgress size={22} /> : "Create My Account"}
+            {loading ? (
+              <CircularProgress size={24} sx={{ color: "white" }} />
+            ) : (
+              "Create My Account"
+            )}
           </Button>
         </Box>
 
-        <Stack direction="row" justifyContent="center" sx={{ mt: 2 }}>
-          <Button onClick={() => navigate("/login")} size="small">
-            Back to Login
+        <Stack direction="row" justifyContent="center" sx={{ mt: 3 }}>
+          <Button
+            onClick={() => navigate("/login")}
+            size="small"
+            sx={{ textTransform: "none" }}
+          >
+            Already have an account? Sign in
           </Button>
         </Stack>
       </Paper>

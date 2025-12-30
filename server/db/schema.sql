@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS users (
     emergency_contact VARCHAR(255),
     emergency_phone VARCHAR(50),
     bio TEXT,
+    last_login TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

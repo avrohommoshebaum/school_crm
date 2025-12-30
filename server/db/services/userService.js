@@ -43,6 +43,8 @@ const rowToUser = (row) => {
     emergencyPhone: row.emergency_phone,
     emergency_phone: row.emergency_phone, // Keep both for compatibility
     bio: row.bio,
+    lastLogin: row.last_login,
+    last_login: row.last_login, // Keep both for compatibility
     createdAt: row.created_at,
     created_at: row.created_at, // Keep both for compatibility
     updatedAt: row.updated_at,
@@ -238,6 +240,10 @@ export const userService = {
     if (updates.bio !== undefined) {
       updateFields.push(`bio = $${paramIndex++}`);
       values.push(updates.bio);
+    }
+    if (updates.lastLogin !== undefined || updates.last_login !== undefined) {
+      updateFields.push(`last_login = $${paramIndex++}`);
+      values.push(updates.lastLogin || updates.last_login);
     }
 
     if (updateFields.length === 0) {

@@ -93,6 +93,7 @@ const navigationItems: NavItem[] = [
     name: "Communication Center",
     path: "/communication",
     icon: MessageIcon,
+    permission: { module: "communications", action: "view" },
     children: [
       { name: "Quick Compose", path: "/communication", icon: EditNoteIcon },
       { name: "Send Email", path: "/communication/email", icon: EmailIcon },
@@ -241,9 +242,16 @@ export default function LayoutMUI() {
     .map((item) => {
       if (!item.children) return canSeeItem(item) ? item : null;
 
+      // For items with children, parent must pass permission check first
+      if (!canSeeItem(item)) {
+        return null;
+      }
+
+      // Filter children based on their permissions
       const visibleChildren = item.children.filter((child) => canSeeItem(child as any));
 
-      if (canSeeItem(item) || visibleChildren.length > 0) {
+      // Only show parent if it has permission AND has at least one visible child
+      if (visibleChildren.length > 0) {
         return { ...item, children: visibleChildren };
       }
       return null;

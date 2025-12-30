@@ -118,11 +118,10 @@ export const completeInvite = async (req, res) => {
 
   await invitationService.update(invite._id || invite.id, { accepted: true });
 
-  const updatedUser = await userService.findById(user._id || user.id);
-  const userWithRoles = await userService.populateRoles(updatedUser);
-
-  req.login(userWithRoles, async () => {
-    res.json({ user: userWithRoles });
+  // Don't auto-login - user should go to success page and then login manually
+  res.json({ 
+    message: "Account created successfully",
+    email: invite.email 
   });
 };
 

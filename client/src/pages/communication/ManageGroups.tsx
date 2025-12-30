@@ -322,10 +322,13 @@ export default function ManageGroups() {
     try {
       setMembersLoading(true);
       const { data } = await api.get(`/groups/${groupId}/members`);
-      setMembers(data.members || []);
+      // Ensure we always set an array, even if the response is null/undefined
+      setMembers(Array.isArray(data?.members) ? data.members : []);
     } catch (error: any) {
       console.error("Error loading members:", error);
       showSnackbar(error?.response?.data?.message || "Error loading members", "error");
+      // Set empty array on error to prevent null state
+      setMembers([]);
     } finally {
       setMembersLoading(false);
     }
@@ -923,7 +926,7 @@ export default function ManageGroups() {
         <Stack spacing={1}>
           <Typography variant="body2" sx={{ fontSize: { xs: "0.8125rem", sm: "0.875rem" } }}>
             <strong>Quick Send:</strong> Text{" "}
-            <strong style={{ fontFamily: "monospace" }}>+1 (833) 000-0000</strong> with PIN + message
+            <strong style={{ fontFamily: "monospace" }}>+1 (844) 842-8575</strong> with PIN + message
           </Typography>
           <Typography variant="caption" sx={{ fontFamily: "monospace", fontSize: { xs: "0.75rem", sm: "0.8125rem" } }}>
             Example: <strong>1234</strong> School closes early today at 2pm
@@ -1682,8 +1685,12 @@ export default function ManageGroups() {
                   <CircularProgress />
                 </Box>
               ) : (() => {
+                // Ensure members is always an array
+                const membersArray = Array.isArray(members) ? members : [];
+                
                 const filteredMembers = memberSearch
-                  ? members.filter((m) => {
+                  ? membersArray.filter((m) => {
+                      if (!m) return false; // Skip null/undefined members
                       const searchLower = memberSearch.toLowerCase();
                       const name = (m.name || "").toLowerCase();
                       const firstName = (m.firstName || "").toLowerCase();
@@ -1693,7 +1700,7 @@ export default function ManageGroups() {
                       const phones = (m.phones || (m.phone ? [m.phone] : [])).join(" ").toLowerCase();
                       return name.includes(searchLower) || firstName.includes(searchLower) || lastName.includes(searchLower) || fullName.includes(searchLower) || emails.includes(searchLower) || phones.includes(searchLower);
                     })
-                  : members;
+                  : membersArray;
 
                 return filteredMembers.length === 0 ? (
                   <Box sx={{ textAlign: "center", py: { xs: 6, sm: 8 } }}>
@@ -1962,8 +1969,12 @@ export default function ManageGroups() {
 
               {/* Filtered Members */}
               {(() => {
+                // Ensure members is always an array
+                const membersArray = Array.isArray(members) ? members : [];
+                
                 const filteredMembers = memberSearch
-                  ? members.filter((m) => {
+                  ? membersArray.filter((m) => {
+                      if (!m) return false; // Skip null/undefined members
                       const searchLower = memberSearch.toLowerCase();
                       const name = (m.name || "").toLowerCase();
                       const firstName = (m.firstName || "").toLowerCase();
@@ -1973,7 +1984,7 @@ export default function ManageGroups() {
                       const phones = (m.phones || (m.phone ? [m.phone] : [])).join(" ").toLowerCase();
                       return name.includes(searchLower) || firstName.includes(searchLower) || lastName.includes(searchLower) || fullName.includes(searchLower) || emails.includes(searchLower) || phones.includes(searchLower);
                     })
-                  : members;
+                  : membersArray;
 
                 return membersLoading ? (
                   <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>

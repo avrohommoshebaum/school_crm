@@ -311,7 +311,6 @@ const NO_PERMISSION_TOOLTIP =
       setLoading(true);
 
       const { data } = await api.get<{ users: any[] }>("/users");
-      console.log("RAW users from backend:", data.users);
 
       const formatted: User[] = data.users.map((u) => ({
         _id: u.id,

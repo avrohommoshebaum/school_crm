@@ -62,6 +62,17 @@ async function initialize() {
       console.warn("⚠️ SMS schema setup warning:", error.message);
       // Don't fail startup if schema already exists or has minor issues
     }
+
+    // Initialize user schema (add missing columns like last_login)
+    console.log("🔧 Step 3b: Verifying user schema...");
+    const setupUserSchema = (await import("./db/scripts/setupUserSchema.js")).default;
+    try {
+      await setupUserSchema();
+      console.log("✅ User schema verified");
+    } catch (error) {
+      console.warn("⚠️ User schema setup warning:", error.message);
+      // Don't fail startup if schema already exists or has minor issues
+    }
     
     console.log("🔧 Step 4: Configuring session...");
     await configureSession(app);

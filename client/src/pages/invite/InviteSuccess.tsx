@@ -1,47 +1,134 @@
 import React from "react";
-import { Box, Paper, Typography, Button } from "@mui/material";
+import {
+  Box,
+  Paper,
+  Typography,
+  Button,
+  useTheme,
+  Stack,
+} from "@mui/material";
 import { useNavigate } from "react-router-dom";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import nachlasLogo from "../../assets/nachlasLogo.png";
 
 const InviteSuccess: React.FC = () => {
   const navigate = useNavigate();
+  const theme = useTheme();
 
   return (
     <Box
       sx={{
-        mt: { xs: 6, sm: 12 },
+        minHeight: "100vh",
         display: "flex",
+        alignItems: "center",
         justifyContent: "center",
         px: 2,
+        py: 4,
+        background: `linear-gradient(135deg, ${theme.palette.success.light}15 0%, ${theme.palette.primary.light}15 100%)`,
       }}
     >
       <Paper
-        elevation={4}
+        elevation={8}
         sx={{
-          p: { xs: 3, sm: 4 },
+          p: { xs: 4, sm: 6 },
           width: "100%",
-          maxWidth: 460,
+          maxWidth: 520,
           textAlign: "center",
-          borderRadius: 2,
+          borderRadius: 3,
+          boxShadow: "0 8px 32px rgba(0,0,0,0.1)",
         }}
       >
-        <Typography variant="h5" sx={{ fontWeight: 700, mb: 2, color: "#2e7d32" }}>
-          ✔ Account Created Successfully
-        </Typography>
+        {/* Logo */}
+        <Box sx={{ display: "flex", justifyContent: "center", mb: 3 }}>
+          <img
+            src={nachlasLogo}
+            alt="Nachlas Bais Yaakov"
+            style={{
+              height: "80px",
+              width: "auto",
+              objectFit: "contain",
+            }}
+          />
+        </Box>
 
-        <Typography variant="body1" sx={{ mb: 4 }}>
-          Your account has been created!  
-          You can now log in to your portal.
-        </Typography>
-
-        <Button
-          variant="contained"
-          color="primary"
-          fullWidth
-          sx={{ py: 1.2, fontWeight: 600 }}
-          onClick={() => navigate("/login")}
+        {/* Success Icon */}
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "center",
+            mb: 3,
+          }}
         >
-          Go to Login
-        </Button>
+          <Box
+            sx={{
+              width: 80,
+              height: 80,
+              borderRadius: "50%",
+              bgcolor: theme.palette.success.light,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: `0 4px 20px ${theme.palette.success.main}40`,
+            }}
+          >
+            <CheckCircleIcon
+              sx={{
+                fontSize: 50,
+                color: theme.palette.success.main,
+              }}
+            />
+          </Box>
+        </Box>
+
+        <Typography
+          variant="h4"
+          sx={{
+            fontWeight: 700,
+            mb: 2,
+            color: theme.palette.success.main,
+          }}
+        >
+          Account Created Successfully!
+        </Typography>
+
+        <Typography
+          variant="body1"
+          color="text.secondary"
+          sx={{ mb: 1, fontSize: "1.1rem" }}
+        >
+          Your account has been set up and is ready to use.
+        </Typography>
+
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{ mb: 4 }}
+        >
+          You can now sign in to access the Nachlas Bais Yaakov Portal.
+        </Typography>
+
+        <Stack spacing={2}>
+          <Button
+            variant="contained"
+            color="primary"
+            fullWidth
+            size="large"
+            sx={{
+              py: 1.5,
+              fontWeight: 600,
+              fontSize: "1rem",
+              textTransform: "none",
+              borderRadius: 2,
+              boxShadow: 2,
+              "&:hover": {
+                boxShadow: 4,
+              },
+            }}
+            onClick={() => navigate("/login")}
+          >
+            Go to Login
+          </Button>
+        </Stack>
       </Paper>
     </Box>
   );
