@@ -46,6 +46,9 @@ export const getAllUsers = async (req, res) => {
     })),
     lastLogin: convertDate(u.lastLogin),
     createdAt: convertDate(u.createdAt),
+    mfaEnabled: u.mfaEnabled || false,
+    mfaPhone: u.mfaPhone || null,
+    mfaMethod: u.mfaMethod || null,
   }));
 
   res.json({ users: formatted });

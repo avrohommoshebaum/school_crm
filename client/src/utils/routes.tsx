@@ -16,6 +16,9 @@ import SettingsPage from "../pages/profile/SettingsPage";
 import ResetPassword from "../pages/ResetPassword";
 import ForgotPassword from "../pages/ForgotPassword";
 import ForcePasswordChange from "../pages/ForcePasswordChange";
+import Setup2FA from "../pages/2FA/Setup2FA";
+import Verify2FA from "../pages/2FA/Verify2FA";
+import Enforce2FA from "../pages/2FA/Enforce2FA";
 import SchoolSettings from "../pages/admin/SchoolSettings";
 import SchoolCalendar from "../pages/admin/SchoolCalendar";
 import ApplicationSettings from "../pages/admin/ApplicationSettings";
@@ -83,6 +86,10 @@ const router = createBrowserRouter([
 
   { path: "/forgot-password", Component: ForgotPassword },
 { path: "/reset-password", Component: ResetPassword },
+
+  { path: "/2fa/setup", Component: Setup2FA },
+  { path: "/2fa/verify", Component: Verify2FA },
+  { path: "/2fa/enforce", Component: Enforce2FA },
 
 {
   path: "/",

@@ -74,23 +74,45 @@ const handleSubmit = async (e: React.FormEvent) => {
     });
 
     if (res.data.requiresPasswordChange) {
+      setLoading(false);
       navigate("/force-password-change");
       return;
     }
 
     if (res.data.mfaRequired) {
-      navigate("/mfa");
+      // Check if it's SMS/phone 2FA or TOTP MFA
+      if (res.data.mfaMethod) {
+        // SMS/Phone 2FA - code will be sent automatically
+        setLoading(false);
+        navigate("/2fa/verify");
+        return;
+      } else {
+        // Legacy TOTP MFA
+        setLoading(false);
+        navigate("/mfa");
+        return;
+      }
+    }
+
+    // Check if 2FA enrollment is required
+    if (res.data.requires2FAEnrollment) {
+      setLoading(false);
+      navigate("/2fa/enforce");
       return;
     }
 
-    // ✅ THIS IS THE FIX
+    // ✅ Login successful - refresh user and navigate
     await refreshUser();
-
+    setLoading(false);
     navigate("/", { replace: true });
   } catch (err: any) {
-    setError(err.response?.data?.message || "Login failed");
-  } finally {
     setLoading(false);
+    // Check if 2FA enrollment is required (403 error)
+    if (err.response?.status === 403 && err.response?.data?.requires2FAEnrollment) {
+      navigate("/2fa/enforce");
+      return;
+    }
+    setError(err.response?.data?.message || "Login failed");
   }
 };
 

@@ -370,7 +370,7 @@ export const scheduleSMS = async (req, res) => {
 };
 
 /**
- * Process scheduled SMS (called by Cloud Scheduler)
+ * Process scheduled SMS and Emails (called by Cloud Scheduler)
  * This endpoint is protected by a secret token in headers
  */
 export const processScheduledSMS = async (req, res) => {
@@ -386,11 +386,13 @@ export const processScheduledSMS = async (req, res) => {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    // Get ALL pending SMS that are ready to send (no limit - processes everything)
+    // Get ALL pending SMS and Emails that are ready to send (no limit - processes everything)
     const pendingSMS = await smsService.getPendingScheduledSMS();
+    const { emailService } = await import("../db/services/emailService.js");
+    const pendingEmails = await emailService.getPendingScheduledEmails();
 
-    if (pendingSMS.length === 0) {
-      return res.json({ message: "No pending scheduled SMS", processed: 0 });
+    if (pendingSMS.length === 0 && pendingEmails.length === 0) {
+      return res.json({ message: "No pending scheduled messages", processed: 0, smsProcessed: 0, emailsProcessed: 0 });
     }
 
     console.log(`📨 Processing ${pendingSMS.length} pending scheduled SMS...`);
@@ -466,15 +468,153 @@ export const processScheduledSMS = async (req, res) => {
 
     console.log(`✅ Completed processing ${processedCount} scheduled SMS`);
 
+    // Process scheduled emails
+    const emailResults = [];
+    let emailProcessedCount = 0;
+
+    if (pendingEmails.length > 0) {
+      console.log(`📧 Processing ${pendingEmails.length} pending scheduled emails...`);
+
+      const sendEmail = (await import("../utils/email/sendEmail.js")).default;
+      const { groupService } = await import("../db/services/groupService.js");
+      const { groupMemberService } = await import("../db/services/groupMemberService.js");
+
+      // Process emails in parallel batches of 10 (SendGrid rate limits are different)
+      const emailBatchSize = 10;
+
+      for (let i = 0; i < pendingEmails.length; i += emailBatchSize) {
+        const batch = pendingEmails.slice(i, i + emailBatchSize);
+
+        const batchPromises = batch.map(async (scheduled) => {
+          try {
+            // Update status to processing
+            await emailService.updateScheduledEmailStatus(scheduled.id, "processing");
+
+            // Collect recipients from groups if needed
+            let groupBccRecipients = [];
+            if (scheduled.recipient_group_ids && scheduled.recipient_group_ids.length > 0) {
+              for (const groupId of scheduled.recipient_group_ids) {
+                const members = await groupMemberService.findByGroupId(groupId);
+                const groupEmails = members
+                  .filter((m) => m.email && m.email.trim())
+                  .map((m) => m.email.trim());
+                groupBccRecipients.push(...groupEmails);
+              }
+              groupBccRecipients = [...new Set(groupBccRecipients)];
+            }
+
+            // Combine recipients
+            const toRecipients = scheduled.to_recipients || [];
+            const ccRecipients = scheduled.cc_recipients || [];
+            const bccRecipients = [...new Set([...groupBccRecipients, ...(scheduled.bcc_recipients || [])])];
+
+            // SendGrid requires at least one TO recipient
+            let finalToRecipients = toRecipients;
+            if (finalToRecipients.length === 0) {
+              const senderEmail = process.env.SENDGRID_FROM;
+              if (senderEmail) {
+                finalToRecipients = [senderEmail];
+              } else if (bccRecipients.length > 0) {
+                finalToRecipients = [bccRecipients[0]];
+              }
+            }
+
+            // Process attachments if stored
+            let processedAttachments = null;
+            if (scheduled.attachments) {
+              // Note: We can't restore base64 content from metadata, so attachments won't be included
+              // This is a limitation - we'd need to store full attachment data or use cloud storage
+              console.warn(`⚠️ Scheduled email ${scheduled.id} has attachments but they cannot be restored from metadata`);
+            }
+
+            // Send email
+            await sendEmail({
+              to: finalToRecipients,
+              subject: scheduled.subject,
+              html: scheduled.html_content,
+              text: scheduled.text_content,
+              fromName: scheduled.from_name,
+              replyTo: scheduled.reply_to,
+              disableReplyTo: scheduled.disable_reply_to,
+              cc: ccRecipients.length > 0 ? ccRecipients : undefined,
+              bcc: bccRecipients.length > 0 ? bccRecipients : undefined,
+              attachments: processedAttachments,
+            });
+
+            // Create email message record
+            const emailRecord = await emailService.createEmailMessage({
+              subject: scheduled.subject,
+              htmlContent: scheduled.html_content,
+              textContent: scheduled.text_content,
+              recipientType: scheduled.recipient_type,
+              recipientGroupIds: scheduled.recipient_group_ids || [],
+              toRecipients: finalToRecipients,
+              ccRecipients,
+              bccRecipients,
+              fromName: scheduled.from_name,
+              replyTo: scheduled.reply_to,
+              disableReplyTo: scheduled.disable_reply_to,
+              status: "sent",
+              sentBy: scheduled.created_by,
+            });
+
+            // Update scheduled email status
+            await emailService.updateScheduledEmailStatus(
+              scheduled.id,
+              "sent",
+              emailRecord.id,
+              null
+            );
+
+            emailProcessedCount++;
+            return {
+              scheduledEmailId: scheduled.id,
+              success: true,
+              totalRecipients: finalToRecipients.length + ccRecipients.length + bccRecipients.length,
+            };
+          } catch (error) {
+            console.error(`Error processing scheduled email ${scheduled.id}:`, error);
+            await emailService.updateScheduledEmailStatus(scheduled.id, "failed", null, error.message);
+            emailProcessedCount++;
+            return {
+              scheduledEmailId: scheduled.id,
+              success: false,
+              error: error.message,
+            };
+          }
+        });
+
+        const batchResults = await Promise.all(batchPromises);
+        emailResults.push(...batchResults);
+
+        if (pendingEmails.length > 20) {
+          console.log(`✅ Processed email batch ${Math.floor(i / emailBatchSize) + 1}/${Math.ceil(pendingEmails.length / emailBatchSize)} (${emailProcessedCount}/${pendingEmails.length} total)`);
+        }
+      }
+
+      console.log(`✅ Completed processing ${emailProcessedCount} scheduled emails`);
+    }
+
     res.json({
-      message: "Scheduled SMS processed",
-      processed: processedCount,
-      total: pendingSMS.length,
-      results: results.slice(0, 100), // Return first 100 results to avoid huge response
+      message: "Scheduled messages processed",
+      processed: processedCount + emailProcessedCount,
+      smsProcessed: processedCount,
+      emailsProcessed: emailProcessedCount,
+      smsTotal: pendingSMS.length,
+      emailsTotal: pendingEmails.length,
+      smsResults: results.slice(0, 50), // Return first 50 results to avoid huge response
+      emailResults: emailResults.slice(0, 50),
       summary: {
-        total: pendingSMS.length,
-        successful: results.filter((r) => r.success).length,
-        failed: results.filter((r) => !r.success).length,
+        sms: {
+          total: pendingSMS.length,
+          successful: results.filter((r) => r.success).length,
+          failed: results.filter((r) => !r.success).length,
+        },
+        emails: {
+          total: pendingEmails.length,
+          successful: emailResults.filter((r) => r.success).length,
+          failed: emailResults.filter((r) => !r.success).length,
+        },
       },
     });
   } catch (error) {
@@ -516,10 +656,45 @@ export const getSMSHistory = async (req, res) => {
       });
     }
 
+    // Get recipient counts for sent SMS messages from recipient logs (more accurate than array length)
+    const recipientCountsMap = {};
+    if (messages.length > 0) {
+      const messageIds = messages.map(m => m.id);
+      try {
+        const { query } = await import("../db/postgresConnect.js");
+        const result = await query(
+          `SELECT sms_message_id, COUNT(*) as count 
+           FROM sms_recipient_logs 
+           WHERE sms_message_id = ANY($1::uuid[])
+           GROUP BY sms_message_id`,
+          [messageIds]
+        );
+        result.rows.forEach(row => {
+          recipientCountsMap[row.sms_message_id] = parseInt(row.count, 10);
+        });
+      } catch (error) {
+        console.error("Error getting recipient counts:", error);
+      }
+    }
+
     // Combine and sort by date (most recent first)
     const allMessages = [
-      ...messages.map(m => ({ ...m, type: "sent", scheduled_for: null })),
-      ...scheduledMessages.map(m => ({ ...m, type: "scheduled", sent_at: null, twilio_status: m.status }))
+      ...messages.map(m => ({ 
+        ...m, 
+        type: "sent", 
+        scheduled_for: null,
+        // Use actual recipient log count if available, otherwise fall back to array length
+        recipient_count: recipientCountsMap[m.id] !== undefined 
+          ? recipientCountsMap[m.id] 
+          : (m.recipient_phone_numbers?.length || 0)
+      })),
+      ...scheduledMessages.map(m => ({ 
+        ...m, 
+        type: "scheduled", 
+        sent_at: null, 
+        twilio_status: m.status,
+        recipient_count: m.recipient_phone_numbers?.length || 0
+      }))
     ].sort((a, b) => {
       const dateA = a.sent_at || a.scheduled_for || a.created_at;
       const dateB = b.sent_at || b.scheduled_for || b.created_at;

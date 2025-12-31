@@ -45,6 +45,22 @@ const rowToUser = (row) => {
     bio: row.bio,
     lastLogin: row.last_login,
     last_login: row.last_login, // Keep both for compatibility
+    mfaEnabled: row.mfa_enabled || false,
+    mfa_enabled: row.mfa_enabled || false, // Keep both for compatibility
+    mfaSecret: row.mfa_secret,
+    mfa_secret: row.mfa_secret, // Keep both for compatibility
+    mfaTempSecret: row.mfa_temp_secret,
+    mfa_temp_secret: row.mfa_temp_secret, // Keep both for compatibility
+    mfaPhone: row.mfa_phone,
+    mfa_phone: row.mfa_phone, // Keep both for compatibility
+    mfaMethod: row.mfa_method,
+    mfa_method: row.mfa_method, // Keep both for compatibility
+    mfaCode: row.mfa_code,
+    mfa_code: row.mfa_code, // Keep both for compatibility
+    mfaCodeExpires: row.mfa_code_expires,
+    mfa_code_expires: row.mfa_code_expires, // Keep both for compatibility
+    mustChangePassword: row.must_change_password || false,
+    must_change_password: row.must_change_password || false, // Keep both for compatibility
     createdAt: row.created_at,
     created_at: row.created_at, // Keep both for compatibility
     updatedAt: row.updated_at,
@@ -244,6 +260,38 @@ export const userService = {
     if (updates.lastLogin !== undefined || updates.last_login !== undefined) {
       updateFields.push(`last_login = $${paramIndex++}`);
       values.push(updates.lastLogin || updates.last_login);
+    }
+    if (updates.mfaEnabled !== undefined || updates.mfa_enabled !== undefined) {
+      updateFields.push(`mfa_enabled = $${paramIndex++}`);
+      values.push(updates.mfaEnabled !== undefined ? updates.mfaEnabled : updates.mfa_enabled);
+    }
+    if (updates.mfaSecret !== undefined || updates.mfa_secret !== undefined) {
+      updateFields.push(`mfa_secret = $${paramIndex++}`);
+      values.push(updates.mfaSecret || updates.mfa_secret);
+    }
+    if (updates.mfaTempSecret !== undefined || updates.mfa_temp_secret !== undefined) {
+      updateFields.push(`mfa_temp_secret = $${paramIndex++}`);
+      values.push(updates.mfaTempSecret || updates.mfa_temp_secret);
+    }
+    if (updates.mfaPhone !== undefined || updates.mfa_phone !== undefined) {
+      updateFields.push(`mfa_phone = $${paramIndex++}`);
+      values.push(updates.mfaPhone || updates.mfa_phone);
+    }
+    if (updates.mfaMethod !== undefined || updates.mfa_method !== undefined) {
+      updateFields.push(`mfa_method = $${paramIndex++}`);
+      values.push(updates.mfaMethod || updates.mfa_method);
+    }
+    if (updates.mfaCode !== undefined || updates.mfa_code !== undefined) {
+      updateFields.push(`mfa_code = $${paramIndex++}`);
+      values.push(updates.mfaCode || updates.mfa_code);
+    }
+    if (updates.mfaCodeExpires !== undefined || updates.mfa_code_expires !== undefined) {
+      updateFields.push(`mfa_code_expires = $${paramIndex++}`);
+      values.push(updates.mfaCodeExpires || updates.mfa_code_expires);
+    }
+    if (updates.mustChangePassword !== undefined || updates.must_change_password !== undefined) {
+      updateFields.push(`must_change_password = $${paramIndex++}`);
+      values.push(updates.mustChangePassword !== undefined ? updates.mustChangePassword : updates.must_change_password);
     }
 
     if (updateFields.length === 0) {

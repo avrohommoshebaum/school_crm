@@ -16,6 +16,7 @@ import {
   Alert,
 } from "@mui/material";
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../../utils/api";
 import useCurrentUser from "../../hooks/useCurrentUser";
 import { SampleWrapper } from "../../components/SampleWrapper";
@@ -293,6 +294,17 @@ export default function SettingsPage() {
         </Stack>
       </Paper>
 </SampleWrapper>
+      {/* TWO-FACTOR AUTHENTICATION */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Typography variant="h6" sx={{ mb: 2 }}>
+          Two-Factor Authentication
+        </Typography>
+
+        <Divider sx={{ mb: 2 }} />
+
+        <TwoFactorSection />
+      </Paper>
+
       {/* CHANGE PASSWORD */}
       <Paper sx={{ p: 3 }}>
         <Typography variant="h6" sx={{ mb: 2 }}>
@@ -332,6 +344,131 @@ export default function SettingsPage() {
         </Stack>
       </Paper>
     </Box>
+  );
+}
+
+// Two-Factor Authentication Section Component
+function TwoFactorSection() {
+  const { user, reload } = useCurrentUser();
+  const navigate = useNavigate();
+  const [backupCodesCount, setBackupCodesCount] = useState<number | null>(null);
+  const [loadingCount, setLoadingCount] = useState(false);
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "success" as "success" | "error",
+  });
+
+  const showSnackbar = (message: string, severity: "success" | "error") =>
+    setSnackbar({ open: true, message, severity });
+  const closeSnackbar = () => setSnackbar((prev) => ({ ...prev, open: false }));
+
+  useEffect(() => {
+    if (user?.mfaEnabled) {
+      loadBackupCodesCount();
+    }
+  }, [user?.mfaEnabled]);
+
+  const loadBackupCodesCount = async () => {
+    try {
+      setLoadingCount(true);
+      const res = await api.get("/auth/backup-codes/count");
+      setBackupCodesCount(res.data.count);
+    } catch (error) {
+      console.error("Error loading backup codes count:", error);
+    } finally {
+      setLoadingCount(false);
+    }
+  };
+
+  const handleGenerateBackupCodes = async () => {
+    try {
+      const res = await api.post("/auth/backup-codes/generate");
+      showSnackbar("Backup codes generated. Save them in a safe place!", "success");
+      setBackupCodesCount(10);
+      // Show codes in a dialog
+      alert(`Your backup codes:\n\n${res.data.codes.join("\n")}\n\nSave these codes in a safe place. They will not be shown again.`);
+    } catch (error: any) {
+      showSnackbar(error?.response?.data?.message || "Failed to generate backup codes", "error");
+    }
+  };
+
+  return (
+    <>
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={5000}
+        onClose={closeSnackbar}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+      >
+        <Alert onClose={closeSnackbar} severity={snackbar.severity} variant="filled">
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+
+      <Stack spacing={2}>
+        {user?.mfaEnabled ? (
+          <>
+            <RowDisplay label="2FA Status" value="Enabled" />
+            {user.mfaPhone && (
+              <RowDisplay
+                label="Phone Number"
+                value={(() => {
+                  const digits = user.mfaPhone.replace(/\D/g, "");
+                  if (digits.length === 10) {
+                    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+                  }
+                  return user.mfaPhone;
+                })()}
+              />
+            )}
+            {user.mfaMethod && (
+              <RowDisplay
+                label="Method"
+                value={user.mfaMethod === "phone_call" ? "Phone Call" : "SMS"}
+              />
+            )}
+            <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
+              <Button
+                variant="outlined"
+                onClick={() => navigate("/2fa/setup")}
+                sx={{ textTransform: "none" }}
+              >
+                Update 2FA Settings
+              </Button>
+              <Button
+                variant="outlined"
+                onClick={handleGenerateBackupCodes}
+                sx={{ textTransform: "none" }}
+              >
+                Generate Backup Codes
+              </Button>
+            </Stack>
+            {loadingCount ? (
+              <Typography variant="body2" color="text.secondary">
+                Loading...
+              </Typography>
+            ) : backupCodesCount !== null && (
+              <Alert severity={backupCodesCount < 3 ? "warning" : "info"}>
+                You have {backupCodesCount} unused backup code{backupCodesCount !== 1 ? "s" : ""}
+                {backupCodesCount < 3 && ". Consider generating new codes."}
+              </Alert>
+            )}
+          </>
+        ) : (
+          <>
+            <RowDisplay label="2FA Status" value="Not Enabled" />
+            <Button
+              variant="contained"
+              onClick={() => navigate("/2fa/setup")}
+              sx={{ mt: 2, textTransform: "none" }}
+            >
+              Enable Two-Factor Authentication
+            </Button>
+          </>
+        )}
+      </Stack>
+    </>
   );
 }
 

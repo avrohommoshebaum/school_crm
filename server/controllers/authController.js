@@ -47,8 +47,58 @@ export const loginLocal = (req, res, next) => {
 
 
     if (user.mfaEnabled) {
+      // Check if user has SMS/phone 2FA configured
+      if (user.mfaPhone && user.mfaMethod) {
+        req.session.mfaUserId = (user._id || user.id).toString();
+        
+        // Automatically send 2FA code
+        try {
+          const { generate2FACode, send2FACode } = await import("../utils/twilio2FA.js");
+          const code = generate2FACode();
+          const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+          
+          await userService.update(user._id || user.id, {
+            mfaCode: code,
+            mfaCodeExpires: expiresAt,
+          });
+          
+          await send2FACode(user.mfaPhone, code, user.mfaMethod);
+        } catch (error) {
+          console.error("Error sending 2FA code during login:", error);
+          // Continue anyway - user can request a new code
+        }
+        
+        // Format phone for display (E.164 format: +12345678901 -> (234) 567-8901)
+        let displayPhone = user.mfaPhone;
+        if (user.mfaPhone.startsWith('+1')) {
+          const digits = user.mfaPhone.slice(2);
+          if (digits.length === 10) {
+            displayPhone = `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+          }
+        }
+        
+        return res.json({ 
+          mfaRequired: true,
+          mfaMethod: user.mfaMethod,
+          mfaPhone: displayPhone
+        });
+      }
+      // Fallback to old TOTP MFA if no phone configured
       req.session.mfaUserId = (user._id || user.id).toString();
       return res.json({ mfaRequired: true });
+    }
+
+    // Check if 2FA is enforced and user doesn't have it enabled
+    const { getBooleanSetting } = await import("../db/services/systemSettingsService.js");
+    const require2FA = await getBooleanSetting("require_2fa", false);
+    
+    if (require2FA && !user.mfaEnabled) {
+      // 2FA is enforced but user hasn't enrolled - don't log them in
+      // They'll need to enroll first
+      return res.status(403).json({ 
+        message: "2FA enrollment required",
+        requires2FAEnrollment: true 
+      });
     }
 
     req.login(user, async (err2) => {

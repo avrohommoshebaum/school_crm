@@ -63,6 +63,17 @@ async function initialize() {
       // Don't fail startup if schema already exists or has minor issues
     }
 
+    // Initialize Email schema if tables don't exist
+    console.log("🔧 Step 3a: Verifying Email schema...");
+    const setupEmailSchema = (await import("./db/scripts/setupEmailSchema.js")).default;
+    try {
+      await setupEmailSchema();
+      console.log("✅ Email schema verified");
+    } catch (error) {
+      console.warn("⚠️ Email schema setup warning:", error.message);
+      // Don't fail startup if schema already exists or has minor issues
+    }
+
     // Initialize user schema (add missing columns like last_login)
     console.log("🔧 Step 3b: Verifying user schema...");
     const setupUserSchema = (await import("./db/scripts/setupUserSchema.js")).default;
@@ -71,6 +82,39 @@ async function initialize() {
       console.log("✅ User schema verified");
     } catch (error) {
       console.warn("⚠️ User schema setup warning:", error.message);
+      // Don't fail startup if schema already exists or has minor issues
+    }
+
+    // Initialize 2FA schema (add SMS/phone 2FA columns)
+    console.log("🔧 Step 3c: Verifying 2FA schema...");
+    const add2FASchema = (await import("./db/scripts/add2FASchema.js")).default;
+    try {
+      await add2FASchema();
+      console.log("✅ 2FA schema verified");
+    } catch (error) {
+      console.warn("⚠️ 2FA schema setup warning:", error.message);
+      // Don't fail startup if schema already exists or has minor issues
+    }
+
+    // Initialize backup codes schema
+    console.log("🔧 Step 3d: Verifying backup codes schema...");
+    const addBackupCodesSchema = (await import("./db/scripts/addBackupCodesSchema.js")).default;
+    try {
+      await addBackupCodesSchema();
+      console.log("✅ Backup codes schema verified");
+    } catch (error) {
+      console.warn("⚠️ Backup codes schema setup warning:", error.message);
+      // Don't fail startup if schema already exists or has minor issues
+    }
+
+    // Initialize system settings schema
+    console.log("🔧 Step 3e: Verifying system settings schema...");
+    const addSystemSettingsSchema = (await import("./db/scripts/addSystemSettingsSchema.js")).default;
+    try {
+      await addSystemSettingsSchema();
+      console.log("✅ System settings schema verified");
+    } catch (error) {
+      console.warn("⚠️ System settings schema setup warning:", error.message);
       // Don't fail startup if schema already exists or has minor issues
     }
     
@@ -98,6 +142,18 @@ async function initialize() {
     app.use("/api/profile", userProfileRoutes);
     app.use("/api/groups", groupRoutes);
     app.use("/api/sms", smsRoutes);
+    
+    // Email routes
+    const emailRoutes = (await import("./routes/emailRoutes.js")).default;
+    app.use("/api/email", emailRoutes);
+    
+    // Twilio routes (for TwiML responses)
+    const twilioRoutes = (await import("./routes/twilioRoutes.js")).default;
+    app.use("/api/twilio", twilioRoutes);
+    
+    // System settings routes
+    const systemSettingsRoutes = (await import("./routes/systemSettingsRoutes.js")).default;
+    app.use("/api/system-settings", systemSettingsRoutes);
     
     // Initialize Twilio
     console.log("🔧 Step 7: Initializing Twilio...");

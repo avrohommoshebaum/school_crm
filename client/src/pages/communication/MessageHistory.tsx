@@ -59,9 +59,12 @@ type MessageStatus = "sent" | "delivered" | "failed" | "queued" | "pending" | "s
 type Message = {
   id: string;
   type: MessageType;
+  messageType?: "sent" | "scheduled"; // Track if this is a scheduled or sent message
   message?: string; // For SMS
   subject?: string; // For email
   body?: string; // For email
+  html_content?: string; // For email HTML content
+  preview?: string; // For email preview
   content?: string; // For robocall
   
   // Common fields
@@ -153,6 +156,8 @@ export default function MessageHistory() {
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [recipientDetails, setRecipientDetails] = useState<RecipientDetails | null>(null);
   const [loadingRecipients, setLoadingRecipients] = useState(false);
+  const [viewMessageDialog, setViewMessageDialog] = useState(false);
+  const [viewingMessage, setViewingMessage] = useState<Message | null>(null);
 
   const [editScheduledDialog, setEditScheduledDialog] = useState(false);
   const [editingScheduled, setEditingScheduled] = useState<Message | null>(null);
@@ -175,27 +180,64 @@ export default function MessageHistory() {
   const loadMessages = async () => {
     try {
       setLoading(true);
-      // For now, only SMS is implemented. In the future, this will fetch from a unified endpoint
-      // that returns all message types (SMS, email, robocall)
-      const { data } = await api.get("/sms/history", {
-        params: { page, limit: 20, includeScheduled: true },
-      });
+      
+      // Fetch both SMS and Email history
+      const [smsResponse, emailResponse] = await Promise.all([
+        api.get("/sms/history", {
+          params: { page, limit: 20, includeScheduled: true },
+        }).catch(() => ({ data: { messages: [] } })),
+        api.get("/email/history", {
+          params: { page, limit: 20 },
+        }).catch(() => ({ data: { messages: [] } })),
+      ]);
       
       // Transform SMS messages to generic Message format
-      const transformedMessages: Message[] = (data.messages || []).map((msg: any) => ({
+      const smsMessages: Message[] = (smsResponse.data.messages || []).map((msg: any) => ({
         ...msg,
-        type: msg.type === "scheduled" ? "scheduled" : "sms",
-        recipient_count: msg.recipient_phone_numbers?.length || 0,
+        type: msg.type === "scheduled" ? "sms" : "sms", // Keep type as sms, use status for scheduled
+        messageType: msg.type || "sent", // Track if scheduled or sent
+        recipient_count: msg.recipient_phone_numbers?.length || msg.recipient_count || 0,
+        status: msg.type === "scheduled" ? (msg.status || "pending") : (msg.twilio_status || "sent"),
+        scheduled_for: msg.type === "scheduled" ? msg.scheduled_for : undefined,
+        html_content: undefined, // SMS don't have HTML
       }));
+      
+      // Transform Email messages to generic Message format
+      const emailMessages: Message[] = (emailResponse.data.messages || []).map((msg: any) => ({
+        ...msg,
+        type: msg.messageType === "scheduled" ? "email" : "email", // Keep type as email, use status for scheduled
+        messageType: msg.messageType || "sent", // Track if scheduled or sent
+        message: msg.subject || msg.preview,
+        subject: msg.subject,
+        html_content: msg.html_content || msg.htmlContent,
+        recipient_count: msg.recipientCount || 0,
+        status: msg.messageType === "scheduled" ? (msg.status || "pending") : (msg.status || "sent"),
+        scheduled_for: msg.messageType === "scheduled" ? msg.scheduledFor : undefined,
+        sent_by: msg.sentBy || msg.sent_by, // Preserve sent_by information
+        sent_by_name: msg.sentBy || msg.sent_by_name, // For display
+        sent_by_email: msg.sentBy || msg.sent_by_email, // For display
+      }));
+      
+      // Combine and sort by date
+      const allMessages = [...smsMessages, ...emailMessages].sort((a, b) => {
+        const dateA = new Date(a.sent_at || a.scheduled_for || a.created_at).getTime();
+        const dateB = new Date(b.sent_at || b.scheduled_for || b.created_at).getTime();
+        return dateB - dateA;
+      });
       
       // Filter by message type if needed
       const filteredMessages = messageTypeFilter === "all" 
-        ? transformedMessages 
-        : transformedMessages.filter(m => m.type === messageTypeFilter);
+        ? allMessages 
+        : allMessages.filter(m => {
+          if (messageTypeFilter === "sms") return m.type === "sms";
+          if (messageTypeFilter === "email") return m.type === "email";
+          if (messageTypeFilter === "scheduled") return m.messageType === "scheduled" || m.status === "pending" || m.status === "scheduled";
+          return true;
+        });
       
-      setMessages(filteredMessages);
-      setTotalPages(data.pagination?.totalPages || 1);
-      setTotal(data.pagination?.total || 0);
+      setMessages(filteredMessages.slice(0, 20)); // Limit to 20 per page
+      setTotalPages(Math.ceil(filteredMessages.length / 20));
+      setTotal(filteredMessages.length);
     } catch (error: any) {
       console.error("Error loading message history:", error);
       showSnackbar(error?.response?.data?.message || "Error loading message history", "error");
@@ -214,8 +256,14 @@ export default function MessageHistory() {
     setSnackbar({ open: true, message, severity });
   };
 
+  const handleViewMessage = (message: Message) => {
+    setViewingMessage(message);
+    setViewMessageDialog(true);
+  };
+
   const handleViewRecipients = async (message: Message) => {
-    if (message.type === "scheduled") {
+    // Don't show recipient details for scheduled/pending messages
+    if (message.messageType === "scheduled" || message.status === "pending" || message.status === "scheduled") {
       showSnackbar("Recipient details are not available for scheduled messages until they are sent", "info");
       return;
     }
@@ -225,11 +273,14 @@ export default function MessageHistory() {
       setLoadingRecipients(true);
       setRecipientDetailsDialog(true);
 
-      // For now, only SMS has recipient details endpoint
-      // In the future, this will route to the appropriate endpoint based on message type
+      // Route to appropriate endpoint based on message type
       if (message.type === "sms") {
         const { data } = await api.get(`/sms/${message.id}/recipients`);
         setRecipientDetails(data);
+      } else if (message.type === "email") {
+        // Email recipient details endpoint (if needed in future)
+        showSnackbar("Email recipient details are not yet available", "info");
+        setRecipientDetailsDialog(false);
       } else {
         showSnackbar("Recipient details are not yet available for this message type", "info");
         setRecipientDetailsDialog(false);
@@ -244,17 +295,15 @@ export default function MessageHistory() {
   };
 
   const handleEditScheduled = (message: Message) => {
-    if (message.type !== "scheduled" || message.status !== "pending") {
+    // Check if it's a scheduled message with pending status
+    if (message.messageType !== "scheduled" && message.status !== "pending" && message.status !== "scheduled") {
       return;
     }
-    
-    // For now, only SMS scheduled messages can be edited
-    // In the future, this will support email and robocall scheduled messages
 
     setEditingScheduled(message);
     const scheduledDate = message.scheduled_for ? new Date(message.scheduled_for) : new Date();
     setEditForm({
-      message: message.message,
+      message: message.message || message.subject || "",
       scheduledDate: scheduledDate.toISOString().split("T")[0],
       scheduledTime: scheduledDate.toTimeString().slice(0, 5),
     });
@@ -268,29 +317,41 @@ export default function MessageHistory() {
       setSaving(true);
       const scheduledDateTime = new Date(`${editForm.scheduledDate}T${editForm.scheduledTime}`);
       
-      await api.put(`/sms/scheduled/${editingScheduled.id}`, {
-        message: editForm.message,
-        scheduledFor: scheduledDateTime.toISOString(),
-      });
+      // Determine if this is an SMS or Email scheduled message
+      const isEmail = editingScheduled.type === "email";
+      const endpoint = isEmail 
+        ? `/email/scheduled/${editingScheduled.id}`
+        : `/sms/scheduled/${editingScheduled.id}`;
+      
+      const payload = isEmail
+        ? {
+            subject: editForm.message,
+            scheduledFor: scheduledDateTime.toISOString(),
+          }
+        : {
+            message: editForm.message,
+            scheduledFor: scheduledDateTime.toISOString(),
+          };
 
-      showSnackbar("Scheduled SMS updated successfully", "success");
+      await api.put(endpoint, payload);
+
+      showSnackbar(`Scheduled ${isEmail ? "email" : "SMS"} updated successfully`, "success");
       setEditScheduledDialog(false);
       loadMessages();
     } catch (error: any) {
-      console.error("Error updating scheduled SMS:", error);
-      showSnackbar(error?.response?.data?.message || "Error updating scheduled SMS", "error");
+      console.error("Error updating scheduled message:", error);
+      showSnackbar(error?.response?.data?.message || "Error updating scheduled message", "error");
     } finally {
       setSaving(false);
     }
   };
 
   const handleCancelScheduled = (message: Message) => {
-    if (message.type !== "scheduled" || message.status !== "pending") {
+    // Check if it's a scheduled message with pending status
+    if (message.messageType !== "scheduled" && message.status !== "pending" && message.status !== "scheduled") {
       return;
     }
     
-    // For now, only SMS scheduled messages can be cancelled
-    // In the future, this will support email and robocall scheduled messages
     setCancellingScheduled(message);
     setCancelDialog(true);
   };
@@ -300,15 +361,22 @@ export default function MessageHistory() {
 
     try {
       setCancelling(true);
-      await api.delete(`/sms/scheduled/${cancellingScheduled.id}`);
+      
+      // Determine if this is an SMS or Email scheduled message
+      const isEmail = cancellingScheduled.type === "email";
+      const endpoint = isEmail 
+        ? `/email/scheduled/${cancellingScheduled.id}`
+        : `/sms/scheduled/${cancellingScheduled.id}`;
 
-      showSnackbar("Scheduled SMS cancelled successfully", "success");
+      await api.delete(endpoint);
+
+      showSnackbar(`Scheduled ${isEmail ? "email" : "SMS"} cancelled successfully`, "success");
       setCancelDialog(false);
       setCancellingScheduled(null);
       loadMessages();
     } catch (error: any) {
-      console.error("Error cancelling scheduled SMS:", error);
-      showSnackbar(error?.response?.data?.message || "Error cancelling scheduled SMS", "error");
+      console.error("Error cancelling scheduled message:", error);
+      showSnackbar(error?.response?.data?.message || "Error cancelling scheduled message", "error");
     } finally {
       setCancelling(false);
     }
@@ -348,7 +416,9 @@ export default function MessageHistory() {
     return phone;
   };
 
-  const getMessageIcon = (type: MessageType) => {
+  const getMessageIcon = (message: Message) => {
+    // Use the actual message type (sms/email) for the icon, not the scheduled status
+    const type = message.type;
     switch (type) {
       case "email":
         return <Mail size={20} color={theme.palette.primary.main} />;
@@ -357,8 +427,6 @@ export default function MessageHistory() {
       case "call":
       case "robocall":
         return <Phone size={20} color={theme.palette.primary.main} />;
-      case "scheduled":
-        return <Clock size={20} color={theme.palette.warning.main} />;
       default:
         return <MessageSquare size={20} color={theme.palette.primary.main} />;
     }
@@ -366,7 +434,7 @@ export default function MessageHistory() {
 
   const getMessagePreview = (message: Message): string => {
     if (message.type === "email") {
-      return message.subject || message.body?.substring(0, 60) || "";
+      return message.subject || message.preview || "";
     } else if (message.type === "robocall" || message.type === "call") {
       return message.content || message.message || "";
     }
@@ -392,15 +460,15 @@ export default function MessageHistory() {
 
   return (
     <Box sx={{ maxWidth: 1200, mx: "auto", p: 2 }}>
-      {/* Header */}
-      <Box mb={3}>
-        <Typography variant="h5" fontWeight={600}>
-          Message History
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
+        {/* Header */}
+        <Box mb={3}>
+          <Typography variant="h5" fontWeight={600}>
+            Message History
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
           View all sent and scheduled SMS messages
-        </Typography>
-      </Box>
+          </Typography>
+        </Box>
 
         <Card>
           <CardHeader
@@ -408,7 +476,7 @@ export default function MessageHistory() {
             subheader={`${total} total message${total !== 1 ? "s" : ""}`}
           />
 
-        <CardContent>
+          <CardContent>
           {messages.length === 0 ? (
             <Box sx={{ textAlign: "center", py: 4 }}>
               <MessageSquare size={48} color={theme.palette.text.secondary} style={{ margin: "0 auto 16px" }} />
@@ -422,55 +490,93 @@ export default function MessageHistory() {
           ) : (
             <Stack spacing={2}>
               {messages.map((msg) => {
-                const isScheduled = msg.type === "scheduled";
-                const status = isScheduled ? msg.status || "pending" : msg.twilio_status || msg.email_status || msg.call_status || "unknown";
+                const isScheduled = msg.messageType === "scheduled" || msg.status === "pending" || msg.status === "scheduled";
+                // Status: if scheduled and pending, show "scheduled", otherwise show actual status
+                const displayStatus = isScheduled && (msg.status === "pending" || msg.status === "scheduled") 
+                  ? "scheduled" 
+                  : (msg.status || msg.twilio_status || msg.email_status || msg.call_status || "sent");
                 const date = isScheduled ? msg.scheduled_for : msg.sent_at || msg.created_at;
                 const recipientCount = msg.recipient_count || msg.recipient_phone_numbers?.length || msg.recipient_emails?.length || 0;
                 const messagePreview = getMessagePreview(msg);
+                const messageTypeLabel = msg.type === "email" ? "Email" : msg.type === "sms" ? "SMS" : msg.type;
 
                 return (
-                  <Box
-                    key={msg.id}
-                    sx={{
-                      border: "1px solid",
-                      borderColor: "divider",
-                      borderRadius: 2,
-                      p: 2,
-                      display: "flex",
-                      flexDirection: { xs: "column", sm: "row" },
-                      justifyContent: "space-between",
-                      gap: 2,
-                      "&:hover": { bgcolor: "grey.50" },
-                    }}
-                  >
-                    {/* Left */}
+                <Box
+                  key={msg.id}
+                  sx={{
+                    border: "1px solid",
+                    borderColor: "divider",
+                    borderRadius: 2,
+                    p: 2,
+                    display: "flex",
+                    flexDirection: { xs: "column", sm: "row" },
+                    justifyContent: "space-between",
+                    gap: 2,
+                      "&:hover": { bgcolor: "grey.50", cursor: "pointer" },
+                  }}
+                    onClick={() => handleViewMessage(msg)}
+                >
+                  {/* Left */}
                     <Stack direction="row" spacing={2} alignItems="center" sx={{ flex: 1, minWidth: 0 }}>
-                      <Box
-                        sx={{
-                          width: 40,
-                          height: 40,
-                          bgcolor: isScheduled 
-                            ? alpha(theme.palette.warning.light, 0.5)
-                            : alpha(theme.palette.primary.light, 0.5),
-                          borderRadius: 2,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          flexShrink: 0,
-                        }}
-                      >
-                        {getMessageIcon(msg.type)}
-                      </Box>
+                    <Box
+                      sx={{
+                        width: 40,
+                        height: 40,
+                          bgcolor: msg.type === "email" 
+                            ? alpha(theme.palette.info.light, 0.3)
+                            : alpha(theme.palette.primary.light, 0.3),
+                        borderRadius: 2,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                      }}
+                    >
+                        {getMessageIcon(msg)}
+                    </Box>
 
                       <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
+                          <Chip
+                            size="small"
+                            label={messageTypeLabel}
+                            sx={{
+                              bgcolor: msg.type === "email" ? "info.50" : "primary.50",
+                              color: msg.type === "email" ? "info.main" : "primary.main",
+                              fontSize: "0.75rem",
+                              height: 20,
+                            }}
+                          />
+                          {isScheduled && (
+                            <Chip
+                              size="small"
+                              label="Scheduled"
+                              sx={{ 
+                                bgcolor: "warning.50",
+                                color: "warning.main",
+                                fontSize: "0.75rem",
+                                height: 20,
+                              }}
+                            />
+                          )}
+                        </Stack>
                         <Typography fontWeight={500} noWrap>
                           {messagePreview.substring(0, 60)}{messagePreview.length > 60 ? "..." : ""}
                         </Typography>
 
                         <Stack direction="row" spacing={1} flexWrap="wrap" alignItems="center" sx={{ mt: 0.5 }}>
                           <Typography variant="body2" color="text.secondary">
-                            {formatDate(date)} • {recipientCount} recipient{recipientCount !== 1 ? "s" : ""}
+                            {formatDate(date)}
                           </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            • {recipientCount} {msg.type === "email" ? "recipient" : "recipient"}{recipientCount !== 1 ? "s" : ""}
+                          </Typography>
+
+                          {msg.sent_by && (
+                            <Typography variant="body2" color="text.secondary">
+                              • Sent by {msg.sent_by_name || msg.sent_by_email || msg.sent_by}
+                            </Typography>
+                          )}
 
                           {msg.group_name && (
                             <Chip
@@ -479,54 +585,64 @@ export default function MessageHistory() {
                               sx={{ bgcolor: "primary.50", color: "primary.main" }}
                             />
                           )}
-
-                          {isScheduled && (
-                            <Chip
-                              size="small"
-                              icon={<Calendar size={14} />}
-                              label="Scheduled"
-                              sx={{ bgcolor: "warning.50", color: "warning.main" }}
-                            />
-                          )}
                         </Stack>
-                      </Box>
-                    </Stack>
+                    </Box>
+                  </Stack>
 
-                    {/* Right */}
-                    <Stack
-                      direction="row"
-                      spacing={1}
-                      alignItems="center"
-                      justifyContent={{ sm: "flex-end" }}
-                      flexWrap="wrap"
-                    >
-                      <Chip
-                        icon={getStatusIcon(status)}
-                        label={status}
-                        color={getStatusColor(status)}
-                        size="small"
-                        sx={{ textTransform: "capitalize" }}
-                      />
+                  {/* Right */}
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    alignItems="center"
+                    justifyContent={{ sm: "flex-end" }}
+                    flexWrap="wrap"
+                  >
+                    <Chip
+                        icon={getStatusIcon(displayStatus)}
+                        label={displayStatus}
+                        color={getStatusColor(displayStatus)}
+                      size="small"
+                      sx={{ textTransform: "capitalize" }}
+                    />
 
-                      {/* View recipients - available for sent SMS, will be extended for email/robocall */}
+                      {/* View recipients - available for sent messages */}
                       {!isScheduled && msg.type === "sms" && (
                         <Tooltip title="View recipient details">
-                          <IconButton size="small" onClick={() => handleViewRecipients(msg)}>
+                          <IconButton 
+                            size="small" 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleViewRecipients(msg);
+                            }}
+                          >
                             <Eye size={18} />
                           </IconButton>
                         </Tooltip>
                       )}
 
-                      {/* Edit/Cancel scheduled - currently only for SMS, will be extended */}
-                      {isScheduled && status === "pending" && msg.type === "scheduled" && (
+                      {/* Edit/Cancel scheduled */}
+                      {isScheduled && (displayStatus === "pending" || displayStatus === "scheduled") && (
                         <>
                           <Tooltip title="Edit scheduled message">
-                            <IconButton size="small" onClick={() => handleEditScheduled(msg)}>
+                            <IconButton 
+                              size="small" 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditScheduled(msg);
+                              }}
+                            >
                               <Edit size={18} />
                             </IconButton>
                           </Tooltip>
                           <Tooltip title="Cancel scheduled message">
-                            <IconButton size="small" color="error" onClick={() => handleCancelScheduled(msg)}>
+                            <IconButton 
+                              size="small" 
+                              color="error" 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCancelScheduled(msg);
+                              }}
+                            >
                               <X size={18} />
                             </IconButton>
                           </Tooltip>
@@ -773,8 +889,149 @@ export default function MessageHistory() {
             disabled={cancelling}
             startIcon={cancelling ? <CircularProgress size={16} /> : null}
           >
-            {cancelling ? "Cancelling..." : "Cancel SMS"}
+            {cancelling ? "Cancelling..." : `Cancel ${cancellingScheduled?.type === "email" ? "Email" : "SMS"}`}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* View Message Dialog */}
+      <Dialog
+        open={viewMessageDialog}
+        onClose={() => setViewMessageDialog(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          <Stack direction="row" spacing={1} alignItems="center">
+            {viewingMessage && getMessageIcon(viewingMessage)}
+            <Typography variant="h6">
+              {viewingMessage?.type === "email" ? "Email Message" : "SMS Message"}
+            </Typography>
+            {viewingMessage && (
+              <Chip
+                size="small"
+                label={viewingMessage.type === "email" ? "Email" : "SMS"}
+                sx={{ 
+                  bgcolor: viewingMessage.type === "email" ? "info.50" : "primary.50",
+                  color: viewingMessage.type === "email" ? "info.main" : "primary.main",
+                }}
+              />
+            )}
+          </Stack>
+        </DialogTitle>
+        <DialogContent>
+          {viewingMessage && (
+            <Stack spacing={2}>
+              {/* Subject (for emails) */}
+              {viewingMessage.type === "email" && viewingMessage.subject && (
+                <Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+                    Subject
+                  </Typography>
+                  <Typography variant="body1" fontWeight={500}>
+                    {viewingMessage.subject}
+                  </Typography>
+                </Box>
+              )}
+
+              {/* Message Content */}
+              <Box>
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+                  Message
+                </Typography>
+                {viewingMessage.type === "email" && viewingMessage.html_content ? (
+                  <Box
+                    sx={{
+                      border: "1px solid",
+                      borderColor: "divider",
+                      borderRadius: 1,
+                      p: 2,
+                      bgcolor: "background.paper",
+                      maxHeight: 400,
+                      overflowY: "auto",
+                      "& img": { maxWidth: "100%", height: "auto" },
+                    }}
+                    dangerouslySetInnerHTML={{ __html: viewingMessage.html_content }}
+                  />
+                ) : (
+                  <Typography variant="body1" sx={{ whiteSpace: "pre-wrap" }}>
+                    {viewingMessage.message || viewingMessage.subject || "No message content"}
+                  </Typography>
+                )}
+              </Box>
+
+              {/* Metadata */}
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: "grey.50",
+                  borderRadius: 1,
+                  display: "grid",
+                  gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" },
+                  gap: 2,
+                }}
+              >
+                <Box>
+                  <Typography variant="caption" color="text.secondary">
+                    Status
+                  </Typography>
+                  <Box sx={{ mt: 0.5 }}>
+                    <Chip
+                      size="small"
+                      icon={getStatusIcon(viewingMessage.status || "sent")}
+                      label={viewingMessage.status || "sent"}
+                      color={getStatusColor(viewingMessage.status || "sent")}
+                      sx={{ textTransform: "capitalize" }}
+                    />
+                  </Box>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">
+                    {viewingMessage.messageType === "scheduled" || viewingMessage.status === "pending" || viewingMessage.status === "scheduled" ? "Scheduled For" : "Sent At"}
+                  </Typography>
+                  <Typography variant="body2" sx={{ mt: 0.5 }}>
+                    {formatDate(
+                      viewingMessage.messageType === "scheduled" || viewingMessage.status === "pending" || viewingMessage.status === "scheduled"
+                        ? viewingMessage.scheduled_for
+                        : viewingMessage.sent_at || viewingMessage.created_at
+                    )}
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">
+                    Recipients
+                  </Typography>
+                  <Typography variant="body2" sx={{ mt: 0.5 }}>
+                    {viewingMessage.recipient_count || 0}
+                  </Typography>
+                </Box>
+                {viewingMessage.sent_by && (
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Sent By
+                    </Typography>
+                    <Typography variant="body2" sx={{ mt: 0.5 }}>
+                      {viewingMessage.sent_by_name || viewingMessage.sent_by_email || viewingMessage.sent_by}
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setViewMessageDialog(false)}>Close</Button>
+          {viewingMessage && viewingMessage.messageType !== "scheduled" && viewingMessage.type === "sms" && (
+            <Button
+              variant="contained"
+              onClick={() => {
+                setViewMessageDialog(false);
+                handleViewRecipients(viewingMessage);
+              }}
+            >
+              View Recipients
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
 

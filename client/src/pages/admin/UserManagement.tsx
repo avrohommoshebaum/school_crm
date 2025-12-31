@@ -59,6 +59,9 @@ import BusinessIcon from "@mui/icons-material/Business";
 import FamilyRestroomIcon from "@mui/icons-material/FamilyRestroom";
 import SupervisorAccountIcon from "@mui/icons-material/SupervisorAccount";
 import CloseIcon from "@mui/icons-material/Close";
+import PhoneIcon from "@mui/icons-material/Phone";
+import SecurityIcon from "@mui/icons-material/Security";
+import VpnKeyIcon from "@mui/icons-material/VpnKey";
 
 import useCurrentUser from "../../hooks/useCurrentUser";
 import { hasPermission } from "../../utils/permissions";
@@ -103,6 +106,9 @@ interface User {
   roles: UserRoleEntry[];
   lastLogin: string | null;
   createdAt: string;
+  mfaEnabled?: boolean;
+  mfaPhone?: string;
+  mfaMethod?: "SMS" | "phone_call";
 }
 
 interface SnackbarState {
@@ -213,6 +219,16 @@ const NO_PERMISSION_TOOLTIP =
   const [inviting, setInviting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [resendingInvite, setResendingInvite] = useState(false);
+
+  // 2FA Admin Management
+  const [update2FAPhoneDialog, setUpdate2FAPhoneDialog] = useState(false);
+  const [backupCodesDialog, setBackupCodesDialog] = useState(false);
+  const [twoFAPhone, setTwoFAPhone] = useState("");
+  const [twoFAMethod, setTwoFAMethod] = useState<"SMS" | "phone_call">("SMS");
+  const [updating2FA, setUpdating2FA] = useState(false);
+  const [generatingCodes, setGeneratingCodes] = useState(false);
+  const [backupCodes, setBackupCodes] = useState<string[] | null>(null);
+  const [backupCodesStatus, setBackupCodesStatus] = useState<{ total: number; unused: number; used: number } | null>(null);
 
 
   const [snackbar, setSnackbar] = useState<SnackbarState>({
@@ -553,6 +569,84 @@ const handleResetPassword = () => {
       );
     } finally {
       setResendingInvite(false);
+    }
+  };
+
+  // -----------------------------
+  // 2FA ADMIN HANDLERS
+  // -----------------------------
+
+  const handleUpdate2FAPhone = () => {
+    if (!selectedUser) return;
+    setTwoFAPhone(selectedUser.mfaPhone || "");
+    setTwoFAMethod(selectedUser.mfaMethod || "SMS");
+    setUpdate2FAPhoneDialog(true);
+    handleMenuClose();
+  };
+
+  const handleSave2FAPhone = async () => {
+    if (!selectedUser || !twoFAPhone.trim()) {
+      showSnackbar("Please enter a phone number", "error");
+      return;
+    }
+
+    const digits = twoFAPhone.replace(/\D/g, "");
+    if (digits.length !== 10) {
+      showSnackbar("Please enter a valid 10-digit phone number", "error");
+      return;
+    }
+
+    setUpdating2FA(true);
+    try {
+      const e164Phone = digits.length === 10 ? `+1${digits}` : twoFAPhone;
+      await api.put(`/users/${selectedUser._id}/2fa-phone`, {
+        phoneNumber: e164Phone,
+        method: twoFAMethod,
+      });
+
+      showSnackbar("2FA phone number updated successfully", "success");
+      setUpdate2FAPhoneDialog(false);
+      await loadUsers();
+    } catch (error: any) {
+      showSnackbar(error?.response?.data?.message || "Failed to update 2FA phone", "error");
+    } finally {
+      setUpdating2FA(false);
+    }
+  };
+
+  const handleGenerateBackupCodes = async () => {
+    if (!selectedUser) return;
+    setGeneratingCodes(true);
+    try {
+      const res = await api.post(`/users/${selectedUser._id}/backup-codes/generate`);
+      setBackupCodes(res.data.codes);
+      setBackupCodesDialog(true);
+      await loadBackupCodesStatus();
+    } catch (error: any) {
+      showSnackbar(error?.response?.data?.message || "Failed to generate backup codes", "error");
+    } finally {
+      setGeneratingCodes(false);
+    }
+  };
+
+  const handleViewBackupCodes = async () => {
+    if (!selectedUser) return;
+    try {
+      const res = await api.get(`/users/${selectedUser._id}/backup-codes`);
+      setBackupCodesStatus(res.data);
+      setBackupCodesDialog(true);
+    } catch (error: any) {
+      showSnackbar(error?.response?.data?.message || "Failed to load backup codes status", "error");
+    }
+  };
+
+  const loadBackupCodesStatus = async () => {
+    if (!selectedUser) return;
+    try {
+      const res = await api.get(`/users/${selectedUser._id}/backup-codes`);
+      setBackupCodesStatus(res.data);
+    } catch (error) {
+      // Ignore errors
     }
   };
 
@@ -906,6 +1000,28 @@ const handleResetPassword = () => {
                         {user.lastLogin || "—"}
                       </Typography>
                     </Box>
+
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        2FA Status
+                      </Typography>
+                      {user.mfaEnabled ? (
+                        <Chip
+                          label="Enabled"
+                          color="success"
+                          size="small"
+                          icon={<SecurityIcon sx={{ fontSize: "14px !important" }} />}
+                          sx={{ mt: 0.5 }}
+                        />
+                      ) : (
+                        <Chip
+                          label="Disabled"
+                          color="default"
+                          size="small"
+                          sx={{ mt: 0.5 }}
+                        />
+                      )}
+                    </Box>
                   </Stack>
                 </CardContent>
               </Card>
@@ -976,6 +1092,17 @@ const handleResetPassword = () => {
                     borderBottom: "none",
                     display: { xs: "none", lg: "table-cell" },
                   }}
+                  align="center"
+                >
+                  2FA
+                </TableCell>
+                <TableCell
+                  sx={{
+                    fontWeight: "bold",
+                    color: "white",
+                    borderBottom: "none",
+                    display: { xs: "none", lg: "table-cell" },
+                  }}
                 >
                   Created
                 </TableCell>
@@ -994,7 +1121,7 @@ const handleResetPassword = () => {
             <TableBody>
               {filteredUsers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 8 }}>
+                  <TableCell colSpan={8} align="center" sx={{ py: 8 }}>
                     <Typography color="text.secondary">
                       No users found
                     </Typography>
@@ -1132,6 +1259,31 @@ const handleResetPassword = () => {
                     </TableCell>
                     <TableCell
                       sx={{ display: { xs: "none", lg: "table-cell" } }}
+                      align="center"
+                    >
+                      {user.mfaEnabled ? (
+                        <Chip
+                          label="Enabled"
+                          color="success"
+                          size="small"
+                          icon={<SecurityIcon sx={{ fontSize: "14px !important" }} />}
+                          sx={{
+                            fontSize: { xs: "0.7rem", sm: "0.8125rem" },
+                          }}
+                        />
+                      ) : (
+                        <Chip
+                          label="Disabled"
+                          color="default"
+                          size="small"
+                          sx={{
+                            fontSize: { xs: "0.7rem", sm: "0.8125rem" },
+                          }}
+                        />
+                      )}
+                    </TableCell>
+                    <TableCell
+                      sx={{ display: { xs: "none", lg: "table-cell" } }}
                     >
                       <Typography
                         variant="body2"
@@ -1243,6 +1395,80 @@ const handleResetPassword = () => {
   </span>
 </Tooltip>
 
+        <Divider />
+        <Typography 
+          variant="caption" 
+          sx={{ 
+            px: 2, 
+            py: 1, 
+            color: "text.secondary", 
+            fontWeight: 600,
+            display: "block"
+          }}
+        >
+          Two-Factor Authentication
+        </Typography>
+        {selectedUser?.mfaEnabled ? (
+          <>
+            <Tooltip
+              title={!canEditUsers ? NO_PERMISSION_TOOLTIP : ""}
+              placement="left"
+              disableHoverListener={canEditUsers}
+            >
+              <span>
+                <MenuItem onClick={handleUpdate2FAPhone} disabled={!canEditUsers}>
+                  <ListItemIcon>
+                    <PhoneIcon fontSize="small" />
+                  </ListItemIcon>
+                  <ListItemText>Update 2FA Phone</ListItemText>
+                </MenuItem>
+              </span>
+            </Tooltip>
+            <Tooltip
+              title={!canEditUsers ? NO_PERMISSION_TOOLTIP : ""}
+              placement="left"
+              disableHoverListener={canEditUsers}
+            >
+              <span>
+                <MenuItem onClick={handleGenerateBackupCodes} disabled={!canEditUsers || generatingCodes}>
+                  <ListItemIcon>
+                    {generatingCodes ? (
+                      <CircularProgress size={16} />
+                    ) : (
+                      <VpnKeyIcon fontSize="small" />
+                    )}
+                  </ListItemIcon>
+                  <ListItemText>
+                    {generatingCodes ? "Generating..." : "Generate Backup Codes"}
+                  </ListItemText>
+                </MenuItem>
+              </span>
+            </Tooltip>
+            <Tooltip
+              title={!canEditUsers ? NO_PERMISSION_TOOLTIP : ""}
+              placement="left"
+              disableHoverListener={canEditUsers}
+            >
+              <span>
+                <MenuItem onClick={handleViewBackupCodes} disabled={!canEditUsers}>
+                  <ListItemIcon>
+                    <SecurityIcon fontSize="small" />
+                  </ListItemIcon>
+                  <ListItemText>View Backup Codes Status</ListItemText>
+                </MenuItem>
+              </span>
+            </Tooltip>
+          </>
+        ) : (
+          <MenuItem disabled>
+            <ListItemText
+              primary="2FA Not Enabled"
+              secondary="User must enable 2FA in their settings"
+              primaryTypographyProps={{ variant: "body2", sx: { fontSize: "0.875rem" } }}
+              secondaryTypographyProps={{ variant: "caption" }}
+            />
+          </MenuItem>
+        )}
 
         <Divider />
 
@@ -1964,6 +2190,155 @@ const handleResetPassword = () => {
               {resetting ? "Sending..." : "Send Reset Email"}
             </Button>
           )}
+        </DialogActions>
+      </Dialog>
+
+      {/* Update 2FA Phone Dialog */}
+      <Dialog
+        open={update2FAPhoneDialog}
+        onClose={() => {
+          setUpdate2FAPhoneDialog(false);
+          setTwoFAPhone("");
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Update 2FA Phone Number</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              fullWidth
+              label="Phone Number"
+              placeholder="(732) 555-1234"
+              value={twoFAPhone}
+              onChange={(e) => {
+                const formatted = e.target.value.replace(/\D/g, "");
+                if (formatted.length <= 10) {
+                  const formattedPhone = formatted.length <= 3
+                    ? formatted
+                    : formatted.length <= 6
+                    ? `(${formatted.slice(0, 3)}) ${formatted.slice(3)}`
+                    : `(${formatted.slice(0, 3)}) ${formatted.slice(3, 6)}-${formatted.slice(6, 10)}`;
+                  setTwoFAPhone(formattedPhone);
+                }
+              }}
+              InputProps={{
+                startAdornment: <PhoneIcon sx={{ mr: 1, color: "text.secondary" }} />,
+              }}
+              helperText="Enter 10-digit phone number"
+            />
+            <FormControl fullWidth>
+              <InputLabel>Verification Method</InputLabel>
+              <Select
+                value={twoFAMethod}
+                onChange={(e) => setTwoFAMethod(e.target.value as "SMS" | "phone_call")}
+                label="Verification Method"
+              >
+                <MenuItem value="SMS">SMS (Text Message)</MenuItem>
+                <MenuItem value="phone_call">Phone Call</MenuItem>
+              </Select>
+            </FormControl>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setUpdate2FAPhoneDialog(false);
+              setTwoFAPhone("");
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSave2FAPhone}
+            variant="contained"
+            disabled={updating2FA || !twoFAPhone.trim()}
+            startIcon={updating2FA ? <CircularProgress size={16} /> : <PhoneIcon />}
+          >
+            {updating2FA ? "Updating..." : "Update Phone"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Backup Codes Dialog */}
+      <Dialog
+        open={backupCodesDialog}
+        onClose={() => {
+          setBackupCodesDialog(false);
+          setBackupCodes(null);
+          setBackupCodesStatus(null);
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Backup Codes</DialogTitle>
+        <DialogContent>
+          {backupCodes ? (
+            <Stack spacing={2}>
+              <Alert severity="warning">
+                <Typography variant="body2" fontWeight={600}>
+                  Save these codes now! They will not be shown again.
+                </Typography>
+                <Typography variant="body2" sx={{ mt: 1 }}>
+                  These codes can be used to sign in if you don't have access to your phone.
+                </Typography>
+              </Alert>
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: "grey.50",
+                  borderRadius: 1,
+                  fontFamily: "monospace",
+                  fontSize: "0.875rem",
+                }}
+              >
+                {backupCodes.map((code, index) => (
+                  <Typography key={index} sx={{ mb: 0.5 }}>
+                    {code}
+                  </Typography>
+                ))}
+              </Box>
+              <Button
+                variant="outlined"
+                fullWidth
+                onClick={() => {
+                  const text = backupCodes.join("\n");
+                  navigator.clipboard.writeText(text);
+                  showSnackbar("Codes copied to clipboard", "success");
+                }}
+              >
+                Copy All Codes
+              </Button>
+            </Stack>
+          ) : backupCodesStatus ? (
+            <Stack spacing={2}>
+              <Alert severity="info">
+                <Typography variant="body2">
+                  <strong>Total Codes:</strong> {backupCodesStatus.total}
+                  <br />
+                  <strong>Unused:</strong> {backupCodesStatus.unused}
+                  <br />
+                  <strong>Used:</strong> {backupCodesStatus.used}
+                </Typography>
+              </Alert>
+              {backupCodesStatus.unused < 3 && (
+                <Alert severity="warning">
+                  User has fewer than 3 unused backup codes. Consider generating new codes.
+                </Alert>
+              )}
+            </Stack>
+          ) : null}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setBackupCodesDialog(false);
+              setBackupCodes(null);
+              setBackupCodesStatus(null);
+            }}
+          >
+            Close
+          </Button>
         </DialogActions>
       </Dialog>
       </>
