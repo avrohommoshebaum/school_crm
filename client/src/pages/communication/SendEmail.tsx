@@ -15,6 +15,7 @@ import {
   Underline,
   Paperclip,
   ChevronUp,
+  Clock,
 } from "lucide-react";
 
 import {
@@ -365,7 +366,7 @@ export default function SendEmail() {
   };
 
   return (
-    <Box sx={{ maxWidth: 1200, mx: "auto", p: 3 }}>
+    <Box sx={{ maxWidth: 1200, mx: "auto", p: { xs: 2, sm: 3 } }}>
       <Snackbar
         open={snackbar.open}
         autoHideDuration={4000}
@@ -381,33 +382,11 @@ export default function SendEmail() {
         </Alert>
       </Snackbar>
 
-      {/* Header */}
-      <Box sx={{ mb: 4 }}>
-        <Typography 
-          variant="h5" 
-          fontWeight={400}
-          sx={{ 
-            fontSize: { xs: "1.5rem", sm: "1.75rem" },
-            mb: 0.5,
-            color: theme.palette.text.primary,
-          }}
-        >
-          Compose Email
-        </Typography>
-        <Typography 
-          variant="body2" 
-          color="text.secondary"
-          sx={{ fontSize: "0.875rem" }}
-        >
-          Send emails to groups or individual recipients
-        </Typography>
-      </Box>
-
       <Box
         sx={{
           display: "grid",
-          gridTemplateColumns: { xs: "1fr", lg: "320px 1fr" },
-          gap: 3,
+          gridTemplateColumns: { xs: "1fr", lg: "1fr 2fr" },
+          gap: { xs: 2, sm: 3 },
         }}
       >
         {/* -------- Group Selection -------- */}
@@ -564,7 +543,7 @@ export default function SendEmail() {
               )}
 
               {/* Subject */}
-              <Box sx={{ px: 2, pt: 1 }}>
+              <Box sx={{ px: { xs: 1.5, sm: 2 }, pt: 1 }}>
                 <TextField
                   label="Subject"
                   value={emailSubject}
@@ -572,6 +551,7 @@ export default function SendEmail() {
                   fullWidth
                   variant="outlined"
                   size="small"
+                  placeholder="Enter email subject..."
                   sx={{
                     "& .MuiOutlinedInput-root": {
                       bgcolor: "transparent",
@@ -581,7 +561,7 @@ export default function SendEmail() {
               </Box>
 
               {/* Options Section */}
-              <Box sx={{ px: 2, pt: 1 }}>
+              <Box sx={{ px: { xs: 1.5, sm: 2 }, pt: 1 }}>
                 <Stack direction="row" spacing={1} flexWrap="wrap">
                   <Button
                     variant="text"
@@ -618,7 +598,7 @@ export default function SendEmail() {
 
               {/* CC/BCC Fields (Manual Recipients) */}
               {showManualRecipients && (
-                <Box sx={{ px: 2, pb: 2 }}>
+                <Box sx={{ px: { xs: 1.5, sm: 2 }, pb: 2 }}>
                   <Stack spacing={1.5}>
                     <TextField
                       label="Cc"
@@ -656,7 +636,7 @@ export default function SendEmail() {
 
               {/* From Name & Reply-To Fields */}
               {showFromReply && (
-                <Box sx={{ px: 2, pb: 2 }}>
+                <Box sx={{ px: { xs: 1.5, sm: 2 }, pb: 2 }}>
                   <Stack spacing={1.5}>
                     <TextField
                       label="From Name"
@@ -807,15 +787,25 @@ export default function SendEmail() {
                 ref={emailEditorRef}
                 contentEditable
                 suppressContentEditableWarning
+                data-placeholder="Type your email message here..."
                 sx={{
-                  minHeight: 300,
-                  p: 2,
+                  minHeight: { xs: 250, sm: 300 },
+                  p: { xs: 1.5, sm: 2 },
                   outline: "none",
-                  fontSize: "0.9375rem",
+                  fontSize: { xs: "0.875rem", sm: "0.9375rem" },
                   lineHeight: 1.6,
                   color: theme.palette.text.primary,
                   "&:focus": {
                     outline: "none",
+                  },
+                  "&:empty:before": {
+                    content: "attr(data-placeholder)",
+                    color: theme.palette.text.disabled,
+                    pointerEvents: "none",
+                  },
+                  "&:focus:empty:before": {
+                    content: "attr(data-placeholder)",
+                    color: theme.palette.text.disabled,
                   },
                 }}
                 onMouseUp={saveSelection}
@@ -824,7 +814,7 @@ export default function SendEmail() {
 
               {/* Attachments Display */}
               {attachedFiles.length > 0 && (
-                <Box sx={{ px: 2, pb: 2, borderTop: `1px solid ${theme.palette.divider}` }}>
+                <Box sx={{ px: { xs: 1.5, sm: 2 }, pb: 2, borderTop: `1px solid ${theme.palette.divider}` }}>
                   <Stack spacing={1}>
                     {attachedFiles.map((f) => (
                       <Box
@@ -879,29 +869,28 @@ export default function SendEmail() {
               )}
 
               {/* Schedule Section */}
-              <Box sx={{ px: 2, pt: 1, pb: 1 }}>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={showSchedule}
-                      onChange={(e) => setShowSchedule(e.target.checked)}
-                      size="small"
-                    />
-                  }
-                  label={
-                    <Typography variant="body2" sx={{ fontSize: "0.875rem" }}>
-                      Schedule for later
-                    </Typography>
-                  }
-                />
+              <Box sx={{ px: { xs: 1.5, sm: 2 }, pt: 1, pb: 1 }}>
+                <Button
+                  variant="text"
+                  onClick={() => setShowSchedule((v) => !v)}
+                  disabled={loading}
+                  sx={{ alignSelf: "flex-start" }}
+                  startIcon={<Clock size={16} />}
+                >
+                  {showSchedule ? "Cancel" : "Schedule"} Send
+                </Button>
+
                 {showSchedule && (
-                  <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                  <Stack
+                    direction={{ xs: "column", sm: "row" }}
+                    spacing={2}
+                    sx={{ mt: 1, px: { xs: 1.5, sm: 2 } }}
+                  >
                     <TextField
                       type="date"
                       label="Date"
                       value={scheduleDate}
                       onChange={(e) => setScheduleDate(e.target.value)}
-                      size="small"
                       fullWidth
                       disabled={loading}
                       InputLabelProps={{ shrink: true }}
@@ -916,7 +905,6 @@ export default function SendEmail() {
                       label="Time"
                       value={scheduleTime}
                       onChange={(e) => setScheduleTime(e.target.value)}
-                      size="small"
                       fullWidth
                       disabled={loading}
                       InputLabelProps={{ shrink: true }}
@@ -930,40 +918,32 @@ export default function SendEmail() {
                 )}
               </Box>
 
-              {/* Footer with Send Button */}
-              <Box 
-                sx={{ 
-                  px: 2, 
-                  py: 1.5, 
-                  borderTop: `1px solid ${theme.palette.divider}`,
-                  bgcolor: theme.palette.mode === "light" ? "#f8f9fa" : "rgba(255,255,255,0.02)",
-                }}
-              >
-                <Stack direction="row" justifyContent="flex-end" spacing={1}>
-                  <Button
-                    variant="contained"
-                    onClick={handleSend}
-                    disabled={loading}
-                    startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <Send size={16} />}
-                    sx={{
-                      textTransform: "none",
-                      px: 2,
-                      borderRadius: 2,
-                      boxShadow: "none",
-                      "&:hover": {
-                        boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
-                      },
-                    }}
-                  >
-                    {loading
-                      ? showSchedule && scheduleDate && scheduleTime
-                        ? "Scheduling..."
-                        : "Sending..."
-                      : showSchedule && scheduleDate && scheduleTime
-                      ? "Schedule Email"
-                      : "Send"}
-                  </Button>
-                </Stack>
+              <Divider />
+
+              {/* Send Button */}
+              <Box sx={{ px: { xs: 1.5, sm: 2 }, pb: 2 }}>
+                <Button
+                  variant="contained"
+                  size="large"
+                  onClick={handleSend}
+                  disabled={loading || selectedGroups.length === 0 || !emailSubject.trim()}
+                  sx={{ alignSelf: "flex-end", width: { xs: "100%", sm: "auto" } }}
+                  startIcon={
+                    loading ? (
+                      <CircularProgress size={16} color="inherit" />
+                    ) : (
+                      <Send size={16} />
+                    )
+                  }
+                >
+                  {loading
+                    ? showSchedule && scheduleDate && scheduleTime
+                      ? "Scheduling..."
+                      : "Sending..."
+                    : showSchedule && scheduleDate && scheduleTime
+                    ? "Schedule Email"
+                    : "Send Email"}
+                </Button>
               </Box>
             </Stack>
           </Paper>

@@ -117,6 +117,17 @@ async function initialize() {
       console.warn("⚠️ System settings schema setup warning:", error.message);
       // Don't fail startup if schema already exists or has minor issues
     }
+
+    // Initialize robocall schema
+    console.log("🔧 Step 3f: Verifying robocall schema...");
+    const setupRobocallSchema = (await import("./db/scripts/setupRobocallSchema.js")).default;
+    try {
+      await setupRobocallSchema();
+      console.log("✅ Robocall schema verified");
+    } catch (error) {
+      console.warn("⚠️ Robocall schema setup warning:", error.message);
+      // Don't fail startup if schema already exists or has minor issues
+    }
     
     console.log("🔧 Step 4: Configuring session...");
     await configureSession(app);
@@ -147,6 +158,10 @@ async function initialize() {
     const emailRoutes = (await import("./routes/emailRoutes.js")).default;
     app.use("/api/email", emailRoutes);
     
+    // Robocall routes
+    const robocallRoutes = (await import("./routes/robocallRoutes.js")).default;
+    app.use("/api/robocall", robocallRoutes);
+    
     // Twilio routes (for TwiML responses)
     const twilioRoutes = (await import("./routes/twilioRoutes.js")).default;
     app.use("/api/twilio", twilioRoutes);
@@ -160,6 +175,12 @@ async function initialize() {
     const { initializeTwilio } = await import("./utils/twilio.js");
     initializeTwilio();
     console.log("✅ Twilio initialized");
+    
+    // Initialize GCS Storage
+    console.log("🔧 Step 8: Initializing GCS Storage...");
+    const { initializeGCS } = await import("./utils/storage/gcsStorage.js");
+    initializeGCS();
+    console.log("✅ GCS Storage initialized");
     
     console.log("✅ Routes registered");
     console.log("✅ Initialization complete");

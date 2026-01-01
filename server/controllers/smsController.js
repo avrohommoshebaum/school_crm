@@ -490,34 +490,23 @@ export const processScheduledSMS = async (req, res) => {
             // Update status to processing
             await emailService.updateScheduledEmailStatus(scheduled.id, "processing");
 
-            // Collect recipients from groups if needed
-            let groupBccRecipients = [];
+            // Collect recipients from groups - send individual emails for privacy
+            let groupToRecipients = [];
             if (scheduled.recipient_group_ids && scheduled.recipient_group_ids.length > 0) {
               for (const groupId of scheduled.recipient_group_ids) {
                 const members = await groupMemberService.findByGroupId(groupId);
                 const groupEmails = members
                   .filter((m) => m.email && m.email.trim())
                   .map((m) => m.email.trim());
-                groupBccRecipients.push(...groupEmails);
+                groupToRecipients.push(...groupEmails);
               }
-              groupBccRecipients = [...new Set(groupBccRecipients)];
+              groupToRecipients = [...new Set(groupToRecipients)];
             }
 
             // Combine recipients
-            const toRecipients = scheduled.to_recipients || [];
+            const manualToRecipients = scheduled.to_recipients || [];
             const ccRecipients = scheduled.cc_recipients || [];
-            const bccRecipients = [...new Set([...groupBccRecipients, ...(scheduled.bcc_recipients || [])])];
-
-            // SendGrid requires at least one TO recipient
-            let finalToRecipients = toRecipients;
-            if (finalToRecipients.length === 0) {
-              const senderEmail = process.env.SENDGRID_FROM;
-              if (senderEmail) {
-                finalToRecipients = [senderEmail];
-              } else if (bccRecipients.length > 0) {
-                finalToRecipients = [bccRecipients[0]];
-              }
-            }
+            const bccRecipients = scheduled.bcc_recipients || [];
 
             // Process attachments if stored
             let processedAttachments = null;
@@ -527,19 +516,95 @@ export const processScheduledSMS = async (req, res) => {
               console.warn(`⚠️ Scheduled email ${scheduled.id} has attachments but they cannot be restored from metadata`);
             }
 
-            // Send email
-            await sendEmail({
-              to: finalToRecipients,
-              subject: scheduled.subject,
-              html: scheduled.html_content,
-              text: scheduled.text_content,
-              fromName: scheduled.from_name,
-              replyTo: scheduled.reply_to,
-              disableReplyTo: scheduled.disable_reply_to,
-              cc: ccRecipients.length > 0 ? ccRecipients : undefined,
-              bcc: bccRecipients.length > 0 ? bccRecipients : undefined,
-              attachments: processedAttachments,
-            });
+            // Send individual emails to each group member for privacy
+            let successCount = 0;
+            let failCount = 0;
+            const allToRecipients = [...groupToRecipients, ...manualToRecipients];
+
+            // Send individual emails to group members
+            if (groupToRecipients.length > 0) {
+              const batchSize = 10;
+              for (let i = 0; i < groupToRecipients.length; i += batchSize) {
+                const batch = groupToRecipients.slice(i, i + batchSize);
+                
+                const batchPromises = batch.map(async (recipientEmail) => {
+                  try {
+                    await sendEmail({
+                      to: [recipientEmail], // Send to individual recipient
+                      subject: scheduled.subject,
+                      html: scheduled.html_content,
+                      text: scheduled.text_content,
+                      fromName: scheduled.from_name,
+                      replyTo: scheduled.reply_to,
+                      disableReplyTo: scheduled.disable_reply_to,
+                      cc: ccRecipients.length > 0 ? ccRecipients : undefined,
+                      bcc: bccRecipients.length > 0 ? bccRecipients : undefined,
+                      attachments: processedAttachments,
+                    });
+                    successCount++;
+                    return { success: true, email: recipientEmail };
+                  } catch (error) {
+                    failCount++;
+                    console.error(`Error sending scheduled email to ${recipientEmail}:`, error);
+                    return { success: false, email: recipientEmail, error: error.message };
+                  }
+                });
+
+                await Promise.all(batchPromises);
+                
+                // Small delay between batches
+                if (i + batchSize < groupToRecipients.length) {
+                  await new Promise(resolve => setTimeout(resolve, 100));
+                }
+              }
+            }
+
+            // Send to manual TO recipients (if any)
+            if (manualToRecipients.length > 0) {
+              try {
+                await sendEmail({
+                  to: manualToRecipients,
+                  subject: scheduled.subject,
+                  html: scheduled.html_content,
+                  text: scheduled.text_content,
+                  fromName: scheduled.from_name,
+                  replyTo: scheduled.reply_to,
+                  disableReplyTo: scheduled.disable_reply_to,
+                  cc: ccRecipients.length > 0 ? ccRecipients : undefined,
+                  bcc: bccRecipients.length > 0 ? bccRecipients : undefined,
+                  attachments: processedAttachments,
+                });
+                successCount += manualToRecipients.length;
+              } catch (error) {
+                failCount += manualToRecipients.length;
+                console.error(`Error sending scheduled email to manual recipients:`, error);
+              }
+            }
+
+            // If we only have CC/BCC recipients, send one email
+            if (allToRecipients.length === 0 && (ccRecipients.length > 0 || bccRecipients.length > 0)) {
+              const senderEmail = process.env.SENDGRID_FROM;
+              const fallbackTo = senderEmail ? [senderEmail] : (ccRecipients.length > 0 ? [ccRecipients[0]] : [bccRecipients[0]]);
+              
+              try {
+                await sendEmail({
+                  to: fallbackTo,
+                  subject: scheduled.subject,
+                  html: scheduled.html_content,
+                  text: scheduled.text_content,
+                  fromName: scheduled.from_name,
+                  replyTo: scheduled.reply_to,
+                  disableReplyTo: scheduled.disable_reply_to,
+                  cc: ccRecipients.length > 0 ? ccRecipients : undefined,
+                  bcc: bccRecipients.length > 0 ? bccRecipients : undefined,
+                  attachments: processedAttachments,
+                });
+                successCount += fallbackTo.length;
+              } catch (error) {
+                failCount += fallbackTo.length;
+                console.error(`Error sending scheduled email:`, error);
+              }
+            }
 
             // Create email message record
             const emailRecord = await emailService.createEmailMessage({
@@ -548,29 +613,32 @@ export const processScheduledSMS = async (req, res) => {
               textContent: scheduled.text_content,
               recipientType: scheduled.recipient_type,
               recipientGroupIds: scheduled.recipient_group_ids || [],
-              toRecipients: finalToRecipients,
-              ccRecipients,
-              bccRecipients,
+              toRecipients: allToRecipients.length > 0 ? allToRecipients : undefined,
+              ccRecipients: ccRecipients.length > 0 ? ccRecipients : undefined,
+              bccRecipients: bccRecipients.length > 0 ? bccRecipients : undefined,
               fromName: scheduled.from_name,
               replyTo: scheduled.reply_to,
               disableReplyTo: scheduled.disable_reply_to,
-              status: "sent",
+              status: failCount === 0 ? "sent" : failCount < successCount ? "partial" : "failed",
               sentBy: scheduled.created_by,
             });
 
             // Update scheduled email status
+            const finalStatus = failCount === 0 ? "sent" : failCount < successCount ? "partial" : "failed";
             await emailService.updateScheduledEmailStatus(
               scheduled.id,
-              "sent",
+              finalStatus,
               emailRecord.id,
-              null
+              failCount > 0 ? `Sent to ${successCount}, failed ${failCount}` : null
             );
 
             emailProcessedCount++;
             return {
               scheduledEmailId: scheduled.id,
-              success: true,
-              totalRecipients: finalToRecipients.length + ccRecipients.length + bccRecipients.length,
+              success: failCount === 0,
+              totalRecipients: allToRecipients.length + ccRecipients.length + bccRecipients.length,
+              successCount,
+              failCount,
             };
           } catch (error) {
             console.error(`Error processing scheduled email ${scheduled.id}:`, error);

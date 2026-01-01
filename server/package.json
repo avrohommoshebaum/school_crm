@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@google-cloud/secret-manager": "^6.1.1",
+    "@google-cloud/storage": "^7.15.1",
     "@sendgrid/mail": "^8.1.6",
     "bcryptjs": "^3.0.3",
     "connect-pg-simple": "^10.0.0",

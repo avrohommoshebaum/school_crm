@@ -37,8 +37,8 @@ export const sendEmailToGroup = async (req, res) => {
         .json({ message: "Subject and HTML content are required" });
     }
 
-    // Collect email recipients from groups - these go in BCC (so recipients can't see each other)
-    let groupBccRecipients = [];
+    // Collect email recipients from groups - these go in TO field
+    let groupToRecipients = [];
     
     if (groupIds && Array.isArray(groupIds) && groupIds.length > 0) {
       for (const groupId of groupIds) {
@@ -53,12 +53,12 @@ export const sendEmailToGroup = async (req, res) => {
           .filter((m) => m.email && m.email.trim())
           .map((m) => m.email.trim());
         
-        groupBccRecipients.push(...groupEmails);
+        groupToRecipients.push(...groupEmails);
       }
     }
 
     // Remove duplicates from group recipients
-    groupBccRecipients = [...new Set(groupBccRecipients)];
+    groupToRecipients = [...new Set(groupToRecipients)];
 
     // Manual recipients - can be TO, CC, or BCC based on manualRecipientType
     let manualToRecipients = [];
@@ -93,8 +93,8 @@ export const sendEmailToGroup = async (req, res) => {
       }
     }
 
-    // Combine all recipients
-    const toRecipients = manualToRecipients.length > 0 ? manualToRecipients : undefined;
+    // Combine all TO recipients: group recipients + manual TO recipients
+    const combinedToRecipients = [...new Set([...groupToRecipients, ...manualToRecipients])];
     
     // Parse CC and BCC if they're strings, then combine with manual CC/BCC
     const ccArray = cc
@@ -104,32 +104,28 @@ export const sendEmailToGroup = async (req, res) => {
       : [];
     const combinedCc = [...new Set([...ccArray, ...manualCcRecipients])];
     
-    // Combine BCC: group recipients + manual BCC + existing BCC
+    // Combine BCC: manual BCC + existing BCC (group recipients are now in TO, not BCC)
     const bccArray = bcc
       ? Array.isArray(bcc)
         ? bcc
         : bcc.split(",").map((e) => e.trim()).filter((e) => e)
       : [];
-    const combinedBcc = [...new Set([...groupBccRecipients, ...manualBccRecipients, ...bccArray])];
+    const combinedBcc = [...new Set([...manualBccRecipients, ...bccArray])];
 
     // Must have at least one recipient
-    if (!toRecipients && combinedCc.length === 0 && combinedBcc.length === 0) {
+    if (combinedToRecipients.length === 0 && combinedCc.length === 0 && combinedBcc.length === 0) {
       return res
         .status(400)
         .json({ message: "No email recipients found. Please select groups or enter email addresses." });
     }
 
     // SendGrid requires at least one TO recipient
-    // If we only have BCC recipients (from groups), use the sender's email as TO
-    let finalToRecipients = toRecipients;
+    let finalToRecipients = combinedToRecipients.length > 0 ? combinedToRecipients : undefined;
     if (!finalToRecipients || finalToRecipients.length === 0) {
-      // Use sender's email as TO when we only have BCC recipients
-      // This ensures privacy - recipients only see the sender, not each other
-      const senderEmail = process.env.SENDGRID_FROM;
-      if (senderEmail) {
-        finalToRecipients = [senderEmail];
+      // If we only have CC/BCC recipients, use the first CC as TO (or first BCC if no CC)
+      if (combinedCc.length > 0) {
+        finalToRecipients = [combinedCc[0]];
       } else if (combinedBcc.length > 0) {
-        // Fallback: use first BCC as TO (they'll see themselves as TO, but others won't see them)
         finalToRecipients = [combinedBcc[0]];
       } else {
         return res.status(400).json({ 
@@ -164,13 +160,17 @@ export const sendEmailToGroup = async (req, res) => {
       }
 
       // Create scheduled email record
+      // Store all group recipients in toRecipients for scheduled emails
+      const allScheduledToRecipients = [...groupToRecipients, ...manualToRecipients];
+      const scheduledToRecipients = allScheduledToRecipients.length > 0 ? allScheduledToRecipients : finalToRecipients;
+      
       const scheduledEmail = await emailService.createScheduledEmail({
         subject: subject.trim(),
         htmlContent: html,
         textContent: text || null,
         recipientType,
         recipientGroupIds: groupIds || [],
-        toRecipients: finalToRecipients || [],
+        toRecipients: scheduledToRecipients || [],
         ccRecipients: combinedCc,
         bccRecipients: combinedBcc,
         fromName: fromName || null,
@@ -185,7 +185,7 @@ export const sendEmailToGroup = async (req, res) => {
       });
 
       // Calculate total recipient count
-      const totalRecipients = (finalToRecipients?.length || 0) + combinedCc.length + combinedBcc.length;
+      const totalRecipients = (scheduledToRecipients?.length || 0) + combinedCc.length + combinedBcc.length;
 
       return res.json({
         message: "Email scheduled successfully",
@@ -196,72 +196,151 @@ export const sendEmailToGroup = async (req, res) => {
     }
 
     // Send email immediately
-    let sendgridMessageId = null;
-    try {
-      const sendResult = await sendEmail({
-        to: finalToRecipients,
-        subject,
-        html,
-        text,
-        fromName,
-        replyTo,
-        disableReplyTo,
-        cc: combinedCc.length > 0 ? combinedCc : undefined,
-        bcc: combinedBcc.length > 0 ? combinedBcc : undefined,
-        priority: priority || "normal",
-        attachments: processedAttachments,
-      });
-      
-      // Extract SendGrid message ID if available
-      if (sendResult && sendResult[0] && sendResult[0].headers && sendResult[0].headers["x-message-id"]) {
-        sendgridMessageId = sendResult[0].headers["x-message-id"];
+    // For privacy, send individual emails to each group member
+    // Manual TO recipients can be sent together (they're explicitly added)
+    let successCount = 0;
+    let failCount = 0;
+    const errors = [];
+
+    // Send individual emails to each group member
+    if (groupToRecipients.length > 0) {
+      // Process in batches to avoid overwhelming SendGrid
+      const batchSize = 10;
+      for (let i = 0; i < groupToRecipients.length; i += batchSize) {
+        const batch = groupToRecipients.slice(i, i + batchSize);
+        
+        const batchPromises = batch.map(async (recipientEmail) => {
+          try {
+            await sendEmail({
+              to: [recipientEmail], // Send to individual recipient
+              subject,
+              html,
+              text,
+              fromName,
+              replyTo,
+              disableReplyTo,
+              cc: combinedCc.length > 0 ? combinedCc : undefined,
+              bcc: combinedBcc.length > 0 ? combinedBcc : undefined,
+              priority: priority || "normal",
+              attachments: processedAttachments,
+            });
+            successCount++;
+            return { success: true, email: recipientEmail };
+          } catch (error) {
+            failCount++;
+            const errorMsg = error.message || "Failed to send email";
+            errors.push({ email: recipientEmail, error: errorMsg });
+            console.error(`Error sending email to ${recipientEmail}:`, error);
+            return { success: false, email: recipientEmail, error: errorMsg };
+          }
+        });
+
+        await Promise.all(batchPromises);
+        
+        // Small delay between batches to respect rate limits
+        if (i + batchSize < groupToRecipients.length) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
       }
-    } catch (error) {
-      // Store failed email in history
-      await emailService.createEmailMessage({
-        subject: subject.trim(),
-        htmlContent: html,
-        textContent: text || null,
-        recipientType,
-        recipientGroupIds: groupIds || [],
-        toRecipients: finalToRecipients || [],
-        ccRecipients: combinedCc,
-        bccRecipients: combinedBcc,
-        fromName: fromName || null,
-        replyTo: replyTo || null,
-        disableReplyTo: disableReplyTo || false,
-        status: "failed",
-        sentBy: userId,
-      });
-      
-      throw error;
     }
 
-    // Store email in history
+    // Send to manual TO recipients (if any) - these can be sent together since they're explicitly added
+    if (manualToRecipients.length > 0) {
+      try {
+        await sendEmail({
+          to: manualToRecipients,
+          subject,
+          html,
+          text,
+          fromName,
+          replyTo,
+          disableReplyTo,
+          cc: combinedCc.length > 0 ? combinedCc : undefined,
+          bcc: combinedBcc.length > 0 ? combinedBcc : undefined,
+          priority: priority || "normal",
+          attachments: processedAttachments,
+        });
+        successCount += manualToRecipients.length;
+      } catch (error) {
+        failCount += manualToRecipients.length;
+        const errorMsg = error.message || "Failed to send email";
+        errors.push({ emails: manualToRecipients, error: errorMsg });
+        console.error(`Error sending email to manual recipients:`, error);
+      }
+    }
+
+    // If we only have CC/BCC recipients (no TO), send one email with them
+    if (groupToRecipients.length === 0 && manualToRecipients.length === 0 && (combinedCc.length > 0 || combinedBcc.length > 0)) {
+      try {
+        await sendEmail({
+          to: finalToRecipients,
+          subject,
+          html,
+          text,
+          fromName,
+          replyTo,
+          disableReplyTo,
+          cc: combinedCc.length > 0 ? combinedCc : undefined,
+          bcc: combinedBcc.length > 0 ? combinedBcc : undefined,
+          priority: priority || "normal",
+          attachments: processedAttachments,
+        });
+        successCount += finalToRecipients.length;
+      } catch (error) {
+        failCount += finalToRecipients.length;
+        const errorMsg = error.message || "Failed to send email";
+        errors.push({ emails: finalToRecipients, error: errorMsg });
+        console.error(`Error sending email:`, error);
+      }
+    }
+
+    // Store email in history (one record for the entire send operation)
+    const allToRecipients = [...groupToRecipients, ...manualToRecipients];
+    const finalToForHistory = allToRecipients.length > 0 ? allToRecipients : finalToRecipients;
+    
     await emailService.createEmailMessage({
       subject: subject.trim(),
       htmlContent: html,
       textContent: text || null,
       recipientType,
       recipientGroupIds: groupIds || [],
-      toRecipients: finalToRecipients || [],
+      toRecipients: finalToForHistory || [],
       ccRecipients: combinedCc,
       bccRecipients: combinedBcc,
       fromName: fromName || null,
       replyTo: replyTo || null,
       disableReplyTo: disableReplyTo || false,
-      sendgridMessageId,
-      status: "sent",
+      status: failCount === 0 ? "sent" : failCount < successCount ? "partial" : "failed",
       sentBy: userId,
     });
 
     // Calculate total recipient count
-    const totalRecipients = (finalToRecipients?.length || 0) + combinedCc.length + combinedBcc.length;
+    const totalRecipients = (finalToForHistory?.length || 0) + combinedCc.length + combinedBcc.length;
 
-    res.json({
-      message: "Email sent successfully",
-      recipientsCount: totalRecipients,
-    });
+    // Return appropriate response based on results
+    if (failCount === 0) {
+      res.json({
+        message: "Email sent successfully",
+        recipientsCount: totalRecipients,
+        successCount,
+      });
+    } else if (successCount > 0) {
+      res.status(207).json({
+        message: `Email sent to ${successCount} recipient(s), ${failCount} failed`,
+        recipientsCount: totalRecipients,
+        successCount,
+        failCount,
+        errors: errors.length > 0 ? errors : undefined,
+      });
+    } else {
+      res.status(500).json({
+        message: "Failed to send email to all recipients",
+        recipientsCount: totalRecipients,
+        successCount,
+        failCount,
+        errors: errors.length > 0 ? errors : undefined,
+      });
+    }
   } catch (error) {
     console.error("Error sending email:", error);
     res.status(500).json({
