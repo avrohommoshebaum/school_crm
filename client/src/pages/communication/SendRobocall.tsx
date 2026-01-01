@@ -470,8 +470,10 @@ export default function SendRobocall() {
       setSending(true);
 
       // Prepare payload
+      // Map "saved-file" to "upload" for database compatibility
+      const dbRecordingMethod = recordingMethod === "saved-file" ? "upload" : recordingMethod;
       const payload: any = {
-        recordingMethod,
+        recordingMethod: dbRecordingMethod,
         groupIds: selectedGroups,
       };
 
