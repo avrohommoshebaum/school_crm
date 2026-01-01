@@ -162,6 +162,26 @@ export default function SendRobocall() {
     }
   }, [recordingMethod]);
 
+  // Cleanup polling interval on unmount or when status is terminal
+  useEffect(() => {
+    return () => {
+      if (callToRecordPollIntervalRef.current) {
+        clearInterval(callToRecordPollIntervalRef.current);
+        callToRecordPollIntervalRef.current = null;
+      }
+    };
+  }, []);
+
+  // Stop polling when status reaches terminal state
+  useEffect(() => {
+    if (callToRecordStatus === "completed" || callToRecordStatus === "failed") {
+      if (callToRecordPollIntervalRef.current) {
+        clearInterval(callToRecordPollIntervalRef.current);
+        callToRecordPollIntervalRef.current = null;
+      }
+    }
+  }, [callToRecordStatus]);
+
   // ---------- Filtered Groups ----------
 
   const filteredGroups = useMemo(
@@ -281,6 +301,32 @@ export default function SendRobocall() {
       setCallToRecordStatus("calling");
       showSnackbar("Call initiated. Please answer your phone.", "info");
 
+      // Check initial status first (in case session already exists)
+      try {
+        const { data: initialSessionData } = await api.get(
+          `/robocall/call-to-record/${data.sessionId}`
+        );
+        
+        // If already in terminal state, don't start polling
+        if (initialSessionData.status === "completed" || initialSessionData.status === "failed") {
+          setCallToRecordStatus(initialSessionData.status);
+          if (initialSessionData.status === "completed") {
+            showSnackbar("Recording completed and saved!", "success");
+            if (recordingMethod === "saved-file") {
+              loadSavedRecordings();
+            }
+          } else {
+            showSnackbar("Recording failed", "error");
+          }
+          return; // Don't start polling
+        } else if (initialSessionData.status === "recording") {
+          setCallToRecordStatus("recording");
+        }
+      } catch (error) {
+        console.error("Error checking initial session status:", error);
+        // Continue with polling anyway
+      }
+
       // Poll for status
       callToRecordPollIntervalRef.current = setInterval(async () => {
         try {
@@ -292,6 +338,7 @@ export default function SendRobocall() {
             setCallToRecordStatus("completed");
             if (callToRecordPollIntervalRef.current) {
               clearInterval(callToRecordPollIntervalRef.current);
+              callToRecordPollIntervalRef.current = null;
             }
             showSnackbar("Recording completed and saved!", "success");
             // Reload saved recordings if on saved-file mode
@@ -302,13 +349,23 @@ export default function SendRobocall() {
             setCallToRecordStatus("failed");
             if (callToRecordPollIntervalRef.current) {
               clearInterval(callToRecordPollIntervalRef.current);
+              callToRecordPollIntervalRef.current = null;
             }
             showSnackbar("Recording failed", "error");
           } else if (sessionData.status === "recording") {
             setCallToRecordStatus("recording");
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error("Error polling call-to-record status:", error);
+          // If we get a 404 or the session doesn't exist, stop polling
+          if (error?.response?.status === 404) {
+            setCallToRecordStatus("failed");
+            if (callToRecordPollIntervalRef.current) {
+              clearInterval(callToRecordPollIntervalRef.current);
+              callToRecordPollIntervalRef.current = null;
+            }
+            showSnackbar("Session not found. Recording may have expired.", "error");
+          }
         }
       }, 3000); // Poll every 3 seconds
     } catch (error: any) {
@@ -584,7 +641,11 @@ export default function SendRobocall() {
                       return (
                         <Box
                           key={group.id}
-                          onClick={() => toggleGroup(group.id)}
+                          onClick={() => {
+                            if (!(callToRecordStatus === "calling" || callToRecordStatus === "recording" || callToRecordLoading)) {
+                              toggleGroup(group.id);
+                            }
+                          }}
                           sx={{
                             display: "flex",
                             alignItems: "center",
@@ -593,12 +654,16 @@ export default function SendRobocall() {
                             borderRadius: 2,
                             border: "1px solid",
                             borderColor: checked ? "primary.main" : "divider",
-                            cursor: "pointer",
+                            cursor: (callToRecordStatus === "calling" || callToRecordStatus === "recording" || callToRecordLoading) ? "not-allowed" : "pointer",
                             bgcolor: checked ? "primary.50" : "transparent",
+                            opacity: (callToRecordStatus === "calling" || callToRecordStatus === "recording" || callToRecordLoading) ? 0.6 : 1,
                             "&:hover": {
-                              bgcolor: checked ? "primary.100" : "action.hover",
+                              bgcolor: (callToRecordStatus === "calling" || callToRecordStatus === "recording" || callToRecordLoading) 
+                                ? (checked ? "primary.50" : "transparent")
+                                : (checked ? "primary.100" : "action.hover"),
                             },
                             transition: "all 0.2s",
+                            pointerEvents: (callToRecordStatus === "calling" || callToRecordStatus === "recording" || callToRecordLoading) ? "none" : "auto",
                           }}
                         >
                           <Stack
@@ -610,9 +675,14 @@ export default function SendRobocall() {
                             <input
                               type="checkbox"
                               checked={checked}
-                              onChange={() => toggleGroup(group.id)}
+                              onChange={() => {
+                                if (!(callToRecordStatus === "calling" || callToRecordStatus === "recording" || callToRecordLoading)) {
+                                  toggleGroup(group.id);
+                                }
+                              }}
                               onClick={(e) => e.stopPropagation()}
-                              style={{ cursor: "pointer" }}
+                              style={{ cursor: (callToRecordStatus === "calling" || callToRecordStatus === "recording" || callToRecordLoading) ? "not-allowed" : "pointer" }}
+                              disabled={callToRecordStatus === "calling" || callToRecordStatus === "recording" || callToRecordLoading}
                             />
                             <Box sx={{ minWidth: 0, flex: 1 }}>
                               <Typography
@@ -654,6 +724,11 @@ export default function SendRobocall() {
                   onChange={(e) => setManualPhoneNumbers(e.target.value)}
                   fullWidth
                   helperText="Enter phone numbers separated by commas"
+                  disabled={
+                    callToRecordStatus === "calling" || 
+                    callToRecordStatus === "recording" || 
+                    callToRecordLoading
+                  }
                 />
               </Box>
             </Stack>
@@ -678,7 +753,11 @@ export default function SendRobocall() {
                           key={g.id}
                           color="primary"
                           label={`${g.name} (${g.memberCount})`}
-                          onDelete={() => toggleGroup(g.id)}
+                          onDelete={
+                            (callToRecordStatus === "calling" || callToRecordStatus === "recording" || callToRecordLoading)
+                              ? undefined
+                              : () => toggleGroup(g.id)
+                          }
                         />
                       ))}
                   </Stack>
@@ -719,32 +798,43 @@ export default function SendRobocall() {
                       label: "Upload Audio",
                       Icon: Upload,
                     },
-                  ].map(({ key, label, Icon }) => (
-                    <Box
-                      key={key}
-                      onClick={() => setRecordingMethod(key as RecordingMethod)}
-                      sx={{
-                        p: 2,
-                        borderRadius: 2,
-                        border: "2px solid",
-                        borderColor:
-                          recordingMethod === key
-                            ? "primary.main"
-                            : "divider",
-                        bgcolor:
-                          recordingMethod === key
-                            ? "primary.50"
-                            : "transparent",
-                        cursor: "pointer",
-                        transition: "all 0.2s",
-                      }}
-                    >
-                      <Icon size={18} />
-                      <Typography variant="body2" sx={{ mt: 1 }}>
-                        {label}
-                      </Typography>
-                    </Box>
-                  ))}
+                  ].map(({ key, label, Icon }) => {
+                    const isCalling = callToRecordStatus === "calling" || callToRecordStatus === "recording";
+                    const isDisabled = isCalling || callToRecordLoading;
+                    
+                    return (
+                      <Box
+                        key={key}
+                        onClick={() => {
+                          if (!isDisabled) {
+                            setRecordingMethod(key as RecordingMethod);
+                          }
+                        }}
+                        sx={{
+                          p: 2,
+                          borderRadius: 2,
+                          border: "2px solid",
+                          borderColor:
+                            recordingMethod === key
+                              ? "primary.main"
+                              : "divider",
+                          bgcolor:
+                            recordingMethod === key
+                              ? "primary.50"
+                              : "transparent",
+                          cursor: isDisabled ? "not-allowed" : "pointer",
+                          opacity: isDisabled ? 0.6 : 1,
+                          transition: "all 0.2s",
+                          pointerEvents: isDisabled ? "none" : "auto",
+                        }}
+                      >
+                        <Icon size={18} />
+                        <Typography variant="body2" sx={{ mt: 1 }}>
+                          {label}
+                        </Typography>
+                      </Box>
+                    );
+                  })}
                 </Box>
               </Box>
 
@@ -758,6 +848,11 @@ export default function SendRobocall() {
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   fullWidth
+                  disabled={
+                    callToRecordStatus === "calling" || 
+                    callToRecordStatus === "recording" || 
+                    callToRecordLoading
+                  }
                 />
               )}
 
@@ -771,13 +866,23 @@ export default function SendRobocall() {
                     onChange={(e) => setCallToRecordPhone(e.target.value)}
                     fullWidth
                     helperText="We'll call this number so you can record your message"
+                    disabled={
+                      callToRecordStatus === "calling" || 
+                      callToRecordStatus === "recording" || 
+                      callToRecordLoading
+                    }
                   />
                   <Button
                     variant="contained"
                     onClick={initiateCallToRecord}
-                    disabled={callToRecordLoading || !callToRecordPhone.trim()}
+                    disabled={
+                      callToRecordLoading || 
+                      !callToRecordPhone.trim() || 
+                      callToRecordStatus === "calling" || 
+                      callToRecordStatus === "recording"
+                    }
                     startIcon={
-                      callToRecordLoading ? (
+                      (callToRecordLoading || callToRecordStatus === "calling" || callToRecordStatus === "recording") ? (
                         <CircularProgress size={16} color="inherit" />
                       ) : (
                         <PhoneCall size={16} />
@@ -988,7 +1093,12 @@ export default function SendRobocall() {
                 <Button
                   variant="text"
                   onClick={() => setShowSchedule((v) => !v)}
-                  disabled={sending}
+                  disabled={
+                    sending ||
+                    callToRecordStatus === "calling" ||
+                    callToRecordStatus === "recording" ||
+                    callToRecordLoading
+                  }
                   startIcon={<Clock size={16} />}
                 >
                   {showSchedule ? "Cancel" : "Schedule"} Send
@@ -1006,7 +1116,12 @@ export default function SendRobocall() {
                       value={scheduleDate}
                       onChange={(e) => setScheduleDate(e.target.value)}
                       fullWidth
-                      disabled={sending}
+                      disabled={
+                        sending ||
+                        callToRecordStatus === "calling" ||
+                        callToRecordStatus === "recording" ||
+                        callToRecordLoading
+                      }
                       InputLabelProps={{ shrink: true }}
                     />
                     <TextField
@@ -1015,7 +1130,12 @@ export default function SendRobocall() {
                       value={scheduleTime}
                       onChange={(e) => setScheduleTime(e.target.value)}
                       fullWidth
-                      disabled={sending}
+                      disabled={
+                        sending ||
+                        callToRecordStatus === "calling" ||
+                        callToRecordStatus === "recording" ||
+                        callToRecordLoading
+                      }
                       InputLabelProps={{ shrink: true }}
                     />
                   </Stack>
