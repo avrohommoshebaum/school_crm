@@ -210,10 +210,13 @@ router.post("/recording-status", async (req, res) => {
     if (RecordingStatus === "completed" && RecordingSid && sessionId) {
       // Fetch and store recording in GCS
       const { fetchAndStoreRecording } = await import("../utils/twilioRobocall.js");
-      const { updateCallToRecordSession } = await import("../db/services/robocallService.js");
+      const { updateCallToRecordSession, getCallToRecordSessionById, createSavedAudioRecording } = await import("../db/services/robocallService.js");
 
       try {
         const { gcsPath, signedUrl } = await fetchAndStoreRecording(RecordingSid, RecordingUrl);
+        
+        // Get session to get user_id
+        const session = await getCallToRecordSessionById(sessionId);
         
         // Update session with recording info
         await updateCallToRecordSession(sessionId, {
@@ -222,6 +225,24 @@ router.post("/recording-status", async (req, res) => {
           recordingGcsPath: gcsPath,
           status: "completed",
         });
+
+        // Automatically save to saved_audio_recordings for reuse
+        if (session && session.user_id) {
+          try {
+            await createSavedAudioRecording({
+              name: `Call Recording ${new Date().toLocaleDateString()}`,
+              description: `Recording from call-to-record session`,
+              audioGcsPath: gcsPath,
+              durationSeconds: RecordingDuration ? parseInt(RecordingDuration) : null,
+              recordingMethod: "call-to-record",
+              createdBy: session.user_id,
+            });
+            console.log(`Recording automatically saved to saved_audio_recordings`);
+          } catch (saveError) {
+            // Don't fail the whole process if saving to saved recordings fails
+            console.error("Error saving recording to saved_audio_recordings:", saveError);
+          }
+        }
 
         console.log(`Recording stored: ${gcsPath}`);
       } catch (error) {

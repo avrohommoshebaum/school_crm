@@ -389,21 +389,39 @@ export default function SendRobocall() {
   const handleAudioUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Validate file type
-      if (!file.type.startsWith("audio/")) {
-        showSnackbar("Please select an audio file", "error");
+      // Validate file type - check MIME type or file extension
+      const isValidAudioType = 
+        file.type.startsWith("audio/") || 
+        /\.(mp3|wav|ogg|m4a|aac|flac|webm)$/i.test(file.name);
+      
+      if (!isValidAudioType) {
+        showSnackbar("Please select an audio file (MP3, WAV, OGG, etc.)", "error");
         return;
       }
+      
       // Validate file size (max 10MB)
       if (file.size > 10 * 1024 * 1024) {
         showSnackbar("File size must be less than 10MB", "error");
         return;
       }
+      
+      // Clean up previous URL if exists
+      if (uploadedAudioUrl) {
+        URL.revokeObjectURL(uploadedAudioUrl);
+      }
+      
       setUploadedAudio(file);
       setSelectedSavedRecording(null);
+      
       // Create URL for audio playback
-      const url = URL.createObjectURL(file);
-      setUploadedAudioUrl(url);
+      try {
+        const url = URL.createObjectURL(file);
+        console.log("Created audio URL for file:", file.name, "Type:", file.type, "Size:", file.size, "URL:", url);
+        setUploadedAudioUrl(url);
+      } catch (error) {
+        console.error("Error creating object URL:", error);
+        showSnackbar("Error loading audio file", "error");
+      }
     }
   };
 
@@ -1009,6 +1027,10 @@ export default function SendRobocall() {
                     accept="audio/*"
                     hidden
                     onChange={handleAudioUpload}
+                    onClick={(e) => {
+                      // Reset input value to allow selecting the same file again
+                      (e.target as HTMLInputElement).value = '';
+                    }}
                   />
 
                   {uploadedAudio && (
@@ -1034,11 +1056,37 @@ export default function SendRobocall() {
                         {uploadedAudio.name} ({(uploadedAudio.size / 1024).toFixed(1)} KB)
                       </Alert>
                       {uploadedAudioUrl && (
-                        <audio
-                          src={uploadedAudioUrl}
-                          controls
-                          style={{ width: "100%", maxWidth: 400 }}
-                        />
+                        <Box sx={{ width: "100%", maxWidth: 400 }}>
+                          <audio
+                            key={uploadedAudioUrl} // Force re-render when URL changes
+                            controls
+                            style={{ width: "100%" }}
+                            preload="auto"
+                            onError={(e) => {
+                              console.error("Audio playback error:", e);
+                              const audioElement = e.target as HTMLAudioElement;
+                              console.error("Audio error details:", {
+                                error: audioElement.error,
+                                errorCode: audioElement.error?.code,
+                                errorMessage: audioElement.error?.message,
+                                networkState: audioElement.networkState,
+                                readyState: audioElement.readyState,
+                                src: audioElement.src,
+                                file: uploadedAudio?.name,
+                                fileType: uploadedAudio?.type
+                              });
+                              showSnackbar("Error playing audio file. Please try a different file format.", "error");
+                            }}
+                            onLoadStart={() => console.log("Audio loading started:", uploadedAudioUrl, "File:", uploadedAudio?.name)}
+                            onCanPlay={() => console.log("Audio can play - ready to play")}
+                            onLoadedData={() => console.log("Audio data loaded")}
+                            onLoadedMetadata={() => console.log("Audio metadata loaded")}
+                          >
+                            <source src={uploadedAudioUrl} type={uploadedAudio?.type || "audio/mpeg"} />
+                            <source src={uploadedAudioUrl} type="audio/mp3" />
+                            Your browser does not support the audio element.
+                          </audio>
+                        </Box>
                       )}
                     </Stack>
                   )}
