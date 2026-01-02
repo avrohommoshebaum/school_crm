@@ -214,6 +214,7 @@ app.use(
         "https://storage.googleapis.com",
         "https://storage.cloud.google.com"
       ],
+      mediaSrc: ["'self'", "blob:"], // Allow blob URLs for audio/video playback
       scriptSrc: ["'self'", "'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
     },
