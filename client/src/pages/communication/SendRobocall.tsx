@@ -83,7 +83,7 @@ export default function SendRobocall() {
   const [recordingTime, setRecordingTime] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
-  const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const recordingIntervalRef = useRef<number | null>(null);
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
 
   // Call-to-record state
@@ -93,10 +93,11 @@ export default function SendRobocall() {
   const [callToRecordStatus, setCallToRecordStatus] = useState<
     "idle" | "calling" | "recording" | "completed" | "failed"
   >("idle");
-  const callToRecordPollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const callToRecordPollIntervalRef = useRef<number | null>(null);
 
   // File upload state
   const [uploadedAudio, setUploadedAudio] = useState<File | null>(null);
+  const [uploadedAudioUrl, setUploadedAudioUrl] = useState<string | null>(null);
   const [savedRecordings, setSavedRecordings] = useState<SavedRecording[]>([]);
   const [loadingSavedRecordings, setLoadingSavedRecordings] = useState(false);
   const [selectedSavedRecording, setSelectedSavedRecording] = useState<string | null>(null);
@@ -280,8 +281,11 @@ export default function SendRobocall() {
       if (audioUrl) {
         URL.revokeObjectURL(audioUrl);
       }
+      if (uploadedAudioUrl) {
+        URL.revokeObjectURL(uploadedAudioUrl);
+      }
     };
-  }, [audioUrl]);
+  }, [audioUrl, uploadedAudioUrl]);
 
   // ---------- Call-to-Record ----------
 
@@ -397,6 +401,9 @@ export default function SendRobocall() {
       }
       setUploadedAudio(file);
       setSelectedSavedRecording(null);
+      // Create URL for audio playback
+      const url = URL.createObjectURL(file);
+      setUploadedAudioUrl(url);
     }
   };
 
@@ -492,13 +499,18 @@ export default function SendRobocall() {
       } else if (recordingMethod === "device-record" && audioBlob) {
         const base64 = await audioToBase64(audioBlob);
         payload.audioFile = base64;
-      } else if (recordingMethod === "upload" && uploadedAudio) {
-        const base64 = await audioToBase64(uploadedAudio);
-        payload.audioFile = base64;
-      } else if (recordingMethod === "saved-file" && selectedSavedRecording) {
-        const recording = savedRecordings.find((r) => r.id === selectedSavedRecording);
-        if (recording) {
-          payload.audioGcsPath = recording.audio_gcs_path;
+      } else if (recordingMethod === "saved-file") {
+        // Handle both uploaded file and selected saved recording
+        if (uploadedAudio) {
+          // User uploaded a new file
+          const base64 = await audioToBase64(uploadedAudio);
+          payload.audioFile = base64;
+        } else if (selectedSavedRecording) {
+          // User selected a saved recording
+          const recording = savedRecordings.find((r) => r.id === selectedSavedRecording);
+          if (recording) {
+            payload.audioGcsPath = recording.audio_gcs_path;
+          }
         }
       } else if (recordingMethod === "call-to-record" && callToRecordSessionId) {
         // Get the session to get the GCS path
@@ -1000,22 +1012,35 @@ export default function SendRobocall() {
                   />
 
                   {uploadedAudio && (
-                    <Alert
-                      severity="success"
-                      action={
-                        <Button
-                          size="small"
-                          onClick={() => {
-                            setUploadedAudio(null);
-                            setSelectedSavedRecording(null);
-                          }}
-                        >
-                          <X size={14} />
-                        </Button>
-                      }
-                    >
-                      {uploadedAudio.name} ({(uploadedAudio.size / 1024).toFixed(1)} KB)
-                    </Alert>
+                    <Stack spacing={2}>
+                      <Alert
+                        severity="success"
+                        action={
+                          <Button
+                            size="small"
+                            onClick={() => {
+                              if (uploadedAudioUrl) {
+                                URL.revokeObjectURL(uploadedAudioUrl);
+                              }
+                              setUploadedAudio(null);
+                              setUploadedAudioUrl(null);
+                              setSelectedSavedRecording(null);
+                            }}
+                          >
+                            <X size={14} />
+                          </Button>
+                        }
+                      >
+                        {uploadedAudio.name} ({(uploadedAudio.size / 1024).toFixed(1)} KB)
+                      </Alert>
+                      {uploadedAudioUrl && (
+                        <audio
+                          src={uploadedAudioUrl}
+                          controls
+                          style={{ width: "100%", maxWidth: 400 }}
+                        />
+                      )}
+                    </Stack>
                   )}
 
                   <Divider />
