@@ -24,6 +24,7 @@ export const sendRobocall = async (req, res) => {
       textContent, // For text-to-speech
       audioGcsPath, // For saved/uploaded audio
       audioFile, // Base64 encoded audio file (for device-record or upload)
+      audioFileType, // MIME type of the audio file (e.g., 'audio/webm', 'audio/mpeg')
       groupIds,
       manualPhoneNumbers,
       scheduledFor,
@@ -96,12 +97,53 @@ export const sendRobocall = async (req, res) => {
       try {
         // Decode base64 audio file
         const audioBuffer = Buffer.from(audioFile, "base64");
-        const fileName = `robocall_${Date.now()}.mp3`;
-        const result = await uploadAudioFile(audioBuffer, fileName, "audio/mpeg");
+        
+        // Determine file extension and content type based on provided type or default to mp3
+        let fileExtension = "mp3";
+        let contentType = "audio/mpeg";
+        
+        if (audioFileType) {
+          // Extract extension from MIME type
+          if (audioFileType.includes("webm")) {
+            fileExtension = "webm";
+            contentType = "audio/webm";
+          } else if (audioFileType.includes("wav")) {
+            fileExtension = "wav";
+            contentType = "audio/wav";
+          } else if (audioFileType.includes("mpeg") || audioFileType.includes("mp3")) {
+            fileExtension = "mp3";
+            contentType = "audio/mpeg";
+          } else if (audioFileType.includes("ogg")) {
+            fileExtension = "ogg";
+            contentType = "audio/ogg";
+          }
+        }
+        
+        // Note: Twilio supports MP3, WAV, and other formats, but not WebM
+        // If the file is WebM, we'll save it as WebM but Twilio may not be able to play it
+        // In the future, we might want to convert WebM to MP3/WAV
+        const fileName = `robocall_${Date.now()}.${fileExtension}`;
+        console.log(`Uploading audio file: ${fileName}, type: ${contentType}, size: ${audioBuffer.length} bytes`);
+        const result = await uploadAudioFile(audioBuffer, fileName, contentType);
         finalAudioGcsPath = result.gcsPath;
+        console.log(`Audio file uploaded successfully: ${finalAudioGcsPath}`);
       } catch (error) {
         console.error("Error uploading audio file:", error);
-        return res.status(500).json({ message: "Failed to upload audio file" });
+        console.error("Error stack:", error.stack);
+        console.error("Audio file details:", {
+          hasAudioFile: !!audioFile,
+          audioFileLength: audioFile?.length,
+          audioFileType,
+          audioGcsPath
+        });
+        return res.status(500).json({ 
+          message: "Failed to upload audio file",
+          error: process.env.NODE_ENV === "development" ? error.message : undefined,
+          details: process.env.NODE_ENV === "development" ? {
+            audioFileType,
+            errorMessage: error.message
+          } : undefined
+        });
       }
     }
 
@@ -218,7 +260,7 @@ export const sendRobocall = async (req, res) => {
       recipientType,
       recipientGroupIds: groupIds || [],
       recipientPhoneNumbers: manualPhones,
-      twilioStatus: failCount === 0 ? "completed" : successCount > 0 ? "partial" : "failed",
+      twilioStatus: failCount === 0 ? "completed" : successCount > 0 ? "completed" : "failed",
       totalRecipients: allPhoneNumbers.length,
       successCount,
       failCount,
@@ -264,8 +306,10 @@ export const sendRobocall = async (req, res) => {
     }
   } catch (error) {
     console.error("Error sending robocall:", error);
+    console.error("Error stack:", error.stack);
     res.status(500).json({
       message: error.message || "Failed to send robocall",
+      error: process.env.NODE_ENV === "development" ? error.stack : undefined,
     });
   }
 };

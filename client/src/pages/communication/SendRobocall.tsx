@@ -515,8 +515,17 @@ export default function SendRobocall() {
       if (recordingMethod === "text-to-speech") {
         payload.textContent = message.trim();
       } else if (recordingMethod === "device-record" && audioBlob) {
-        const base64 = await audioToBase64(audioBlob);
-        payload.audioFile = base64;
+        try {
+          const base64 = await audioToBase64(audioBlob);
+          payload.audioFile = base64;
+          // Include the blob type so server knows the format
+          payload.audioFileType = audioBlob.type || "audio/webm";
+        } catch (error: any) {
+          console.error("Error converting audio to base64:", error);
+          showSnackbar("Error processing recording. Please try recording again.", "error");
+          setSending(false);
+          return;
+        }
       } else if (recordingMethod === "saved-file") {
         // Handle both uploaded file and selected saved recording
         if (uploadedAudio) {
