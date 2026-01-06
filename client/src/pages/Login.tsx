@@ -20,7 +20,6 @@ import { AppCheckbox } from "../components/ui/checkbox";
 
 import { Alert, AlertDescription } from "../components/ui/alert";
 
-import { useAuth } from "../context/AuthContext";
 import nachlasLogo from "../assets/nachlasLogo.png";
 
 
@@ -29,7 +28,6 @@ export default function Login() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
 
-  const { refreshUser } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -101,8 +99,14 @@ const handleSubmit = async (e: React.FormEvent) => {
       return;
     }
 
-    // ✅ Login successful - refresh user and navigate
-    await refreshUser();
+    // ✅ Login successful - store sessionTimeout and require2FA from response
+    if (res.data.sessionTimeout || res.data.require2FA !== undefined) {
+      localStorage.setItem("loginData", JSON.stringify({
+        sessionTimeout: res.data.sessionTimeout,
+        require2FA: res.data.require2FA,
+      }));
+    }
+    // AuthContext will refresh user automatically on mount
     setLoading(false);
     navigate("/", { replace: true });
   } catch (err: any) {

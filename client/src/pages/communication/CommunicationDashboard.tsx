@@ -1,5 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+
+// Global cache for dashboard data to prevent duplicate API calls
+let dashboardDataCache: {
+  smsHistory: any[] | null;
+  emailHistory: any[] | null;
+  groups: any[] | null;
+  timestamp: number;
+} = {
+  smsHistory: null,
+  emailHistory: null,
+  groups: null,
+  timestamp: 0,
+};
+const CACHE_DURATION = 2 * 60 * 1000; // 2 minutes
+let isFetchingDashboardData = false;
 import {
   Mail,
   MessageSquare,
@@ -66,10 +81,189 @@ export default function CommunicationDashboard() {
   });
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
+  const hasLoadedRef = useRef(false);
+  const isFetchingRef = useRef(false);
 
   // ---------- Load Data ----------
 
   useEffect(() => {
+    // Prevent duplicate calls in React StrictMode (development)
+    if (hasLoadedRef.current) {
+      // Use cached data if available
+      const now = Date.now();
+      if (dashboardDataCache.timestamp > 0 && (now - dashboardDataCache.timestamp) < CACHE_DURATION) {
+        if (dashboardDataCache.groups) {
+          setGroups(dashboardDataCache.groups);
+        }
+        if (dashboardDataCache.smsHistory && dashboardDataCache.emailHistory) {
+          // Process cached data
+          const smsMessages = dashboardDataCache.smsHistory;
+          const emailMessages = dashboardDataCache.emailHistory;
+          const groupsData = dashboardDataCache.groups || [];
+          
+          const activeRecipients = groupsData.reduce(
+            (sum: number, g: Group) => sum + (g.memberCount || g.member_count || 0),
+            0
+          );
+
+          const activities: RecentActivity[] = [
+            ...emailMessages.slice(0, 5).map((msg: any) => ({
+              id: msg.id || msg._id,
+              title: msg.subject || "Email Message",
+              date: msg.created_at || msg.sent_at,
+              recipients: msg.recipient_count || 0,
+              type: "email" as const,
+            })),
+            ...smsMessages.slice(0, 5).map((msg: any) => ({
+              id: msg.id || msg._id,
+              title: msg.message?.substring(0, 50) || "SMS Message",
+              date: msg.created_at || msg.sent_at,
+              recipients: msg.recipient_count || msg.recipient_phone_numbers?.length || 0,
+              type: "sms" as const,
+            })),
+          ]
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+            .slice(0, 3);
+
+          setRecentActivity(activities);
+
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+
+          const messagesToday = [
+            ...emailMessages.filter((msg: any) => {
+              const msgDate = new Date(msg.created_at || msg.sent_at);
+              return msgDate >= today;
+            }),
+            ...smsMessages.filter((msg: any) => {
+              const msgDate = new Date(msg.created_at || msg.sent_at);
+              return msgDate >= today;
+            }),
+          ].length;
+
+          const thisMonth = new Date();
+          thisMonth.setDate(1);
+          thisMonth.setHours(0, 0, 0, 0);
+
+          const messagesThisMonth = [
+            ...emailMessages.filter((msg: any) => {
+              const msgDate = new Date(msg.created_at || msg.sent_at);
+              return msgDate >= thisMonth;
+            }),
+            ...smsMessages.filter((msg: any) => {
+              const msgDate = new Date(msg.created_at || msg.sent_at);
+              return msgDate >= thisMonth;
+            }),
+          ].length;
+
+          setStats({
+            messagesSentToday: messagesToday,
+            activeRecipients,
+            totalGroups: groupsData.length,
+            messagesThisMonth,
+          });
+          setLoading(false);
+        }
+      }
+      return;
+    }
+    hasLoadedRef.current = true;
+
+    // Check cache first
+    const now = Date.now();
+    if (dashboardDataCache.timestamp > 0 && (now - dashboardDataCache.timestamp) < CACHE_DURATION) {
+      if (dashboardDataCache.groups) {
+        setGroups(dashboardDataCache.groups);
+      }
+      if (dashboardDataCache.smsHistory && dashboardDataCache.emailHistory) {
+        // Process cached data (same logic as above)
+        const smsMessages = dashboardDataCache.smsHistory;
+        const emailMessages = dashboardDataCache.emailHistory;
+        const groupsData = dashboardDataCache.groups || [];
+        
+        const activeRecipients = groupsData.reduce(
+          (sum: number, g: Group) => sum + (g.memberCount || g.member_count || 0),
+          0
+        );
+
+        const activities: RecentActivity[] = [
+          ...emailMessages.slice(0, 5).map((msg: any) => ({
+            id: msg.id || msg._id,
+            title: msg.subject || "Email Message",
+            date: msg.created_at || msg.sent_at,
+            recipients: msg.recipient_count || 0,
+            type: "email" as const,
+          })),
+          ...smsMessages.slice(0, 5).map((msg: any) => ({
+            id: msg.id || msg._id,
+            title: msg.message?.substring(0, 50) || "SMS Message",
+            date: msg.created_at || msg.sent_at,
+            recipients: msg.recipient_count || msg.recipient_phone_numbers?.length || 0,
+            type: "sms" as const,
+          })),
+        ]
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+          .slice(0, 3);
+
+        setRecentActivity(activities);
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const messagesToday = [
+          ...emailMessages.filter((msg: any) => {
+            const msgDate = new Date(msg.created_at || msg.sent_at);
+            return msgDate >= today;
+          }),
+          ...smsMessages.filter((msg: any) => {
+            const msgDate = new Date(msg.created_at || msg.sent_at);
+            return msgDate >= today;
+          }),
+        ].length;
+
+        const thisMonth = new Date();
+        thisMonth.setDate(1);
+        thisMonth.setHours(0, 0, 0, 0);
+
+        const messagesThisMonth = [
+          ...emailMessages.filter((msg: any) => {
+            const msgDate = new Date(msg.created_at || msg.sent_at);
+            return msgDate >= thisMonth;
+          }),
+          ...smsMessages.filter((msg: any) => {
+            const msgDate = new Date(msg.created_at || msg.sent_at);
+            return msgDate >= thisMonth;
+          }),
+        ].length;
+
+        setStats({
+          messagesSentToday: messagesToday,
+          activeRecipients,
+          totalGroups: groupsData.length,
+          messagesThisMonth,
+        });
+        setLoading(false);
+        return;
+      }
+    }
+
+    // Prevent concurrent API calls
+    if (isFetchingDashboardData) {
+      // Wait for ongoing fetch
+      const checkInterval = setInterval(() => {
+        if (!isFetchingDashboardData && dashboardDataCache.timestamp > 0) {
+          // Use cached data
+          if (dashboardDataCache.groups) setGroups(dashboardDataCache.groups);
+          // Process cached messages (same as above)
+          clearInterval(checkInterval);
+        }
+      }, 100);
+      return () => clearInterval(checkInterval);
+    }
+
+    isFetchingDashboardData = true;
+    isFetchingRef.current = true;
+
     const loadDashboardData = async () => {
       try {
         setLoading(true);
@@ -78,6 +272,7 @@ export default function CommunicationDashboard() {
         const groupsRes = await api.get("/groups");
         const groupsData = groupsRes.data.groups || [];
         setGroups(groupsData);
+        dashboardDataCache.groups = groupsData;
 
         // Calculate active recipients (sum of all group members)
         const activeRecipients = groupsData.reduce(
@@ -93,6 +288,11 @@ export default function CommunicationDashboard() {
 
         const smsMessages = smsRes.data.messages || [];
         const emailMessages = emailRes.data.messages || [];
+        
+        // Cache the data
+        dashboardDataCache.smsHistory = smsMessages;
+        dashboardDataCache.emailHistory = emailMessages;
+        dashboardDataCache.timestamp = Date.now();
 
         // Transform to recent activity
         const activities: RecentActivity[] = [
@@ -156,6 +356,8 @@ export default function CommunicationDashboard() {
         console.error("Error loading dashboard data:", error);
       } finally {
         setLoading(false);
+        isFetchingRef.current = false;
+        isFetchingDashboardData = false;
       }
     };
 

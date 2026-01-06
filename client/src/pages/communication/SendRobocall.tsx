@@ -116,8 +116,13 @@ export default function SendRobocall() {
   }>({ open: false, message: "", severity: "success" });
 
   // ---------- Load Groups ----------
+  const groupsLoadedRef = useRef(false);
+  const isFetchingGroupsRef = useRef(false);
 
   const loadGroups = async () => {
+    if (isFetchingGroupsRef.current) return;
+    isFetchingGroupsRef.current = true;
+
     try {
       setLoading(true);
       const { data } = await api.get("/groups");
@@ -130,10 +135,13 @@ export default function SendRobocall() {
       );
     } finally {
       setLoading(false);
+      isFetchingGroupsRef.current = false;
     }
   };
 
   useEffect(() => {
+    if (groupsLoadedRef.current) return;
+    groupsLoadedRef.current = true;
     loadGroups();
   }, []);
 

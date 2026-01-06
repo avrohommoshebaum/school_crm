@@ -36,7 +36,7 @@ export const SessionTimeoutProvider = ({ children }: { children: React.ReactNode
   const logoutTimerRef = useRef<number | null>(null);
   const countdownIntervalRef = useRef<number | null>(null);
 
-  // Get session timeout from server (only once on login)
+  // Get session timeout from login response or fallback to /auth/me
   useEffect(() => {
     if (!user) {
       // Clear everything on logout
@@ -49,7 +49,26 @@ export const SessionTimeoutProvider = ({ children }: { children: React.ReactNode
       return;
     }
 
-    // Fetch session timeout from server (only if not already set)
+    // Check if sessionTimeout was passed from login (stored in localStorage)
+    const loginData = localStorage.getItem("loginData");
+    if (loginData) {
+      try {
+        const { sessionTimeout: timeout } = JSON.parse(loginData);
+        if (timeout && !sessionTimeout) {
+          setSessionTimeout(timeout);
+          const expiresAt = Date.now() + timeout;
+          setSessionExpiresAt(expiresAt);
+          lastActivityRef.current = Date.now();
+          scheduleWarning(expiresAt);
+          localStorage.removeItem("loginData"); // Clean up
+          return;
+        }
+      } catch {
+        // Invalid JSON, fall through to API call
+      }
+    }
+
+    // Fallback: fetch from /auth/me (only if not in login data)
     if (!sessionTimeout) {
       api.get("/auth/me")
         .then((res) => {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Mail,
   MessageSquare,
@@ -176,9 +176,20 @@ export default function MessageHistory() {
     severity: AlertColor;
   }>({ open: false, message: "", severity: "success" });
 
+  // Refs to prevent duplicate calls
+  const lastLoadedRef = useRef<string>("");
+  const isFetchingRef = useRef(false);
+
   // ---------- Load Messages ----------
 
   const loadMessages = async () => {
+    // Prevent duplicate calls for the same page/filter combination
+    const stateKey = `${page}-${messageTypeFilter}`;
+    if (lastLoadedRef.current === stateKey || isFetchingRef.current) {
+      return;
+    }
+    lastLoadedRef.current = stateKey;
+    isFetchingRef.current = true;
     try {
       setLoading(true);
       
@@ -302,6 +313,7 @@ export default function MessageHistory() {
       showSnackbar(error?.response?.data?.message || "Error loading message history", "error");
     } finally {
       setLoading(false);
+      isFetchingRef.current = false;
     }
   };
 

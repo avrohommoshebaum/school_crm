@@ -199,6 +199,12 @@ export const verify2FALogin = async (req, res) => {
 
       const userWithRoles = await userService.populateRoles(user);
       
+      // Get session timeout and 2FA requirement
+      const { getSessionTimeout } = await import("../config/session.js");
+      const { getBooleanSetting } = await import("../db/services/systemSettingsService.js");
+      const sessionTimeout = getSessionTimeout();
+      const require2FA = await getBooleanSetting("require_2fa", false);
+      
       res.json({ 
         user: {
           id: userWithRoles._id || userWithRoles.id,
@@ -215,7 +221,9 @@ export const verify2FALogin = async (req, res) => {
           mfaEnabled: userWithRoles.mfaEnabled,
           createdAt: userWithRoles.createdAt,
           lastLogin: userWithRoles.lastLogin,
-        }
+        },
+        sessionTimeout, // milliseconds
+        require2FA, // boolean
       });
     });
   } catch (error) {

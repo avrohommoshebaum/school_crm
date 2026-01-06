@@ -15,6 +15,7 @@ import {
   Phone,
   MessageSquare,
   Smartphone,
+  GitMerge,
 } from "lucide-react";
 
 import {
@@ -138,6 +139,10 @@ export default function ManageGroups() {
   const [editMemberDialog, setEditMemberDialog] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [merging, setMerging] = useState(false);
+  const [mergingRow, setMergingRow] = useState<number | null>(null);
+  const [existingMemberForMerge, setExistingMemberForMerge] = useState<GroupMember | null>(null);
+  const [loadingExistingMember, setLoadingExistingMember] = useState(false);
   const [memberError, setMemberError] = useState<string | null>(null);
 
   // Excel upload
@@ -733,6 +738,158 @@ export default function ManageGroups() {
     setFixErrorDialog(false);
     setEditingError(null);
     setErrorForm({ firstName: "", lastName: "", name: "", emails: [""], phones: [""] });
+  };
+
+  // Check if error is a duplicate error (email or phone already exists)
+  const isDuplicateError = (error: { error: string; details?: any[] }): boolean => {
+    if (!error.error) return false;
+    const errorLower = error.error.toLowerCase();
+    return errorLower.includes("already exists") || 
+           errorLower.includes("email already exists") || 
+           errorLower.includes("phone number already exists");
+  };
+
+  // Find existing member by email or phone
+  const findExistingMember = async (emails: string[], phones: string[]): Promise<GroupMember | null> => {
+    if (!selectedGroup) return null;
+    
+    try {
+      const { data } = await api.get(`/groups/${selectedGroup.id}/members`);
+      const allMembers: GroupMember[] = data.members || [];
+      
+      // Normalize input emails and phones
+      const normalizedEmails = emails.map(e => e.trim().toLowerCase()).filter(e => e);
+      const normalizedPhones = phones.map(p => normalizePhone(p.trim())).filter(p => p);
+      
+      // Find member with matching email or phone
+      for (const member of allMembers) {
+        const memberEmails = (member.emails || (member.email ? [member.email] : []))
+          .map(e => e?.toLowerCase?.() || "")
+          .filter(e => e);
+        const memberPhones = (member.phones || (member.phone ? [member.phone] : []))
+          .map(p => normalizePhone(String(p || "")))
+          .filter(p => p);
+        
+        // Check for email match
+        for (const email of normalizedEmails) {
+          if (memberEmails.includes(email)) {
+            return member;
+          }
+        }
+        
+        // Check for phone match
+        for (const phone of normalizedPhones) {
+          if (memberPhones.includes(phone)) {
+            return member;
+          }
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      console.error("Error finding existing member:", error);
+      return null;
+    }
+  };
+
+  // Merge error data with existing member
+  const handleMergeError = async (error?: { row: number; error: string; details?: any; data?: any }) => {
+    const errorToMerge = error || editingError;
+    if (!selectedGroup || !errorToMerge) return;
+    
+    try {
+      setSaving(true);
+      setMerging(true);
+      setMergingRow(errorToMerge.row);
+      
+      // Get new data from error
+      const newData = errorToMerge.data || {};
+      const newEmails = (newData.emails || []).filter((e: string) => e.trim());
+      const newPhones = (newData.phones || []).filter((p: string) => p.trim());
+      
+      // Find existing member
+      const existingMember = await findExistingMember(newEmails, newPhones);
+      
+      if (!existingMember) {
+        showSnackbar("Could not find existing member to merge with", "error");
+        return;
+      }
+      
+      // Merge data: combine emails, phones, and names
+      const existingEmails = existingMember.emails || (existingMember.email ? [existingMember.email] : []);
+      const existingPhones = existingMember.phones || (existingMember.phone ? [existingMember.phone] : []);
+      
+      // Combine and deduplicate emails (case-insensitive)
+      const allEmails = [...existingEmails, ...newEmails];
+      const uniqueEmails = Array.from(new Set(allEmails.map(e => e.trim().toLowerCase())))
+        .map(lowerEmail => {
+          // Find original case from existing emails first, then new emails
+          const existing = existingEmails.find(e => e.trim().toLowerCase() === lowerEmail);
+          if (existing) return existing.trim();
+          const newEmail = newEmails.find(e => e.trim().toLowerCase() === lowerEmail);
+          return newEmail ? newEmail.trim() : lowerEmail;
+        })
+        .filter(e => e);
+      
+      // Combine and deduplicate phones (normalized)
+      const allPhones = [...existingPhones, ...newPhones];
+      const normalizedAllPhones = allPhones.map(p => normalizePhone(String(p || ""))).filter(p => p);
+      const uniqueNormalizedPhones = Array.from(new Set(normalizedAllPhones));
+      const uniquePhones = uniqueNormalizedPhones.map(normalizedPhone => {
+        // Find original format from existing phones first, then new phones
+        const existing = existingPhones.find(p => normalizePhone(String(p || "")) === normalizedPhone);
+        if (existing) return String(existing);
+        const newPhone = newPhones.find(p => normalizePhone(String(p || "")) === normalizedPhone);
+        return newPhone ? newPhone : normalizedPhone;
+      });
+      
+      // Merge names: prefer new data if it exists, otherwise keep existing
+      const mergedFirstName = (newData.firstName && newData.firstName.trim()) || existingMember.firstName || "";
+      const mergedLastName = (newData.lastName && newData.lastName.trim()) || existingMember.lastName || "";
+      const mergedName = (newData.name && newData.name.trim()) || existingMember.name || "";
+      
+      // Update existing member with merged data
+      const updatePayload: any = {
+        emails: uniqueEmails,
+        phones: uniquePhones,
+      };
+      
+      if (mergedFirstName) updatePayload.firstName = mergedFirstName;
+      if (mergedLastName) updatePayload.lastName = mergedLastName;
+      if (mergedName && !mergedFirstName && !mergedLastName) updatePayload.name = mergedName;
+      
+      await api.put(`/groups/${selectedGroup.id}/members/${existingMember.id}`, updatePayload);
+      
+      showSnackbar("Member merged successfully", "success");
+      
+      // Remove this error from the errors list
+      const errorRow = errorToMerge.row;
+      setImportErrors(prev => {
+        const filtered = prev.filter(err => err.row !== errorRow);
+        // If no errors left, close the errors dialog
+        if (filtered.length === 0) {
+          setShowImportErrors(false);
+        }
+        return filtered;
+      });
+      
+      // Close dialog and reset form
+      setFixErrorDialog(false);
+      setEditingError(null);
+      setErrorForm({ firstName: "", lastName: "", name: "", emails: [""], phones: [""] });
+      
+      // Reload members to show updated data
+      await loadMembers(selectedGroup.id);
+      await refreshGroups();
+    } catch (error: any) {
+      console.error("Error merging member:", error);
+      const errorMessage = error?.response?.data?.message || "Error merging member";
+      showSnackbar(errorMessage, "error");
+    } finally {
+      setSaving(false);
+      setMerging(false);
+      setMergingRow(null);
+    }
   };
 
   const handleDeleteMember = (member: GroupMember) => {
@@ -2551,7 +2708,7 @@ export default function ManageGroups() {
                           <Typography variant="subtitle2" color="error" sx={{ flex: 1 }}>
                             Row {error.row}: {error.error}
                           </Typography>
-                          <Stack direction="row" spacing={1}>
+                          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                             <Button
                               size="small"
                               variant="outlined"
@@ -2570,6 +2727,22 @@ export default function ManageGroups() {
                             >
                               Skip
                             </Button>
+                            {isDuplicateError(error) && (
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                color="primary"
+                                disabled={merging && mergingRow === error.row}
+                                startIcon={merging && mergingRow === error.row ? <CircularProgress size={14} /> : <GitMerge size={14} />}
+                                onClick={async () => {
+                                  // Perform merge directly with the error
+                                  await handleMergeError(error);
+                                }}
+                                sx={{ textTransform: "none" }}
+                              >
+                                {merging && mergingRow === error.row ? "Merging..." : "Merge"}
+                              </Button>
+                            )}
                             <Button
                               size="small"
                               variant="outlined"
@@ -2646,13 +2819,14 @@ export default function ManageGroups() {
       <Dialog
         open={fixErrorDialog}
         onClose={() => {
-          if (!saving) {
+          if (!saving && !merging) {
             setFixErrorDialog(false);
             setEditingError(null);
             setErrorForm({ firstName: "", lastName: "", name: "", emails: [""], phones: [""] });
+            setExistingMemberForMerge(null);
           }
         }}
-        maxWidth="sm"
+        maxWidth={editingError && isDuplicateError(editingError) ? "md" : "sm"}
         fullWidth
         fullScreen={isMobile}
         PaperProps={{
@@ -2663,7 +2837,7 @@ export default function ManageGroups() {
         }}
       >
         <DialogTitle sx={{ fontSize: { xs: "1.125rem", sm: "1.25rem" }, fontWeight: 600 }}>
-          Fix Error - Row {editingError?.row}
+          {editingError && isDuplicateError(editingError) ? "Merge with Existing Member" : `Fix Error - Row ${editingError?.row}`}
         </DialogTitle>
         <DialogContent sx={{ px: { xs: 2, sm: 3 } }}>
           <Stack spacing={{ xs: 2.5, sm: 3 }} sx={{ mt: 1 }}>
@@ -2683,6 +2857,138 @@ export default function ManageGroups() {
                     </Box>
                   )}
                 </Alert>
+                <Divider />
+              </>
+            )}
+
+            {/* Side-by-side merge comparison view */}
+            {editingError && isDuplicateError(editingError) && (
+              <>
+                <Typography variant="subtitle1" fontWeight={600} sx={{ fontSize: { xs: "0.9375rem", sm: "1rem" } }}>
+                  Merge Preview
+                </Typography>
+                {loadingExistingMember ? (
+                  <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
+                    <CircularProgress size={24} />
+                  </Box>
+                ) : existingMemberForMerge ? (
+                  <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                    {/* Existing Member (Left) */}
+                    <Card variant="outlined" sx={{ flex: 1, bgcolor: "action.hover" }}>
+                      <CardContent sx={{ p: 2 }}>
+                        <Typography variant="subtitle2" fontWeight={600} gutterBottom color="primary">
+                          Existing Member
+                        </Typography>
+                        <Stack spacing={1.5}>
+                          {(existingMemberForMerge.firstName || existingMemberForMerge.lastName) && (
+                            <Box>
+                              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+                                Name:
+                              </Typography>
+                              <Typography variant="body2">
+                                {[existingMemberForMerge.firstName, existingMemberForMerge.lastName].filter(Boolean).join(" ") || existingMemberForMerge.name || "—"}
+                              </Typography>
+                            </Box>
+                          )}
+                          {existingMemberForMerge.name && !existingMemberForMerge.firstName && !existingMemberForMerge.lastName && (
+                            <Box>
+                              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+                                Name:
+                              </Typography>
+                              <Typography variant="body2">{existingMemberForMerge.name}</Typography>
+                            </Box>
+                          )}
+                          {((existingMemberForMerge.emails && existingMemberForMerge.emails.length > 0) || existingMemberForMerge.email) && (
+                            <Box>
+                              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+                                Email{((existingMemberForMerge.emails?.length || 0) + (existingMemberForMerge.email ? 1 : 0)) > 1 ? "s" : ""}:
+                              </Typography>
+                              <Stack spacing={0.5}>
+                                {(existingMemberForMerge.emails || (existingMemberForMerge.email ? [existingMemberForMerge.email] : [])).map((email: string, idx: number) => (
+                                  <Typography key={idx} variant="body2">{email}</Typography>
+                                ))}
+                              </Stack>
+                            </Box>
+                          )}
+                          {((existingMemberForMerge.phones && existingMemberForMerge.phones.length > 0) || existingMemberForMerge.phone) && (
+                            <Box>
+                              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+                                Phone{((existingMemberForMerge.phones?.length || 0) + (existingMemberForMerge.phone ? 1 : 0)) > 1 ? "s" : ""}:
+                              </Typography>
+                              <Stack spacing={0.5}>
+                                {(existingMemberForMerge.phones || (existingMemberForMerge.phone ? [existingMemberForMerge.phone] : [])).map((phone: string, idx: number) => (
+                                  <Typography key={idx} variant="body2">{phone}</Typography>
+                                ))}
+                              </Stack>
+                            </Box>
+                          )}
+                        </Stack>
+                      </CardContent>
+                    </Card>
+
+                    {/* Arrow/Plus Icon */}
+                    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", px: 1 }}>
+                      <GitMerge size={24} color={theme.palette.primary.main} />
+                    </Box>
+
+                    {/* New Data (Right) */}
+                    <Card variant="outlined" sx={{ flex: 1, bgcolor: "action.hover" }}>
+                      <CardContent sx={{ p: 2 }}>
+                        <Typography variant="subtitle2" fontWeight={600} gutterBottom color="secondary">
+                          New Data (Row {editingError.row})
+                        </Typography>
+                        <Stack spacing={1.5}>
+                          {(errorForm.firstName || errorForm.lastName) && (
+                            <Box>
+                              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+                                Name:
+                              </Typography>
+                              <Typography variant="body2">
+                                {[errorForm.firstName, errorForm.lastName].filter(Boolean).join(" ") || errorForm.name || "—"}
+                              </Typography>
+                            </Box>
+                          )}
+                          {errorForm.name && !errorForm.firstName && !errorForm.lastName && (
+                            <Box>
+                              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+                                Name:
+                              </Typography>
+                              <Typography variant="body2">{errorForm.name}</Typography>
+                            </Box>
+                          )}
+                          {errorForm.emails.filter((e: string) => e.trim()).length > 0 && (
+                            <Box>
+                              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+                                Email{errorForm.emails.filter((e: string) => e.trim()).length > 1 ? "s" : ""}:
+                              </Typography>
+                              <Stack spacing={0.5}>
+                                {errorForm.emails.filter((e: string) => e.trim()).map((email: string, idx: number) => (
+                                  <Typography key={idx} variant="body2">{email}</Typography>
+                                ))}
+                              </Stack>
+                            </Box>
+                          )}
+                          {errorForm.phones.filter((p: string) => p.trim()).length > 0 && (
+                            <Box>
+                              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+                                Phone{errorForm.phones.filter((p: string) => p.trim()).length > 1 ? "s" : ""}:
+                              </Typography>
+                              <Stack spacing={0.5}>
+                                {errorForm.phones.filter((p: string) => p.trim()).map((phone: string, idx: number) => (
+                                  <Typography key={idx} variant="body2">{phone}</Typography>
+                                ))}
+                              </Stack>
+                            </Box>
+                          )}
+                        </Stack>
+                      </CardContent>
+                    </Card>
+                  </Stack>
+                ) : (
+                  <Alert severity="info" sx={{ fontSize: { xs: "0.8125rem", sm: "0.875rem" } }}>
+                    Could not find existing member to merge with.
+                  </Alert>
+                )}
                 <Divider />
               </>
             )}
@@ -2809,16 +3115,29 @@ export default function ManageGroups() {
           >
             Cancel
           </Button>
-          <Button
-            variant="contained"
-            onClick={saveFixedError}
-            disabled={saving || (errorForm.emails.filter((e: string) => e.trim()).length === 0 && errorForm.phones.filter((p: string) => p.trim()).length === 0)}
-            startIcon={saving ? <CircularProgress size={16} /> : <Check size={16} />}
-            fullWidth={isMobile}
-            sx={{ bgcolor: "#1e40af", "&:hover": { bgcolor: "#1e3a8a" } }}
-          >
-            {saving ? "Saving..." : "Save & Add Member"}
-          </Button>
+          {editingError && isDuplicateError(editingError) ? (
+            <Button
+              variant="contained"
+              onClick={handleMergeError}
+              disabled={merging}
+              startIcon={merging ? <CircularProgress size={16} /> : <GitMerge size={16} />}
+              fullWidth={isMobile}
+              sx={{ bgcolor: "#1e40af", "&:hover": { bgcolor: "#1e3a8a" } }}
+            >
+              {merging ? "Merging..." : "Merge with Existing Member"}
+            </Button>
+          ) : (
+            <Button
+              variant="contained"
+              onClick={saveFixedError}
+              disabled={saving || (errorForm.emails.filter((e: string) => e.trim()).length === 0 && errorForm.phones.filter((p: string) => p.trim()).length === 0)}
+              startIcon={saving ? <CircularProgress size={16} /> : <Check size={16} />}
+              fullWidth={isMobile}
+              sx={{ bgcolor: "#1e40af", "&:hover": { bgcolor: "#1e3a8a" } }}
+            >
+              {saving ? "Saving..." : "Save & Add Member"}
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
 

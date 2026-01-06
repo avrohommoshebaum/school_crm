@@ -99,8 +99,17 @@ export default function SendEmail() {
   });
 
   // Fetch groups
+  const groupsLoadedRef = useRef(false);
+  const isFetchingGroupsRef = useRef(false);
+
   useEffect(() => {
+    if (groupsLoadedRef.current) return;
+    groupsLoadedRef.current = true;
+
     const fetchGroups = async () => {
+      if (isFetchingGroupsRef.current) return;
+      isFetchingGroupsRef.current = true;
+
       try {
         setLoadingGroups(true);
         const res = await api.get("/groups");
@@ -110,6 +119,7 @@ export default function SendEmail() {
         showSnackbar("Failed to load groups", "error");
       } finally {
         setLoadingGroups(false);
+        isFetchingGroupsRef.current = false;
       }
     };
 

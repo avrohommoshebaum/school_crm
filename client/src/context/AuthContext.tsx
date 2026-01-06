@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState, useRef } from "react";
 import api from "../utils/api";
 import { SessionTimeoutProvider } from "./SessionTimeoutContext";
 
@@ -30,8 +30,14 @@ export const useAuth = () => useContext(AuthContext);
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const hasInitializedRef = useRef(false);
+  const isFetchingRef = useRef(false);
 
   const refreshUser = async () => {
+    // Prevent concurrent calls
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
+    
     try {
       const { data } = await api.get("/auth/me");
       setUser(data.user);
@@ -42,6 +48,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       localStorage.removeItem("lastAuthSuccess");
     } finally {
       setLoading(false); // ✅ ALWAYS stop loading
+      isFetchingRef.current = false;
     }
   };
 
@@ -52,10 +59,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setUser(null);
     setLoading(false);
     localStorage.removeItem("lastAuthSuccess");
+    hasInitializedRef.current = false; // Reset on logout
     window.location.href = "/login?message=session_expired";
   };
 
   useEffect(() => {
+    // Prevent duplicate calls in React StrictMode (development)
+    if (hasInitializedRef.current) return;
+    hasInitializedRef.current = true;
     refreshUser();
   }, []);
 

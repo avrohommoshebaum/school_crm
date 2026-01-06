@@ -78,6 +78,10 @@ export const verifyBackupCodeLogin = async (req, res) => {
 
       const userWithRoles = await userService.populateRoles(user);
 
+      // Get session timeout
+      const { getSessionTimeout } = await import("../config/session.js");
+      const sessionTimeout = getSessionTimeout();
+
       res.json({
         user: {
           id: userWithRoles._id || userWithRoles.id,
@@ -97,6 +101,8 @@ export const verifyBackupCodeLogin = async (req, res) => {
         },
         // If 2FA is enforced and user doesn't have it, they need to enroll after login
         requires2FAEnrollment: require2FA && !userWithRoles.mfaEnabled,
+        sessionTimeout, // milliseconds
+        require2FA, // boolean
       });
     });
   } catch (error) {

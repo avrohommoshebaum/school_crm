@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import api from "../utils/api";
 
 /* -------------------------------------------------
@@ -97,18 +97,26 @@ const useCurrentUser = () => {
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
+  const hasLoadedRef = useRef(false);
+  const isFetchingRef = useRef(false);
 
   const load = async () => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
+
     try {
       const res = await api.get("/profile/me");
       setUser(res.data.user);
       setSettings(res.data.settings);
     } finally {
       setLoading(false);
+      isFetchingRef.current = false;
     }
   };
 
   useEffect(() => {
+    if (hasLoadedRef.current) return;
+    hasLoadedRef.current = true;
     load();
   }, []);
 

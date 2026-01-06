@@ -104,6 +104,8 @@ export default function QuickCompose() {
   const [loadingGroups, setLoadingGroups] = useState(true);
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
   const [groupSearch, setGroupSearch] = useState("");
+  const groupsLoadedRef = useRef(false);
+  const isFetchingGroupsRef = useRef(false);
 
   // Message content
   const [message, setMessage] = useState("");
@@ -158,6 +160,8 @@ export default function QuickCompose() {
   const [loadingSavedRecordings, setLoadingSavedRecordings] = useState(false);
   const [selectedSavedRecording, setSelectedSavedRecording] = useState<string | null>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
+  const savedRecordingsLoadedRef = useRef<string>(""); // Track last loaded state
+  const isFetchingSavedRecordingsRef = useRef(false);
 
   // Scheduling
   const [showSchedule, setShowSchedule] = useState(false);
@@ -175,6 +179,11 @@ export default function QuickCompose() {
   // ---------- Load Groups ----------
 
   useEffect(() => {
+    // Prevent duplicate calls in React StrictMode (development)
+    if (groupsLoadedRef.current || isFetchingGroupsRef.current) return;
+    groupsLoadedRef.current = true;
+    isFetchingGroupsRef.current = true;
+
     const loadGroups = async () => {
       try {
         setLoadingGroups(true);
@@ -185,6 +194,7 @@ export default function QuickCompose() {
         showSnackbar("Failed to load groups", "error");
       } finally {
         setLoadingGroups(false);
+        isFetchingGroupsRef.current = false;
       }
     };
 
@@ -196,6 +206,14 @@ export default function QuickCompose() {
   useEffect(() => {
     if (recordingMethod !== "saved-file" || messageType !== "call") return;
 
+    // Prevent duplicate calls for the same state combination
+    const stateKey = `${recordingMethod}-${messageType}`;
+    if (savedRecordingsLoadedRef.current === stateKey || isFetchingSavedRecordingsRef.current) {
+      return;
+    }
+    savedRecordingsLoadedRef.current = stateKey;
+    isFetchingSavedRecordingsRef.current = true;
+
     const loadSavedRecordings = async () => {
       try {
         setLoadingSavedRecordings(true);
@@ -206,6 +224,7 @@ export default function QuickCompose() {
         showSnackbar("Failed to load saved recordings", "error");
       } finally {
         setLoadingSavedRecordings(false);
+        isFetchingSavedRecordingsRef.current = false;
       }
     };
 
@@ -689,19 +708,24 @@ export default function QuickCompose() {
   };
 
   const handleSendRobocall = async () => {
+    // Prepare payload
+    // Map "saved-file" to "upload" for database compatibility
+    const dbRecordingMethod = recordingMethod === "saved-file" ? "upload" : recordingMethod;
     const payload: any = {
-      recordingMethod,
+      recordingMethod: dbRecordingMethod,
       groupIds: selectedGroups,
-      fromName: "Nachlas Bais Yaakov",
     };
 
+    // Add manual phone numbers
     if (manualPhoneNumbers.trim()) {
-      payload.manualPhoneNumbers = manualPhoneNumbers
+      const phones = manualPhoneNumbers
         .split(",")
         .map((p) => p.trim())
         .filter((p) => p);
+      payload.manualPhoneNumbers = phones;
     }
 
+    // Add recording method specific data
     if (recordingMethod === "text-to-speech") {
       if (!message.trim()) {
         showSnackbar("Please enter a message for text-to-speech", "warning");
@@ -712,6 +736,7 @@ export default function QuickCompose() {
       try {
         const base64 = await audioToBase64(audioBlob);
         payload.audioFile = base64;
+        // Include the blob type so server knows the format
         payload.audioFileType = audioBlob.type || "audio/webm";
       } catch (error: any) {
         console.error("Error converting audio to base64:", error);
@@ -719,60 +744,50 @@ export default function QuickCompose() {
         return;
       }
     } else if (recordingMethod === "saved-file") {
+      // Handle both uploaded file and selected saved recording
       if (uploadedAudio) {
-        try {
-          const base64 = await audioToBase64(uploadedAudio);
-          payload.audioFile = base64;
-          payload.audioFileType = uploadedAudio.type || "audio/mpeg";
-        } catch (error: any) {
-          console.error("Error converting audio to base64:", error);
-          showSnackbar("Error processing audio file", "error");
-          return;
-        }
+        // User uploaded a new file
+        const base64 = await audioToBase64(uploadedAudio);
+        payload.audioFile = base64;
       } else if (selectedSavedRecording) {
+        // User selected a saved recording
         const recording = savedRecordings.find((r) => r.id === selectedSavedRecording);
         if (recording) {
           payload.audioGcsPath = recording.audio_gcs_path;
-        } else {
-          showSnackbar("Please select a saved recording or upload a file", "warning");
-          return;
         }
-      } else {
-        showSnackbar("Please select a saved recording or upload a file", "warning");
-        return;
       }
-    } else if (recordingMethod === "call-to-record") {
-      if (callToRecordStatus !== "completed") {
-        showSnackbar("Please complete the call-to-record session first", "warning");
-        return;
-      }
-      if (!callToRecordSessionId) {
-        showSnackbar("No recording session found", "error");
-        return;
-      }
-      // Get the session details to find the saved recording
+    } else if (recordingMethod === "call-to-record" && callToRecordSessionId) {
+      // Get the session to get the GCS path
       try {
-        const sessionRes = await api.get(`/robocall/call-to-record/${callToRecordSessionId}`);
-        if (sessionRes.data.recording_gcs_path) {
-          payload.audioGcsPath = sessionRes.data.recording_gcs_path;
+        const { data: sessionData } = await api.get(
+          `/robocall/call-to-record/${callToRecordSessionId}`
+        );
+        if (sessionData.recording_gcs_path) {
+          payload.audioGcsPath = sessionData.recording_gcs_path;
         } else {
-          showSnackbar("Recording not yet available. Please wait a moment and try again.", "warning");
-          return;
+          throw new Error("Recording not available");
         }
-      } catch (error: any) {
-        console.error("Error getting call-to-record session:", error);
-        showSnackbar("Failed to retrieve recording. Please try again.", "error");
+      } catch (error) {
+        showSnackbar("Recording not available. Please try again.", "error");
         return;
       }
     }
 
+    // Add scheduling
     if (showSchedule && scheduleDate && scheduleTime) {
       const scheduledDateTime = new Date(`${scheduleDate}T${scheduleTime}`);
       payload.scheduledFor = scheduledDateTime.toISOString();
     }
 
+    // Send robocall
     await api.post("/robocall/send", payload);
-    showSnackbar("Robocall sent successfully!", "success");
+
+    if (showSchedule && scheduleDate && scheduleTime) {
+      showSnackbar("Robocall scheduled successfully!", "success");
+    } else {
+      showSnackbar("Robocall sent successfully!", "success");
+    }
+
     resetForm();
   };
 

@@ -108,7 +108,15 @@ export const loginLocal = (req, res, next) => {
       await userService.update(user._id || user.id, { lastLogin: new Date() });
       const userWithRoles = await userService.populateRoles(user);
 
-      return res.json({ user: sanitizeUser(userWithRoles) });
+      // Get session timeout and 2FA requirement
+      const sessionTimeout = getSessionTimeout();
+      const require2FA = await getBooleanSetting("require_2fa", false);
+
+      return res.json({ 
+        user: sanitizeUser(userWithRoles),
+        sessionTimeout, // milliseconds
+        require2FA, // boolean
+      });
     });
   })(req, res, next);
 };
@@ -146,7 +154,16 @@ export const verifyMfa = async (req, res) => {
     await userService.update(user._id || user.id, { lastLogin: new Date() });
     const userWithRoles = await userService.populateRoles(user);
 
-    res.json({ user: sanitizeUser(userWithRoles) });
+    // Get session timeout and 2FA requirement
+    const { getBooleanSetting } = await import("../db/services/systemSettingsService.js");
+    const sessionTimeout = getSessionTimeout();
+    const require2FA = await getBooleanSetting("require_2fa", false);
+
+    res.json({ 
+      user: sanitizeUser(userWithRoles),
+      sessionTimeout, // milliseconds
+      require2FA, // boolean
+    });
   });
 };
 
