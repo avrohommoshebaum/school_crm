@@ -25,10 +25,12 @@ import ApplicationSettings from "../pages/admin/ApplicationSettings";
 import AcademicYearSettings from "../pages/admin/AcademicYearSettings";
 import SystemSettings from "../pages/admin/SystemSettings";
 import ProtectedRoute from "../components/ProtectedRoute";
+import CommunicationDashboard from "../pages/communication/CommunicationDashboard";
 import composeMessage from "../pages/communication/ComposeMessage";
 import SendEmail from "../pages/communication/SendEmail";
 import SendSMS from "../pages/communication/SendSMS";
 import SendRobocall from "../pages/communication/SendRobocall";
+import QuickCompose from "../pages/communication/QuickCompose";
 import ManageGroups from "../pages/communication/ManageGroups";
 import MessageHistory from "../pages/communication/MessageHistory";
 
@@ -131,7 +133,9 @@ const router = createBrowserRouter([
       permission={{ module: "communications", action: "view" }}
     />,
           children: [
-            { index: true, Component: composeMessage },
+            { index: true, Component: CommunicationDashboard },
+            { path: "compose", Component: composeMessage },
+            { path: "quick-compose", Component: QuickCompose },
             { path: "email", Component: SendEmail },
             { path: "sms", Component: SendSMS }, 
             { path: "robocall", Component: SendRobocall },

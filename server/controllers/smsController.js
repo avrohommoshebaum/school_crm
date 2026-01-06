@@ -112,7 +112,12 @@ export const sendSMSToGroup = async (req, res) => {
     }));
 
     if (recipientLogs.length > 0) {
-      await smsService.createBulkSMSRecipientLogs(recipientLogs);
+      try {
+        await smsService.createBulkSMSRecipientLogs(recipientLogs);
+      } catch (logError) {
+        console.error(`[sendSMSToGroup] Error creating recipient logs:`, logError);
+        // Don't fail the entire request if log creation fails, but log it
+      }
     }
 
     // Determine overall status message
@@ -230,7 +235,12 @@ export const sendSMSToMember = async (req, res) => {
     }));
 
     if (recipientLogs.length > 0) {
-      await smsService.createBulkSMSRecipientLogs(recipientLogs);
+      try {
+        await smsService.createBulkSMSRecipientLogs(recipientLogs);
+      } catch (logError) {
+        console.error(`[sendSMSToManual] Error creating recipient logs:`, logError);
+        // Don't fail the entire request if log creation fails, but log it
+      }
     }
 
     res.json({
@@ -395,8 +405,7 @@ export const processScheduledSMS = async (req, res) => {
       return res.json({ message: "No pending scheduled messages", processed: 0, smsProcessed: 0, emailsProcessed: 0 });
     }
 
-    console.log(`📨 Processing ${pendingSMS.length} pending scheduled SMS...`);
-
+    // Processing scheduled SMS
     const results = [];
     let processedCount = 0;
 
@@ -462,18 +471,18 @@ export const processScheduledSMS = async (req, res) => {
       
       // Log progress for large batches
       if (pendingSMS.length > 100) {
-        console.log(`✅ Processed batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(pendingSMS.length / batchSize)} (${processedCount}/${pendingSMS.length} total)`);
+        // Batch processed
       }
     }
 
-    console.log(`✅ Completed processing ${processedCount} scheduled SMS`);
+    // Completed processing scheduled SMS
 
     // Process scheduled emails
     const emailResults = [];
     let emailProcessedCount = 0;
 
     if (pendingEmails.length > 0) {
-      console.log(`📧 Processing ${pendingEmails.length} pending scheduled emails...`);
+      // Processing scheduled emails
 
       const sendEmail = (await import("../utils/email/sendEmail.js")).default;
       const { groupService } = await import("../db/services/groupService.js");
@@ -656,11 +665,11 @@ export const processScheduledSMS = async (req, res) => {
         emailResults.push(...batchResults);
 
         if (pendingEmails.length > 20) {
-          console.log(`✅ Processed email batch ${Math.floor(i / emailBatchSize) + 1}/${Math.ceil(pendingEmails.length / emailBatchSize)} (${emailProcessedCount}/${pendingEmails.length} total)`);
+          // Email batch processed
         }
       }
 
-      console.log(`✅ Completed processing ${emailProcessedCount} scheduled emails`);
+      // Completed processing scheduled emails
     }
 
     res.json({
@@ -745,23 +754,47 @@ export const getSMSHistory = async (req, res) => {
       }
     }
 
+    // Helper function to get array length (handles both arrays and string representations)
+    const getArrayLength = (arr) => {
+      if (!arr) return 0;
+      if (Array.isArray(arr)) return arr.length;
+      if (typeof arr === 'string') {
+        // Try to parse as JSON array
+        try {
+          const parsed = JSON.parse(arr);
+          return Array.isArray(parsed) ? parsed.length : 0;
+        } catch {
+          // If not JSON, might be PostgreSQL array format like "{item1,item2}"
+          if (arr.startsWith('{') && arr.endsWith('}')) {
+            const items = arr.slice(1, -1).split(',').filter(item => item.trim());
+            return items.length;
+          }
+          return 0;
+        }
+      }
+      return 0;
+    };
+
     // Combine and sort by date (most recent first)
     const allMessages = [
       ...messages.map(m => ({ 
         ...m, 
         type: "sent", 
         scheduled_for: null,
-        // Use actual recipient log count if available, otherwise fall back to array length
+        // Use actual recipient log count if available (most accurate), 
+        // otherwise use SQL-calculated count, otherwise fall back to array parsing
         recipient_count: recipientCountsMap[m.id] !== undefined 
           ? recipientCountsMap[m.id] 
-          : (m.recipient_phone_numbers?.length || 0)
+          : (m.recipient_count !== undefined ? parseInt(m.recipient_count, 10) : getArrayLength(m.recipient_phone_numbers))
       })),
       ...scheduledMessages.map(m => ({ 
         ...m, 
         type: "scheduled", 
         sent_at: null, 
         twilio_status: m.status,
-        recipient_count: m.recipient_phone_numbers?.length || 0
+        recipient_count: m.recipient_count !== undefined 
+          ? parseInt(m.recipient_count, 10) 
+          : getArrayLength(m.recipient_phone_numbers)
       }))
     ].sort((a, b) => {
       const dateA = a.sent_at || a.scheduled_for || a.created_at;
@@ -873,6 +906,62 @@ export const getSMSRecipients = async (req, res) => {
 
     // Get recipient logs
     const recipientLogs = await smsService.getSMSRecipientLogs(id);
+
+    // Log for debugging
+    console.log(`[getSMSRecipients] Message ID: ${id}, Found ${recipientLogs.length} recipient logs`);
+
+    // If no recipient logs found, try to create them from the phone numbers array
+    if (recipientLogs.length === 0 && message.recipient_phone_numbers) {
+      console.log(`[getSMSRecipients] No recipient logs found, but message has ${message.recipient_phone_numbers.length} phone numbers`);
+      console.log(`[getSMSRecipients] Phone numbers:`, message.recipient_phone_numbers);
+      
+      // Try to parse the phone numbers array if it's a string
+      let phoneNumbers = message.recipient_phone_numbers;
+      if (typeof phoneNumbers === 'string') {
+        try {
+          phoneNumbers = JSON.parse(phoneNumbers);
+        } catch {
+          // If not JSON, might be PostgreSQL array format
+          if (phoneNumbers.startsWith('{') && phoneNumbers.endsWith('}')) {
+            phoneNumbers = phoneNumbers.slice(1, -1).split(',').map(p => p.trim());
+          }
+        }
+      }
+      
+      if (Array.isArray(phoneNumbers) && phoneNumbers.length > 0) {
+        console.log(`[getSMSRecipients] Creating recipient logs from phone numbers array`);
+        // Create recipient logs from phone numbers (status unknown since we don't have Twilio SIDs)
+        const logsToCreate = phoneNumbers.map(phone => ({
+          smsMessageId: id,
+          phoneNumber: phone,
+          twilioSid: null,
+          status: message.twilio_status || "sent", // Use message status as default
+          errorCode: null,
+          errorMessage: null,
+        }));
+        
+        try {
+          await smsService.createBulkSMSRecipientLogs(logsToCreate);
+          // Fetch again after creating
+          const newLogs = await smsService.getSMSRecipientLogs(id);
+          console.log(`[getSMSRecipients] Created ${newLogs.length} recipient logs`);
+          
+          res.json({
+            message: message,
+            recipients: newLogs,
+            summary: {
+              total: newLogs.length,
+              sent: newLogs.filter(r => r.status === "sent" || r.status === "delivered").length,
+              failed: newLogs.filter(r => r.status === "failed" || r.status === "undelivered").length,
+              queued: newLogs.filter(r => r.status === "queued").length,
+            },
+          });
+          return;
+        } catch (createError) {
+          console.error(`[getSMSRecipients] Error creating recipient logs:`, createError);
+        }
+      }
+    }
 
     res.json({
       message: message,

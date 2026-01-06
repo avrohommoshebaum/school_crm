@@ -215,6 +215,64 @@ export async function getPendingScheduledRobocalls() {
 }
 
 /**
+ * Get scheduled robocalls with filters
+ */
+export async function getScheduledRobocalls(options = {}) {
+  const {
+    page = 1,
+    limit = 50,
+    createdBy = null,
+    status = null,
+    startDate = null,
+    endDate = null,
+  } = options;
+
+  const offset = (page - 1) * limit;
+  const conditions = [];
+  const values = [];
+  let paramIndex = 1;
+
+  if (createdBy) {
+    conditions.push(`created_by = $${paramIndex++}`);
+    values.push(createdBy);
+  }
+
+  if (status) {
+    conditions.push(`status = $${paramIndex++}`);
+    values.push(status);
+  }
+
+  if (startDate) {
+    conditions.push(`scheduled_for >= $${paramIndex++}`);
+    values.push(startDate);
+  }
+
+  if (endDate) {
+    conditions.push(`scheduled_for <= $${paramIndex++}`);
+    values.push(endDate);
+  }
+
+  const whereClause =
+    conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+  const result = await query(
+    `SELECT 
+      sr.*,
+      u.email as created_by_email,
+      u.name as created_by_name,
+      COALESCE(array_length(sr.recipient_phone_numbers, 1), 0) AS recipient_count
+     FROM scheduled_robocalls sr
+     LEFT JOIN users u ON sr.created_by = u.id
+     ${whereClause}
+     ORDER BY sr.scheduled_for DESC, sr.created_at DESC
+     LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
+    [...values, limit, offset]
+  );
+
+  return result.rows;
+}
+
+/**
  * Update scheduled robocall status
  */
 export async function updateScheduledRobocallStatus(
@@ -406,12 +464,18 @@ export async function getRobocallMessages(options = {}) {
     recipientType = null,
     startDate = null,
     endDate = null,
+    sentBy = null,
   } = options;
 
   const offset = (page - 1) * limit;
   const conditions = [];
   const values = [];
   let paramIndex = 1;
+
+  if (sentBy) {
+    conditions.push(`sent_by = $${paramIndex++}`);
+    values.push(sentBy);
+  }
 
   if (recipientType) {
     conditions.push(`recipient_type = $${paramIndex++}`);
@@ -432,9 +496,15 @@ export async function getRobocallMessages(options = {}) {
     conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
   const result = await query(
-    `SELECT * FROM robocall_messages
+    `SELECT 
+      rm.*,
+      u.email as sent_by_email,
+      u.name as sent_by_name,
+      COALESCE(array_length(rm.recipient_phone_numbers, 1), 0) AS recipient_count
+     FROM robocall_messages rm
+     LEFT JOIN users u ON rm.sent_by = u.id
      ${whereClause}
-     ORDER BY sent_at DESC NULLS LAST, created_at DESC
+     ORDER BY rm.sent_at DESC NULLS LAST, rm.created_at DESC
      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
     [...values, limit, offset]
   );
@@ -513,6 +583,7 @@ export const robocallService = {
   createBulkRobocallRecipientLogs,
   createScheduledRobocall,
   getPendingScheduledRobocalls,
+  getScheduledRobocalls,
   updateScheduledRobocallStatus,
   getScheduledRobocallById,
   createSavedAudioRecording,

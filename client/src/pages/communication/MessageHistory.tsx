@@ -45,6 +45,7 @@ import {
   Divider,
   useTheme,
   useMediaQuery,
+  Pagination,
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import type { AlertColor } from "@mui/material/Alert";
@@ -181,15 +182,43 @@ export default function MessageHistory() {
     try {
       setLoading(true);
       
-      // Fetch both SMS and Email history
-      const [smsResponse, emailResponse] = await Promise.all([
+      // Fetch SMS, Email, and Robocall history
+      const [smsResponse, emailResponse, robocallResponse] = await Promise.all([
         api.get("/sms/history", {
           params: { page, limit: 20, includeScheduled: true },
-        }).catch(() => ({ data: { messages: [] } })),
+        }).catch((error) => {
+          console.error("Error fetching SMS history:", error);
+          return { data: { messages: [] } };
+        }),
         api.get("/email/history", {
           params: { page, limit: 20 },
-        }).catch(() => ({ data: { messages: [] } })),
+        }).catch((error) => {
+          console.error("Error fetching Email history:", error);
+          return { data: { messages: [] } };
+        }),
+        api.get("/robocall/history", {
+          params: { page, limit: 20, includeScheduled: true },
+        }).catch((error) => {
+          console.error("Error fetching Robocall history:", error);
+          return { data: { messages: [] } };
+        }),
       ]);
+      
+      // Debug: Log responses to see what we're getting
+      console.log("SMS Response:", smsResponse?.data);
+      console.log("Email Response:", emailResponse?.data);
+      console.log("Robocall Response:", robocallResponse?.data);
+      
+      // Check if responses have the expected structure
+      if (!smsResponse?.data) {
+        console.warn("SMS response missing data:", smsResponse);
+      }
+      if (!emailResponse?.data) {
+        console.warn("Email response missing data:", emailResponse);
+      }
+      if (!robocallResponse?.data) {
+        console.warn("Robocall response missing data:", robocallResponse);
+      }
       
       // Transform SMS messages to generic Message format
       const smsMessages: Message[] = (smsResponse.data.messages || []).map((msg: any) => ({
@@ -203,23 +232,44 @@ export default function MessageHistory() {
       }));
       
       // Transform Email messages to generic Message format
-      const emailMessages: Message[] = (emailResponse.data.messages || []).map((msg: any) => ({
+      const emailData = emailResponse?.data?.messages || emailResponse?.data || [];
+      const emailMessages: Message[] = (Array.isArray(emailData) ? emailData : []).map((msg: any) => ({
         ...msg,
         type: msg.messageType === "scheduled" ? "email" : "email", // Keep type as email, use status for scheduled
         messageType: msg.messageType || "sent", // Track if scheduled or sent
         message: msg.subject || msg.preview,
         subject: msg.subject,
         html_content: msg.html_content || msg.htmlContent,
-        recipient_count: msg.recipientCount || 0,
+        recipient_count: msg.recipientCount || msg.recipient_count || 0,
         status: msg.messageType === "scheduled" ? (msg.status || "pending") : (msg.status || "sent"),
-        scheduled_for: msg.messageType === "scheduled" ? msg.scheduledFor : undefined,
+        scheduled_for: msg.messageType === "scheduled" ? (msg.scheduledFor || msg.scheduled_for) : undefined,
+        sent_at: msg.sentAt || msg.sent_at,
+        created_at: msg.createdAt || msg.created_at,
         sent_by: msg.sentBy || msg.sent_by, // Preserve sent_by information
         sent_by_name: msg.sentBy || msg.sent_by_name, // For display
         sent_by_email: msg.sentBy || msg.sent_by_email, // For display
       }));
       
+      // Transform Robocall messages to generic Message format
+      const robocallData = robocallResponse?.data?.messages || robocallResponse?.data || [];
+      const robocallMessages: Message[] = (Array.isArray(robocallData) ? robocallData : []).map((msg: any) => ({
+        ...msg,
+        type: msg.type === "scheduled" ? "robocall" : "robocall", // Keep type as robocall
+        messageType: msg.type === "scheduled" ? "scheduled" : "sent", // Track if scheduled or sent
+        message: msg.text_content || msg.textContent || "Robocall",
+        recipient_count: msg.recipient_count || msg.recipient_phone_numbers?.length || 0,
+        status: msg.type === "scheduled" ? (msg.status || "pending") : (msg.twilio_status || msg.status || "sent"),
+        scheduled_for: msg.type === "scheduled" ? msg.scheduled_for : undefined,
+        sent_at: msg.sent_at,
+        created_at: msg.created_at,
+        recording_method: msg.recording_method || msg.recordingMethod,
+        sent_by: msg.sent_by || msg.sentBy,
+        sent_by_name: msg.sent_by_name || msg.sentByName,
+        sent_by_email: msg.sent_by_email || msg.sentByEmail,
+      }));
+      
       // Combine and sort by date
-      const allMessages = [...smsMessages, ...emailMessages].sort((a, b) => {
+      const allMessages = [...smsMessages, ...emailMessages, ...robocallMessages].sort((a, b) => {
         const dateA = new Date(a.sent_at || a.scheduled_for || a.created_at).getTime();
         const dateB = new Date(b.sent_at || b.scheduled_for || b.created_at).getTime();
         return dateB - dateA;
@@ -231,13 +281,22 @@ export default function MessageHistory() {
         : allMessages.filter(m => {
           if (messageTypeFilter === "sms") return m.type === "sms";
           if (messageTypeFilter === "email") return m.type === "email";
+          if (messageTypeFilter === "robocall") return m.type === "robocall";
           if (messageTypeFilter === "scheduled") return m.messageType === "scheduled" || m.status === "pending" || m.status === "scheduled";
           return true;
         });
       
-      setMessages(filteredMessages.slice(0, 20)); // Limit to 20 per page
-      setTotalPages(Math.ceil(filteredMessages.length / 20));
-      setTotal(filteredMessages.length);
+      // Pagination: Calculate total pages and slice messages
+      const itemsPerPage = 20;
+      const totalItems = filteredMessages.length;
+      const totalPages = Math.ceil(totalItems / itemsPerPage);
+      const startIndex = (page - 1) * itemsPerPage;
+      const endIndex = startIndex + itemsPerPage;
+      const paginatedMessages = filteredMessages.slice(startIndex, endIndex);
+      
+      setMessages(paginatedMessages);
+      setTotalPages(totalPages);
+      setTotal(totalItems);
     } catch (error: any) {
       console.error("Error loading message history:", error);
       showSnackbar(error?.response?.data?.message || "Error loading message history", "error");
@@ -245,6 +304,11 @@ export default function MessageHistory() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    // Reset to page 1 when filter changes
+    setPage(1);
+  }, [messageTypeFilter]);
 
   useEffect(() => {
     loadMessages();
@@ -278,9 +342,8 @@ export default function MessageHistory() {
         const { data } = await api.get(`/sms/${message.id}/recipients`);
         setRecipientDetails(data);
       } else if (message.type === "email") {
-        // Email recipient details endpoint (if needed in future)
-        showSnackbar("Email recipient details are not yet available", "info");
-        setRecipientDetailsDialog(false);
+        const { data } = await api.get(`/email/${message.id}/recipients`);
+        setRecipientDetails(data);
       } else {
         showSnackbar("Recipient details are not yet available for this message type", "info");
         setRecipientDetailsDialog(false);
@@ -466,7 +529,7 @@ export default function MessageHistory() {
             Message History
           </Typography>
           <Typography variant="body2" color="text.secondary">
-          View all sent and scheduled SMS messages
+          View all sent and scheduled messages (SMS, Email, Robocall)
           </Typography>
         </Box>
 
@@ -498,7 +561,7 @@ export default function MessageHistory() {
                 const date = isScheduled ? msg.scheduled_for : msg.sent_at || msg.created_at;
                 const recipientCount = msg.recipient_count || msg.recipient_phone_numbers?.length || msg.recipient_emails?.length || 0;
                 const messagePreview = getMessagePreview(msg);
-                const messageTypeLabel = msg.type === "email" ? "Email" : msg.type === "sms" ? "SMS" : msg.type;
+                const messageTypeLabel = msg.type === "email" ? "Email" : msg.type === "sms" ? "SMS" : msg.type === "robocall" ? "Robocall" : msg.type;
 
                 return (
                 <Box
@@ -657,26 +720,21 @@ export default function MessageHistory() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <Box sx={{ display: "flex", justifyContent: "center", gap: 2, mt: 3 }}>
-              <Button
-                disabled={page === 1}
-                onClick={() => setPage(page - 1)}
-                variant="outlined"
-                size="small"
-              >
-                Previous
-              </Button>
-              <Typography variant="body2" sx={{ alignSelf: "center" }}>
-                Page {page} of {totalPages}
-              </Typography>
-              <Button
-                disabled={page >= totalPages}
-                onClick={() => setPage(page + 1)}
-                variant="outlined"
-                size="small"
-              >
-                Next
-              </Button>
+            <Box sx={{ display: "flex", justifyContent: "center", mt: 3, mb: 2 }}>
+              <Pagination
+                count={totalPages}
+                page={page}
+                onChange={(event, value) => setPage(value)}
+                color="primary"
+                size={isMobile ? "small" : "medium"}
+                showFirstButton
+                showLastButton
+                sx={{
+                  "& .MuiPagination-ul": {
+                    justifyContent: "center",
+                  },
+                }}
+              />
             </Box>
           )}
         </CardContent>
@@ -718,7 +776,10 @@ export default function MessageHistory() {
                   bgcolor: "grey.50",
                   borderRadius: 2,
                   display: "grid",
-                  gridTemplateColumns: { xs: "1fr 1fr", sm: "repeat(4, 1fr)" },
+                  gridTemplateColumns: { 
+                    xs: "1fr 1fr", 
+                    sm: selectedMessage?.type === "email" ? "repeat(6, 1fr)" : "repeat(4, 1fr)" 
+                  },
                   gap: 2,
                 }}
               >
@@ -728,9 +789,37 @@ export default function MessageHistory() {
                   </Typography>
                   <Typography variant="h6">{recipientDetails.summary.total}</Typography>
                 </Box>
+                {selectedMessage?.type === "email" && (
+                  <>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        TO
+                      </Typography>
+                      <Typography variant="h6" color="primary.main">
+                        {recipientDetails.summary.to || 0}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        CC
+                      </Typography>
+                      <Typography variant="h6" color="secondary.main">
+                        {recipientDetails.summary.cc || 0}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        BCC
+                      </Typography>
+                      <Typography variant="h6">
+                        {recipientDetails.summary.bcc || 0}
+                      </Typography>
+                    </Box>
+                  </>
+                )}
                 <Box>
                   <Typography variant="caption" color="text.secondary">
-                    Sent/Delivered
+                    {selectedMessage?.type === "email" ? "Sent" : "Sent/Delivered"}
                   </Typography>
                   <Typography variant="h6" color="success.main">
                     {recipientDetails.summary.sent}
@@ -744,14 +833,16 @@ export default function MessageHistory() {
                     {recipientDetails.summary.failed}
                   </Typography>
                 </Box>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">
-                    Queued
-                  </Typography>
-                  <Typography variant="h6" color="warning.main">
-                    {recipientDetails.summary.queued}
-                  </Typography>
-                </Box>
+                {selectedMessage?.type !== "email" && (
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Queued
+                    </Typography>
+                    <Typography variant="h6" color="warning.main">
+                      {recipientDetails.summary.queued || 0}
+                    </Typography>
+                  </Box>
+                )}
               </Box>
 
               {/* Recipients Table */}
@@ -759,6 +850,7 @@ export default function MessageHistory() {
                 <Table size="small">
                   <TableHead>
                     <TableRow>
+                      {selectedMessage?.type === "email" && <TableCell>Type</TableCell>}
                       <TableCell>{selectedMessage?.type === "sms" || selectedMessage?.type === "robocall" ? "Phone Number" : "Email"}</TableCell>
                       <TableCell>Status</TableCell>
                       <TableCell>Error</TableCell>
@@ -767,6 +859,20 @@ export default function MessageHistory() {
                   <TableBody>
                     {recipientDetails.recipients.map((recipient) => (
                       <TableRow key={recipient.id}>
+                        {selectedMessage?.type === "email" && (
+                          <TableCell>
+                            <Chip
+                              label={recipient.type?.toUpperCase() || "TO"}
+                              size="small"
+                              color={
+                                recipient.type === "to" ? "primary" :
+                                recipient.type === "cc" ? "secondary" :
+                                recipient.type === "bcc" ? "default" : "primary"
+                              }
+                              sx={{ textTransform: "uppercase", fontWeight: 600 }}
+                            />
+                          </TableCell>
+                        )}
                         <TableCell>
                           {recipient.phone_number ? formatPhone(recipient.phone_number) : recipient.email || "—"}
                         </TableCell>

@@ -121,7 +121,8 @@ export async function getSMSMessages(options = {}) {
       u.email as sent_by_email,
       cg.name as group_name,
       gm.first_name as member_first_name,
-      gm.last_name as member_last_name
+      gm.last_name as member_last_name,
+      COALESCE(array_length(sm.recipient_phone_numbers, 1), 0) as recipient_count
     FROM sms_messages sm
     LEFT JOIN users u ON sm.sent_by = u.id
     LEFT JOIN communication_groups cg ON sm.recipient_group_id = cg.id
@@ -319,7 +320,8 @@ export async function getScheduledSMS(options = {}) {
       u.email as created_by_email,
       cg.name as group_name,
       gm.first_name as member_first_name,
-      gm.last_name as member_last_name
+      gm.last_name as member_last_name,
+      COALESCE(array_length(ss.recipient_phone_numbers, 1), 0) as recipient_count
     FROM scheduled_sms ss
     LEFT JOIN users u ON ss.created_by = u.id
     LEFT JOIN communication_groups cg ON ss.recipient_group_id = cg.id
@@ -468,13 +470,42 @@ export async function createBulkSMSRecipientLogs(logs) {
  */
 export async function getSMSRecipientLogs(smsMessageId) {
   const result = await query(
-    `SELECT * FROM sms_recipient_logs
+    `SELECT 
+      id,
+      sms_message_id,
+      phone_number,
+      twilio_sid,
+      status,
+      error_code,
+      error_message,
+      created_at,
+      updated_at
+     FROM sms_recipient_logs
      WHERE sms_message_id = $1
      ORDER BY created_at ASC`,
     [smsMessageId]
   );
 
-  return result.rows;
+  // Return rows with both snake_case (for database compatibility) and camelCase (for frontend)
+  return result.rows.map(row => ({
+    id: row.id,
+    // Keep snake_case for database compatibility
+    sms_message_id: row.sms_message_id,
+    phone_number: row.phone_number,
+    twilio_sid: row.twilio_sid,
+    status: row.status,
+    error_code: row.error_code,
+    error_message: row.error_message,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    // Also provide camelCase for frontend
+    phoneNumber: row.phone_number,
+    twilioSid: row.twilio_sid,
+    errorCode: row.error_code,
+    errorMessage: row.error_message,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }));
 }
 
 /**

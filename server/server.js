@@ -11,7 +11,6 @@ import path from "path";
 // Load .env FIRST in local development (before secrets)
 if (process.env.NODE_ENV !== "production") {
   dotenv.config();
-  console.log("✅ Loaded .env file for local development");
 }
 
 // Load secrets from Google Secret Manager (production) or use .env (local)
@@ -40,102 +39,61 @@ const app = express();
 // Initialize everything asynchronously
 async function initialize() {
   try {
-    console.log("🔧 Initializing server...");
-    console.log(`🔧 NODE_ENV: ${process.env.NODE_ENV}`);
-    console.log(`🔧 GOOGLE_CLOUD_PROJECT: ${process.env.GOOGLE_CLOUD_PROJECT || 'not set'}`);
-    
-    console.log("🔧 Step 1: Loading secrets...");
     await loadSecrets();
-    console.log("✅ Secrets loaded");
-    
-    console.log("🔧 Step 2: Connecting to PostgreSQL...");
     await initializePostgres();
-    console.log("✅ PostgreSQL connected");
     
-    // Initialize SMS schema if tables don't exist
-    console.log("🔧 Step 3: Verifying SMS schema...");
+    // Initialize schemas (silently handle if already exist)
     const setupSMSSchema = (await import("./db/scripts/setupSMSSchema.js")).default;
     try {
       await setupSMSSchema();
-      console.log("✅ SMS schema verified");
     } catch (error) {
-      console.warn("⚠️ SMS schema setup warning:", error.message);
-      // Don't fail startup if schema already exists or has minor issues
+      // Schema already exists or minor issues - continue
     }
 
-    // Initialize Email schema if tables don't exist
-    console.log("🔧 Step 3a: Verifying Email schema...");
     const setupEmailSchema = (await import("./db/scripts/setupEmailSchema.js")).default;
     try {
       await setupEmailSchema();
-      console.log("✅ Email schema verified");
     } catch (error) {
-      console.warn("⚠️ Email schema setup warning:", error.message);
-      // Don't fail startup if schema already exists or has minor issues
+      // Schema already exists or minor issues - continue
     }
 
-    // Initialize user schema (add missing columns like last_login)
-    console.log("🔧 Step 3b: Verifying user schema...");
     const setupUserSchema = (await import("./db/scripts/setupUserSchema.js")).default;
     try {
       await setupUserSchema();
-      console.log("✅ User schema verified");
     } catch (error) {
-      console.warn("⚠️ User schema setup warning:", error.message);
-      // Don't fail startup if schema already exists or has minor issues
+      // Schema already exists or minor issues - continue
     }
 
-    // Initialize 2FA schema (add SMS/phone 2FA columns)
-    console.log("🔧 Step 3c: Verifying 2FA schema...");
     const add2FASchema = (await import("./db/scripts/add2FASchema.js")).default;
     try {
       await add2FASchema();
-      console.log("✅ 2FA schema verified");
     } catch (error) {
-      console.warn("⚠️ 2FA schema setup warning:", error.message);
-      // Don't fail startup if schema already exists or has minor issues
+      // Schema already exists or minor issues - continue
     }
 
-    // Initialize backup codes schema
-    console.log("🔧 Step 3d: Verifying backup codes schema...");
     const addBackupCodesSchema = (await import("./db/scripts/addBackupCodesSchema.js")).default;
     try {
       await addBackupCodesSchema();
-      console.log("✅ Backup codes schema verified");
     } catch (error) {
-      console.warn("⚠️ Backup codes schema setup warning:", error.message);
-      // Don't fail startup if schema already exists or has minor issues
+      // Schema already exists or minor issues - continue
     }
 
-    // Initialize system settings schema
-    console.log("🔧 Step 3e: Verifying system settings schema...");
     const addSystemSettingsSchema = (await import("./db/scripts/addSystemSettingsSchema.js")).default;
     try {
       await addSystemSettingsSchema();
-      console.log("✅ System settings schema verified");
     } catch (error) {
-      console.warn("⚠️ System settings schema setup warning:", error.message);
-      // Don't fail startup if schema already exists or has minor issues
+      // Schema already exists or minor issues - continue
     }
 
-    // Initialize robocall schema
-    console.log("🔧 Step 3f: Verifying robocall schema...");
     const setupRobocallSchema = (await import("./db/scripts/setupRobocallSchema.js")).default;
     try {
       await setupRobocallSchema();
-      console.log("✅ Robocall schema verified");
     } catch (error) {
-      console.warn("⚠️ Robocall schema setup warning:", error.message);
-      // Don't fail startup if schema already exists or has minor issues
+      // Schema already exists or minor issues - continue
     }
     
-    console.log("🔧 Step 4: Configuring session...");
     await configureSession(app);
-    console.log("✅ Session configured");
-    
-    console.log("🔧 Step 5: Configuring Passport...");
     configurePassport(app);
-    console.log("✅ Passport configured");
     
     // Apply session timeout middleware AFTER session is configured
     app.use(
@@ -145,7 +103,6 @@ async function initialize() {
     );
     
     // Register routes AFTER session and passport are configured
-    console.log("🔧 Step 6: Registering routes...");
     app.use("/api/auth", authRoutes);
     app.use("/api/roles", roleRoutes);
     app.use("/api/invite", inviteRoutes);
@@ -171,19 +128,12 @@ async function initialize() {
     app.use("/api/system-settings", systemSettingsRoutes);
     
     // Initialize Twilio
-    console.log("🔧 Step 7: Initializing Twilio...");
     const { initializeTwilio } = await import("./utils/twilio.js");
     initializeTwilio();
-    console.log("✅ Twilio initialized");
     
     // Initialize GCS Storage
-    console.log("🔧 Step 8: Initializing GCS Storage...");
     const { initializeGCS } = await import("./utils/storage/gcsStorage.js");
     initializeGCS();
-    console.log("✅ GCS Storage initialized");
-    
-    console.log("✅ Routes registered");
-    console.log("✅ Initialization complete");
   } catch (error) {
     console.error("❌ Initialization error:", error);
     console.error("❌ Error message:", error.message);
@@ -332,7 +282,7 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 3000;
 const HOST = '0.0.0.0'; // Required for Cloud Run - must listen on all interfaces
 
-console.log(`🔧 Starting server on PORT=${PORT} (from process.env.PORT=${process.env.PORT || 'not set'})`);
+// Server will start after initialization
 
 // Initialize everything first (database, sessions, routes), then start listening
 initialize().then(() => {

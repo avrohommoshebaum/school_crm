@@ -14,7 +14,18 @@ const api = axios.create({
 // GLOBAL RESPONSE INTERCEPTOR
 // ------------------------------
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Track successful authenticated requests
+    // This helps detect session expiration without extra API calls
+    if (response.config.url?.includes("/auth/me") || 
+        response.config.url?.includes("/profile/") ||
+        response.config.url?.includes("/robocall/") ||
+        response.config.url?.includes("/sms/") ||
+        response.config.url?.includes("/email/")) {
+      localStorage.setItem("lastAuthSuccess", Date.now().toString());
+    }
+    return response;
+  },
 
   async (error: AxiosError) => {
     const status = error.response?.status;
@@ -24,6 +35,7 @@ api.interceptors.response.use(
 
       localStorage.removeItem("user");
       sessionStorage.removeItem("user");
+      localStorage.removeItem("lastAuthSuccess");
 
       window.location.href = "/login?message=session_expired";
       return Promise.reject(error);
@@ -32,6 +44,7 @@ api.interceptors.response.use(
     if (status === 403) {
       console.warn("[AUTH] Forbidden → Logging out");
 
+      localStorage.removeItem("lastAuthSuccess");
       window.location.href = "/login?message=forbidden";
       return Promise.reject(error);
     }

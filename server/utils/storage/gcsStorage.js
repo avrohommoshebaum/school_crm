@@ -29,7 +29,7 @@ export function initializeGCS() {
     // Get bucket name from env or use default
     bucketName = process.env.GCS_BUCKET_NAME || `${projectId}-robocall-audio`;
     
-    console.log(`✅ GCS Storage initialized with bucket: ${bucketName}`);
+    // GCS Storage initialized
     return storageClient;
   } catch (error) {
     console.error("❌ Error initializing GCS:", error.message);

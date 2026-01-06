@@ -21,7 +21,7 @@ export function initializeTwilio() {
 
   try {
     twilioClient = twilio(accountSid, authToken);
-    console.log("✅ Twilio client initialized");
+    // Twilio client initialized
     return twilioClient;
   } catch (error) {
     console.error("❌ Error initializing Twilio:", error.message);
@@ -82,14 +82,6 @@ export async function sendSMS(to, message) {
     const status = messageStatus.status?.toLowerCase();
     const errorCode = messageStatus.errorCode;
     const errorMessage = messageStatus.errorMessage;
-    
-    // Log for debugging
-    console.log("Twilio message status after fetch:", {
-      sid: messageStatus.sid,
-      status: messageStatus.status,
-      errorCode: errorCode,
-      errorMessage: errorMessage,
-    });
 
     // Failure statuses or error codes indicate the message didn't actually succeed
     const failureStatuses = ['failed', 'undelivered', 'canceled', 'canceled', 'rejected'];

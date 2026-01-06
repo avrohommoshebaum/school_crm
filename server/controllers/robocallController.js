@@ -504,3 +504,99 @@ export const getSavedAudioRecordings = async (req, res) => {
   }
 };
 
+/**
+ * Get robocall history (includes both sent messages and scheduled)
+ */
+export const getRobocallHistory = async (req, res) => {
+  try {
+    const { page = 1, limit = 50, recipientType, startDate, endDate, includeScheduled = true } = req.query;
+    const userId = req.user._id || req.user.id;
+
+    const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+
+    // Get sent robocall messages
+    const messages = await robocallService.getRobocallMessages({
+      page: 1,
+      limit: parseInt(limit, 10) * 2, // Get more to account for scheduled messages
+      sentBy: userId,
+      recipientType: recipientType || null,
+      startDate: startDate || null,
+      endDate: endDate || null,
+    });
+
+    // Get scheduled robocalls if requested
+    let scheduledRobocalls = [];
+    if (includeScheduled === "true" || includeScheduled === true) {
+      scheduledRobocalls = await robocallService.getScheduledRobocalls({
+        page: 1,
+        limit: parseInt(limit, 10) * 2,
+        createdBy: userId,
+        status: null, // Get all statuses
+        startDate: startDate || null,
+        endDate: endDate || null,
+      });
+    }
+
+    // Helper function to get array length (handles both arrays and string representations)
+    const getArrayLength = (arr) => {
+      if (!arr) return 0;
+      if (Array.isArray(arr)) return arr.length;
+      if (typeof arr === 'string') {
+        try {
+          const parsed = JSON.parse(arr);
+          return Array.isArray(parsed) ? parsed.length : 0;
+        } catch {
+          if (arr.startsWith('{') && arr.endsWith('}')) {
+            const items = arr.slice(1, -1).split(',').filter(item => item.trim());
+            return items.length;
+          }
+          return 0;
+        }
+      }
+      return 0;
+    };
+
+    // Combine and sort by date (most recent first)
+    const allMessages = [
+      ...messages.map(m => ({ 
+        ...m, 
+        type: "sent", 
+        scheduled_for: null,
+        recipient_count: m.recipient_count !== undefined 
+          ? parseInt(m.recipient_count, 10) 
+          : getArrayLength(m.recipient_phone_numbers)
+      })),
+      ...scheduledRobocalls.map(m => ({ 
+        ...m, 
+        type: "scheduled", 
+        sent_at: null, 
+        twilio_status: m.status,
+        recipient_count: m.recipient_count !== undefined 
+          ? parseInt(m.recipient_count, 10) 
+          : getArrayLength(m.recipient_phone_numbers)
+      }))
+    ].sort((a, b) => {
+      const dateA = a.sent_at || a.scheduled_for || a.created_at;
+      const dateB = b.sent_at || b.scheduled_for || b.created_at;
+      return new Date(dateB).getTime() - new Date(dateA).getTime();
+    });
+
+    // Paginate the combined results
+    const total = allMessages.length;
+    const paginatedMessages = allMessages.slice(offset, offset + parseInt(limit, 10));
+
+    res.json({
+      messages: paginatedMessages,
+      pagination: {
+        page: parseInt(page, 10),
+        limit: parseInt(limit, 10),
+        total,
+        totalPages: Math.ceil(total / parseInt(limit, 10)),
+      },
+    });
+  } catch (error) {
+    console.error("Error getting robocall history:", error);
+    res.status(500).json({ message: "Error getting robocall history", error: error.message });
+  }
+};
+

@@ -4,7 +4,7 @@
  */
 
 import express from "express";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, requirePermission } from "../middleware/auth.js";
 import * as robocallController from "../controllers/robocallController.js";
 
 const router = express.Router();
@@ -13,15 +13,18 @@ const router = express.Router();
 router.use(requireAuth);
 
 // Send robocall
-router.post("/send", robocallController.sendRobocall);
+router.post("/send", requirePermission("communication", "send"), robocallController.sendRobocall);
 
 // Call-to-record
-router.post("/call-to-record", robocallController.initiateCallToRecordSession);
-router.get("/call-to-record/:sessionId", robocallController.getCallToRecordSession);
+router.post("/call-to-record", requirePermission("communication", "send"), robocallController.initiateCallToRecordSession);
+router.get("/call-to-record/:sessionId", requirePermission("communication", "view"), robocallController.getCallToRecordSession);
 
 // Audio recordings
-router.post("/upload-recording", robocallController.uploadAudioRecording);
-router.get("/saved-recordings", robocallController.getSavedAudioRecordings);
+router.post("/upload-recording", requirePermission("communication", "send"), robocallController.uploadAudioRecording);
+router.get("/saved-recordings", requirePermission("communication", "view"), robocallController.getSavedAudioRecordings);
+
+// Get robocall history
+router.get("/history", requirePermission("communication", "view"), robocallController.getRobocallHistory);
 
 export default router;
 

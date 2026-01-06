@@ -7,6 +7,19 @@ const isProd = process.env.NODE_ENV === "production";
 
 const PgSession = connectPgSimple(session);
 
+// Get session timeout from env or Secret Manager, default to 30 minutes
+export function getSessionTimeout() {
+  // Try to get from env first (for local dev or if set in env)
+  const envTimeout = process.env.SESSION_TIMEOUT_MS;
+  if (envTimeout) {
+    return parseInt(envTimeout, 10);
+  }
+  
+  // Default to 30 minutes in milliseconds (if SESSION_SECRET not loaded from Secret Manager)
+  // This is a safety default for when secrets aren't properly configured
+  return 1000 * 60 * 30; // 30 minutes
+}
+
 export default async function configureSession(app) {
   // Get PostgreSQL pool (will initialize if needed)
   const pool = await getPostgresPool();
@@ -14,6 +27,8 @@ export default async function configureSession(app) {
   if (!pool) {
     throw new Error("PostgreSQL connection pool not initialized");
   }
+
+  const sessionTimeout = getSessionTimeout();
 
   app.use(
     session({
@@ -25,7 +40,7 @@ export default async function configureSession(app) {
         httpOnly: true,
         secure: isProd,                 // ✅ only secure in prod
         sameSite: "lax",            // ✅ helps against CSRF
-        maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+        maxAge: sessionTimeout, // Use the function
       },
       store: new PgSession({
         pool: pool,

@@ -2,6 +2,7 @@ import passport from "passport";
 import { userService } from "../db/services/userService.js";
 import crypto from "crypto";
 import sendResetEmail from "../utils/email/sendResetEmail.js";
+import { getSessionTimeout } from "../config/session.js";
 
 function sanitizeUser(user) {
   return {
@@ -161,13 +162,47 @@ export const logoutUser = (req, res) => {
 
 // GET CURRENT USER
 export const getMe = async (req, res) => {
-  if (!req.user) return res.json({ user: null });
+  if (!req.user) return res.json({ user: null, sessionTimeout: null });
 
   const userId = req.user._id || req.user.id;
   const user = await userService.findById(userId);
   const userWithRoles = await userService.populateRoles(user);
 
-  res.json({ user: sanitizeUser(userWithRoles) });
+  // Include session timeout in response
+  const sessionTimeout = getSessionTimeout();
+  
+  // Touch the session to refresh the cookie expiration
+  if (req.session) {
+    req.session.lastActivity = Date.now();
+  }
+  
+  res.json({ 
+    user: sanitizeUser(userWithRoles),
+    sessionTimeout, // milliseconds
+  });
+};
+
+// EXTEND SESSION - Touches the session to refresh the cookie
+export const extendSession = async (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ message: "Not authenticated" });
+  }
+
+  // Touch the session to refresh the cookie expiration
+  // With resave: false, we need to modify the session to trigger a save
+  if (req.session) {
+    // Modify session to trigger save (this refreshes the cookie)
+    req.session.lastActivity = Date.now();
+    // The session will be saved automatically because we modified it
+  }
+
+  const sessionTimeout = getSessionTimeout();
+  
+  res.json({ 
+    message: "Session extended",
+    sessionTimeout,
+    expiresAt: Date.now() + sessionTimeout,
+  });
 };
 
 export const forgotPassword = async (req, res) => {

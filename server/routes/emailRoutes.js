@@ -8,6 +8,7 @@ import {
   sendEmailToGroup,
   sendEmailToRecipients,
   getEmailHistory,
+  getEmailRecipients,
   getScheduledEmails,
   cancelScheduledEmail,
   updateScheduledEmail,
@@ -37,6 +38,13 @@ router.get(
   "/history",
   requirePermission("communications", "view"),
   getEmailHistory
+);
+
+// Get email recipients
+router.get(
+  "/:id/recipients",
+  requirePermission("communications", "view"),
+  getEmailRecipients
 );
 
 // Get scheduled emails

@@ -109,7 +109,7 @@ export async function initializePostgres() {
     const client = await pool.connect();
     try {
       await client.query("SELECT NOW()");
-      console.log("✅ Connected to PostgreSQL database");
+      // Connected to PostgreSQL database
     } finally {
       client.release();
     }

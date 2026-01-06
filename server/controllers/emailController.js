@@ -427,13 +427,113 @@ export const sendEmailToRecipients = async (req, res) => {
 /**
  * Get email history (includes both sent messages and scheduled)
  */
+/**
+ * Get email recipient details by message ID
+ */
+export const getEmailRecipients = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user._id || req.user.id;
+
+    // Verify the message belongs to the user
+    const message = await emailService.getEmailMessageById(id);
+    if (!message) {
+      return res.status(404).json({ message: "Email message not found" });
+    }
+
+    if (message.sent_by !== userId) {
+      return res.status(403).json({ message: "You can only view your own email messages" });
+    }
+
+    // Helper function to parse array (handles both arrays and string representations)
+    const parseArray = (arr) => {
+      if (!arr) return [];
+      if (Array.isArray(arr)) return arr;
+      if (typeof arr === 'string') {
+        try {
+          const parsed = JSON.parse(arr);
+          return Array.isArray(parsed) ? parsed : [];
+        } catch {
+          // If not JSON, might be PostgreSQL array format like "{item1,item2}"
+          if (arr.startsWith('{') && arr.endsWith('}')) {
+            return arr.slice(1, -1).split(',').map(item => item.trim()).filter(item => item);
+          }
+          return [];
+        }
+      }
+      return [];
+    };
+
+    // Extract recipients from arrays
+    const toRecipients = parseArray(message.to_recipients);
+    const ccRecipients = parseArray(message.cc_recipients);
+    const bccRecipients = parseArray(message.bcc_recipients);
+
+    // Build recipient list with their type (TO, CC, BCC)
+    const recipients = [
+      ...toRecipients.map(email => ({
+        id: `to-${email}`, // Simple ID for frontend
+        email: email,
+        type: 'to',
+        status: message.status || 'sent',
+        created_at: message.sent_at || message.created_at,
+      })),
+      ...ccRecipients.map(email => ({
+        id: `cc-${email}`,
+        email: email,
+        type: 'cc',
+        status: message.status || 'sent',
+        created_at: message.sent_at || message.created_at,
+      })),
+      ...bccRecipients.map(email => ({
+        id: `bcc-${email}`,
+        email: email,
+        type: 'bcc',
+        status: message.status || 'sent',
+        created_at: message.sent_at || message.created_at,
+      })),
+    ];
+
+    // Calculate summary
+    const total = recipients.length;
+    const sent = recipients.filter(r => r.status === 'sent').length;
+    const failed = recipients.filter(r => r.status === 'failed').length;
+
+    res.json({
+      message: {
+        id: message.id,
+        subject: message.subject,
+        type: 'email',
+        status: message.status,
+        sent_at: message.sent_at,
+        created_at: message.created_at,
+      },
+      recipients: recipients,
+      summary: {
+        total: total,
+        sent: sent,
+        failed: failed,
+        queued: 0, // Emails don't have queued status
+        to: toRecipients.length,
+        cc: ccRecipients.length,
+        bcc: bccRecipients.length,
+      },
+    });
+  } catch (error) {
+    console.error("Error getting email recipients:", error);
+    res.status(500).json({ message: "Error getting email recipients", error: error.message });
+  }
+};
+
 export const getEmailHistory = async (req, res) => {
   try {
     const { page = 1, limit = 50, type = null, startDate = null, endDate = null } = req.query;
+    const userId = req.user._id || req.user.id;
 
     const emails = await emailService.getEmailMessages({
       page: parseInt(page),
       limit: parseInt(limit),
+      sentBy: userId,
       recipientType: type || null,
       startDate: startDate || null,
       endDate: endDate || null,
@@ -442,10 +542,32 @@ export const getEmailHistory = async (req, res) => {
     const scheduledEmails = await emailService.getScheduledEmails({
       page: parseInt(page),
       limit: parseInt(limit),
+      createdBy: userId,
       status: null,
       startDate: startDate || null,
       endDate: endDate || null,
     });
+
+    // Helper function to get array length (handles both arrays and string representations)
+    const getArrayLength = (arr) => {
+      if (!arr) return 0;
+      if (Array.isArray(arr)) return arr.length;
+      if (typeof arr === 'string') {
+        // Try to parse as JSON array
+        try {
+          const parsed = JSON.parse(arr);
+          return Array.isArray(parsed) ? parsed.length : 0;
+        } catch {
+          // If not JSON, might be PostgreSQL array format like "{item1,item2}"
+          if (arr.startsWith('{') && arr.endsWith('}')) {
+            const items = arr.slice(1, -1).split(',').filter(item => item.trim());
+            return items.length;
+          }
+          return 0;
+        }
+      }
+      return 0;
+    };
 
     // Combine and format for client
     const combined = [
@@ -456,7 +578,10 @@ export const getEmailHistory = async (req, res) => {
         subject: e.subject,
         preview: e.html_content ? e.html_content.replace(/<[^>]*>/g, "").substring(0, 100) : "",
         recipientType: e.recipient_type,
-        recipientCount: (e.to_recipients?.length || 0) + (e.cc_recipients?.length || 0) + (e.bcc_recipients?.length || 0),
+        // Use SQL-calculated count if available, otherwise calculate from arrays
+        recipientCount: e.recipient_count !== undefined 
+          ? parseInt(e.recipient_count, 10)
+          : getArrayLength(e.to_recipients) + getArrayLength(e.cc_recipients) + getArrayLength(e.bcc_recipients),
         status: e.status,
         sentAt: e.sent_at,
         sentBy: e.sent_by_name || e.sent_by_email,
@@ -469,7 +594,9 @@ export const getEmailHistory = async (req, res) => {
         subject: se.subject,
         preview: se.html_content ? se.html_content.replace(/<[^>]*>/g, "").substring(0, 100) : "",
         recipientType: se.recipient_type,
-        recipientCount: (se.to_recipients?.length || 0) + (se.cc_recipients?.length || 0) + (se.bcc_recipients?.length || 0),
+        recipientCount: se.recipient_count !== undefined 
+          ? parseInt(se.recipient_count, 10)
+          : getArrayLength(se.to_recipients) + getArrayLength(se.cc_recipients) + getArrayLength(se.bcc_recipients),
         status: se.status,
         scheduledFor: se.scheduled_for,
         sentAt: se.sent_at,

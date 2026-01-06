@@ -4,7 +4,8 @@ import {
   loginLocal,
   verifyMfa,
   logoutUser,
-  getMe, 
+  getMe,
+  extendSession,
   forgotPassword, 
   resetPassword, 
   changePassword
@@ -68,6 +69,7 @@ router.get("/google/failure", googleFailure);
 
 // SESSION
 router.get("/me", getMe);
+router.post("/extend-session", requireAuth, extendSession);
 router.post("/logout", logoutUser);
 
 // PASSWORD RESET

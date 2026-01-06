@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import api from "../utils/api";
+import { SessionTimeoutProvider } from "./SessionTimeoutContext";
 
 export interface AuthUser {
   mustChangePassword: boolean;
@@ -34,8 +35,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       const { data } = await api.get("/auth/me");
       setUser(data.user);
+      // Store successful auth timestamp for session timeout tracking
+      localStorage.setItem("lastAuthSuccess", Date.now().toString());
     } catch {
       setUser(null);
+      localStorage.removeItem("lastAuthSuccess");
     } finally {
       setLoading(false); // ✅ ALWAYS stop loading
     }
@@ -47,6 +51,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } catch {}
     setUser(null);
     setLoading(false);
+    localStorage.removeItem("lastAuthSuccess");
     window.location.href = "/login?message=session_expired";
   };
 
@@ -56,7 +61,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <AuthContext.Provider value={{ user, loading, refreshUser, logout }}>
-      {children}
+      <SessionTimeoutProvider>
+        {children}
+      </SessionTimeoutProvider>
     </AuthContext.Provider>
   );
 };

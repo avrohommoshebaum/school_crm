@@ -32,7 +32,7 @@ export async function loadSecrets() {
 
   // LOCAL DEVELOPMENT: Use .env file only (already loaded by server.js)
   if (!isProduction) {
-    console.log("✅ Using .env file for local development");
+    // Using .env file for local development
     // Check if required secrets are present (optional warning)
     const requiredSecrets = [
       "SESSION_SECRET",
@@ -94,6 +94,7 @@ export async function loadSecrets() {
       TWILIO_PHONE_NUMBER: "TWILIO_PHONE_NUMBER",
       SCHEDULER_SECRET_TOKEN: "SCHEDULER_SECRET_TOKEN",
       TWILIO_WEBHOOK_TOKEN: "TWILIO_WEBHOOK_TOKEN",
+      SESSION_TIMEOUT_MS: "SESSION_TIMEOUT_MS",
     };
 
     // Load required secrets (must exist)

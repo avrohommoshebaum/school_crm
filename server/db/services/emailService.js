@@ -63,6 +63,7 @@ export async function getEmailMessages(options = {}) {
   const {
     page = 1,
     limit = 50,
+    sentBy = null,
     recipientType = null,
     startDate = null,
     endDate = null,
@@ -73,13 +74,21 @@ export async function getEmailMessages(options = {}) {
     SELECT 
       e.*,
       u.email as sent_by_email,
-      u.name as sent_by_name
+      u.name as sent_by_name,
+      COALESCE(array_length(e.to_recipients, 1), 0) + 
+      COALESCE(array_length(e.cc_recipients, 1), 0) + 
+      COALESCE(array_length(e.bcc_recipients, 1), 0) as recipient_count
     FROM email_messages e
     LEFT JOIN users u ON e.sent_by = u.id
     WHERE 1=1
   `;
   const params = [];
   let paramIndex = 1;
+
+  if (sentBy) {
+    sql += ` AND e.sent_by = $${paramIndex++}`;
+    params.push(sentBy);
+  }
 
   if (recipientType) {
     sql += ` AND e.recipient_type = $${paramIndex++}`;
@@ -256,6 +265,7 @@ export async function getScheduledEmails(options = {}) {
   const {
     page = 1,
     limit = 50,
+    createdBy = null,
     status = null,
     startDate = null,
     endDate = null,
@@ -266,13 +276,21 @@ export async function getScheduledEmails(options = {}) {
     SELECT 
       s.*,
       u.email as created_by_email,
-      u.name as created_by_name
+      u.name as created_by_name,
+      COALESCE(array_length(s.to_recipients, 1), 0) + 
+      COALESCE(array_length(s.cc_recipients, 1), 0) + 
+      COALESCE(array_length(s.bcc_recipients, 1), 0) as recipient_count
     FROM scheduled_emails s
     LEFT JOIN users u ON s.created_by = u.id
     WHERE 1=1
   `;
   const params = [];
   let paramIndex = 1;
+
+  if (createdBy) {
+    sql += ` AND s.created_by = $${paramIndex++}`;
+    params.push(createdBy);
+  }
 
   if (status) {
     sql += ` AND s.status = $${paramIndex++}`;
