@@ -10,6 +10,7 @@ import {
   staffBenefitService,
   staffDocumentService,
 } from "../db/services/staffManagementService.js";
+import { payrollService } from "../db/services/payrollService.js";
 
 export const getAllStaff = async (req, res) => {
   try {
@@ -20,7 +21,19 @@ export const getAllStaff = async (req, res) => {
       limit: limit ? parseInt(limit) : undefined,
       offset: offset ? parseInt(offset) : undefined,
     });
-    res.json({ staff });
+    
+    // Include positions for each staff member
+    const staffWithPositions = await Promise.all(
+      staff.map(async (member) => {
+        const positions = await staffService.getPositions(member.id, true); // Include inactive for list view
+        return {
+          ...member,
+          positions,
+        };
+      })
+    );
+    
+    res.json({ staff: staffWithPositions });
   } catch (error) {
     console.error("Error getting staff:", error);
     res.status(500).json({ message: "Error fetching staff", error: error.message });
@@ -34,13 +47,24 @@ export const getStaffById = async (req, res) => {
       return res.status(404).json({ message: "Staff member not found" });
     }
     
-    // Get additional info
-    const positions = await staffService.getPositions(staff.id);
+    // Get additional info (include inactive positions for detail view)
+    const positions = await staffService.getPositions(staff.id, true);
     const classes = await staffService.getClasses(staff.id);
     const isPrincipal = await staffService.isPrincipal(staff.id);
     const salaries = await staffSalaryService.findByStaffId(staff.id);
     const benefits = await staffBenefitService.findByStaffId(staff.id);
     const documents = await staffDocumentService.findByStaffId(staff.id);
+    
+    // Get payroll (optional - table might not exist yet)
+    let payroll = null;
+    try {
+      payroll = await payrollService.findByStaffId(staff.id);
+    } catch (error) {
+      // Table might not exist yet - ignore error
+      if (!error.message.includes("does not exist")) {
+        console.error("Error fetching payroll:", error.message);
+      }
+    }
     
     res.json({
       staff: {
@@ -51,6 +75,7 @@ export const getStaffById = async (req, res) => {
         salaries,
         benefits,
         documents,
+        payroll,
       },
     });
   } catch (error) {
@@ -124,6 +149,17 @@ export const createPosition = async (req, res) => {
   } catch (error) {
     console.error("Error creating position:", error);
     res.status(500).json({ message: "Error creating position", error: error.message });
+  }
+};
+
+export const deletePosition = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await staffService.removePosition(id);
+    res.json({ message: "Position removed successfully" });
+  } catch (error) {
+    console.error("Error deleting position:", error);
+    res.status(500).json({ message: "Error deleting position", error: error.message });
   }
 };
 
@@ -267,14 +303,16 @@ export const createDocument = async (req, res) => {
     }
 
     // Upload file to GCS
-    const { uploadAudioFile } = await import("../utils/storage/gcsStorage.js");
+    const { uploadFile } = await import("../utils/storage/gcsStorage.js");
     const fileExtension = req.file.originalname.split('.').pop() || 'bin';
     const fileName = `staff-documents/${staffId}/${Date.now()}-${documentName.replace(/[^a-zA-Z0-9]/g, '_')}.${fileExtension}`;
     
-    const uploadResult = await uploadAudioFile(
+    const uploadResult = await uploadFile(
       req.file.buffer,
       fileName,
-      req.file.mimetype || 'application/octet-stream'
+      req.file.mimetype || 'application/octet-stream',
+      'staff-documents', // pathPrefix
+      365 // expiresInDays - 1 year for documents
     );
 
     const document = await staffDocumentService.create({

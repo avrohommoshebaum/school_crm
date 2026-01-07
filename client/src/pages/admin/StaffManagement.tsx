@@ -30,6 +30,7 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  FormHelperText,
   Alert,
   Snackbar,
   Divider,
@@ -42,6 +43,11 @@ import {
   ListItemText,
   Grid,
   Autocomplete,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Checkbox,
+  FormControlLabel,
 } from "@mui/material";
 
 import SearchIcon from "@mui/icons-material/Search";
@@ -58,6 +64,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import AddIcon from "@mui/icons-material/Add";
 import RemoveIcon from "@mui/icons-material/Remove";
 import DownloadIcon from "@mui/icons-material/Download";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 
 import api from "../../utils/api";
 import { useAuth } from "../../context/AuthContext";
@@ -66,6 +73,41 @@ import { hasPermission } from "../../utils/permissions";
 // ============================================
 // TYPES
 // ============================================
+
+type Payroll = {
+  id?: string;
+  legalName?: string;
+  grade?: string;
+  jobNumber2?: string;
+  freeDaycare?: boolean;
+  misc2?: string;
+  misc3?: string;
+  totalPackage2526?: number;
+  maxQuarter?: number;
+  tuition?: number;
+  actualQuarter?: number;
+  annualGrossSalary?: number;
+  nachlas?: number;
+  otherBenefit?: number;
+  parsonage?: number;
+  parsonageAllocation?: number;
+  travel?: number;
+  insurance?: number;
+  ccName?: string;
+  ccAnnualAmount?: number;
+  retirement403b?: number;
+  paycheckAmount?: number;
+  monthlyParsonage?: number;
+  travelStipend?: number;
+  ccDeduction?: number;
+  insuranceDeduction?: number;
+  annualAdjustment?: number;
+  paychecksRemaining?: number;
+  perPaycheckAdjustment?: number;
+  adjustedCheckAmount?: number;
+  ptoDays?: number;
+  academicYear?: string;
+};
 
 type Staff = {
   id: string;
@@ -85,6 +127,7 @@ type Staff = {
   salaries?: Salary[];
   benefits?: Benefit[];
   documents?: Document[];
+  payroll?: Payroll;
 };
 
 type Position = {
@@ -171,6 +214,8 @@ export default function StaffManagement() {
   const [positionDeleteDialog, setPositionDeleteDialog] = useState(false);
   const [positionToDelete, setPositionToDelete] = useState<any>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [payrollDialog, setPayrollDialog] = useState(false);
+  const [selectedSalary, setSelectedSalary] = useState<Salary | null>(null);
 
   // Forms
   const [staffForm, setStaffForm] = useState({
@@ -189,6 +234,38 @@ export default function StaffManagement() {
     initialSalary: "",
     salaryType: "annual",
     payFrequency: "monthly",
+    // Payroll fields
+    legalName: "",
+    grade: "",
+    jobNumber2: "",
+    freeDaycare: false,
+    misc2: "",
+    misc3: "",
+    totalPackage2526: "",
+    maxQuarter: "",
+    tuition: "",
+    actualQuarter: "",
+    annualGrossSalary: "",
+    nachlas: "",
+    otherBenefit: "",
+    parsonage: "",
+    parsonageAllocation: "",
+    travel: "",
+    insurance: "",
+    ccName: "",
+    ccAnnualAmount: "",
+    retirement403b: "",
+    paycheckAmount: "",
+    monthlyParsonage: "",
+    travelStipend: "",
+    ccDeduction: "",
+    insuranceDeduction: "",
+    annualAdjustment: "",
+    paychecksRemaining: "",
+    perPaycheckAdjustment: "",
+    adjustedCheckAmount: "",
+    ptoDays: "",
+    academicYear: "",
   });
 
   const [positionForm, setPositionForm] = useState({
@@ -236,13 +313,47 @@ export default function StaffManagement() {
     notes: "",
   });
 
+  const [payrollForm, setPayrollForm] = useState({
+    legalName: "",
+    grade: "",
+    jobNumber2: "",
+    freeDaycare: false,
+    misc2: "",
+    misc3: "",
+    totalPackage2526: "",
+    maxQuarter: "",
+    tuition: "",
+    actualQuarter: "",
+    annualGrossSalary: "",
+    nachlas: "",
+    otherBenefit: "",
+    parsonage: "",
+    parsonageAllocation: "",
+    travel: "",
+    insurance: "",
+    ccName: "",
+    ccAnnualAmount: "",
+    retirement403b: "",
+    paycheckAmount: "",
+    monthlyParsonage: "",
+    travelStipend: "",
+    ccDeduction: "",
+    insuranceDeduction: "",
+    annualAdjustment: "",
+    paychecksRemaining: "",
+    perPaycheckAdjustment: "",
+    adjustedCheckAmount: "",
+    ptoDays: "",
+    academicYear: "",
+  });
+
   // Excel import
   const [excelFile, setExcelFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<any>(null);
 
   // Snackbar
-  const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" as "success" | "error" });
+  const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" as "success" | "error" | "warning" });
 
   // Detail view tab
   const [detailTab, setDetailTab] = useState(0);
@@ -284,7 +395,7 @@ export default function StaffManagement() {
     loadData();
   }, [canManage]);
 
-  const showSnackbar = (message: string, severity: "success" | "error") => {
+  const showSnackbar = (message: string, severity: "success" | "error" | "warning") => {
     setSnackbar({ open: true, message, severity });
   };
 
@@ -326,6 +437,38 @@ export default function StaffManagement() {
         initialSalary: "",
         salaryType: "annual",
         payFrequency: "monthly",
+        // Payroll fields
+        legalName: "",
+        grade: "",
+        jobNumber2: "",
+        freeDaycare: false,
+        misc2: "",
+        misc3: "",
+        totalPackage2526: "",
+        maxQuarter: "",
+        tuition: "",
+        actualQuarter: "",
+        annualGrossSalary: "",
+        nachlas: "",
+        otherBenefit: "",
+        parsonage: "",
+        parsonageAllocation: "",
+        travel: "",
+        insurance: "",
+        ccName: "",
+        ccAnnualAmount: "",
+        retirement403b: "",
+        paycheckAmount: "",
+        monthlyParsonage: "",
+        travelStipend: "",
+        ccDeduction: "",
+        insuranceDeduction: "",
+        annualAdjustment: "",
+        paychecksRemaining: "",
+        perPaycheckAdjustment: "",
+        adjustedCheckAmount: "",
+        ptoDays: "",
+        academicYear: "",
       });
     } else {
       setSelectedStaff(null);
@@ -345,6 +488,38 @@ export default function StaffManagement() {
         initialSalary: "",
         salaryType: "annual",
         payFrequency: "monthly",
+        // Payroll fields
+        legalName: "",
+        grade: "",
+        jobNumber2: "",
+        freeDaycare: false,
+        misc2: "",
+        misc3: "",
+        totalPackage2526: "",
+        maxQuarter: "",
+        tuition: "",
+        actualQuarter: "",
+        annualGrossSalary: "",
+        nachlas: "",
+        otherBenefit: "",
+        parsonage: "",
+        parsonageAllocation: "",
+        travel: "",
+        insurance: "",
+        ccName: "",
+        ccAnnualAmount: "",
+        retirement403b: "",
+        paycheckAmount: "",
+        monthlyParsonage: "",
+        travelStipend: "",
+        ccDeduction: "",
+        insuranceDeduction: "",
+        annualAdjustment: "",
+        paychecksRemaining: "",
+        perPaycheckAdjustment: "",
+        adjustedCheckAmount: "",
+        ptoDays: "",
+        academicYear: "",
       });
     }
     setStaffDialog(true);
@@ -352,7 +527,44 @@ export default function StaffManagement() {
 
   const handleSaveStaff = async () => {
     try {
-      const { positionId, initialSalary, salaryType, payFrequency, ...staffData } = staffForm;
+      const { 
+        positionId, 
+        initialSalary, 
+        salaryType, 
+        payFrequency,
+        legalName,
+        grade,
+        jobNumber2,
+        freeDaycare,
+        misc2,
+        misc3,
+        totalPackage2526,
+        maxQuarter,
+        tuition,
+        actualQuarter,
+        annualGrossSalary,
+        nachlas,
+        otherBenefit,
+        parsonage,
+        parsonageAllocation,
+        travel,
+        insurance,
+        ccName,
+        ccAnnualAmount,
+        retirement403b,
+        paycheckAmount,
+        monthlyParsonage,
+        travelStipend,
+        ccDeduction,
+        insuranceDeduction,
+        annualAdjustment,
+        paychecksRemaining,
+        perPaycheckAdjustment,
+        adjustedCheckAmount,
+        ptoDays,
+        academicYear,
+        ...staffData 
+      } = staffForm;
       
       if (selectedStaff) {
         await api.put(`/staff/${selectedStaff.id}`, staffData);
@@ -373,11 +585,63 @@ export default function StaffManagement() {
         // Add initial salary if provided
         if (initialSalary) {
           await api.post(`/staff/${newStaffId}/salaries`, {
-            salaryAmount: parseFloat(initialSalary),
+            salaryAmount: parseFloat(parseCurrency(initialSalary)),
             salaryType,
             payFrequency,
             effectiveDate: staffData.hireDate || new Date().toISOString().split('T')[0],
           });
+        }
+
+        // Add payroll if any payroll field is provided
+        const hasPayrollData = legalName || grade || jobNumber2 || totalPackage2526 || 
+          maxQuarter || tuition || actualQuarter || annualGrossSalary || nachlas || 
+          otherBenefit || parsonage || parsonageAllocation || travel || insurance || 
+          ccName || ccAnnualAmount || retirement403b || paycheckAmount || monthlyParsonage || 
+          travelStipend || ccDeduction || insuranceDeduction || annualAdjustment || 
+          paychecksRemaining || perPaycheckAdjustment || adjustedCheckAmount || ptoDays || 
+          academicYear || misc2 || misc3;
+        
+        if (hasPayrollData) {
+          const payrollData: any = {};
+          if (legalName) payrollData.legalName = legalName;
+          if (grade) payrollData.grade = grade;
+          if (jobNumber2) payrollData.jobNumber2 = jobNumber2;
+          payrollData.freeDaycare = freeDaycare || false;
+          if (misc2) payrollData.misc2 = misc2;
+          if (misc3) payrollData.misc3 = misc3;
+          if (totalPackage2526) payrollData.totalPackage2526 = parseFloat(parseCurrency(totalPackage2526)) || null;
+          if (maxQuarter) payrollData.maxQuarter = parseFloat(parseCurrency(maxQuarter)) || null;
+          if (tuition) payrollData.tuition = parseFloat(parseCurrency(tuition)) || null;
+          if (actualQuarter) payrollData.actualQuarter = parseFloat(parseCurrency(actualQuarter)) || null;
+          if (annualGrossSalary) payrollData.annualGrossSalary = parseFloat(parseCurrency(annualGrossSalary)) || null;
+          if (nachlas) payrollData.nachlas = parseFloat(parseCurrency(nachlas)) || null;
+          if (otherBenefit) payrollData.otherBenefit = parseFloat(parseCurrency(otherBenefit)) || null;
+          if (parsonage) payrollData.parsonage = parseFloat(parseCurrency(parsonage)) || null;
+          if (parsonageAllocation) payrollData.parsonageAllocation = parseFloat(parseCurrency(parsonageAllocation)) || null;
+          if (travel) payrollData.travel = parseFloat(parseCurrency(travel)) || null;
+          if (insurance) payrollData.insurance = parseFloat(parseCurrency(insurance)) || null;
+          if (ccName) payrollData.ccName = ccName;
+          if (ccAnnualAmount) payrollData.ccAnnualAmount = parseFloat(parseCurrency(ccAnnualAmount)) || null;
+          if (retirement403b) payrollData.retirement403b = parseFloat(parseCurrency(retirement403b)) || null;
+          if (paycheckAmount) payrollData.paycheckAmount = parseFloat(parseCurrency(paycheckAmount)) || null;
+          if (monthlyParsonage) payrollData.monthlyParsonage = parseFloat(parseCurrency(monthlyParsonage)) || null;
+          if (travelStipend) payrollData.travelStipend = parseFloat(parseCurrency(travelStipend)) || null;
+          if (ccDeduction) payrollData.ccDeduction = parseFloat(parseCurrency(ccDeduction)) || null;
+          if (insuranceDeduction) payrollData.insuranceDeduction = parseFloat(parseCurrency(insuranceDeduction)) || null;
+          if (annualAdjustment) payrollData.annualAdjustment = parseFloat(parseCurrency(annualAdjustment)) || null;
+          if (paychecksRemaining) payrollData.paychecksRemaining = parseFloat(paychecksRemaining) || null;
+          if (perPaycheckAdjustment) payrollData.perPaycheckAdjustment = parseFloat(parseCurrency(perPaycheckAdjustment)) || null;
+          if (adjustedCheckAmount) payrollData.adjustedCheckAmount = parseFloat(parseCurrency(adjustedCheckAmount)) || null;
+          if (ptoDays) payrollData.ptoDays = parseFloat(ptoDays) || null;
+          if (academicYear) payrollData.academicYear = academicYear;
+
+          try {
+            await api.post(`/payroll/staff/${newStaffId}`, payrollData);
+          } catch (payrollErr: any) {
+            console.error("Error creating payroll:", payrollErr);
+            // Don't fail the whole operation if payroll creation fails
+            showSnackbar("Staff created but payroll creation failed", "warning");
+          }
         }
 
         showSnackbar("Staff member created successfully", "success");
@@ -449,22 +713,74 @@ export default function StaffManagement() {
       setPositionDialog(false);
       // Reload staff data
       hasLoadedRef.current = false;
-      const { data } = await api.get("/staff");
-      setStaff(data.staff || []);
+      const { data } = await api.get(`/staff/${selectedStaff.id}`);
+      const updatedStaff = staff.map((s) => (s.id === selectedStaff.id ? data.staff : s));
+      setStaff(updatedStaff);
+      setSelectedStaff(data.staff); // Update selected staff in detail dialog
     } catch (err: any) {
       showSnackbar(err?.response?.data?.message || "Failed to save position", "error");
     }
   };
 
+  const handleDeletePosition = async (positionId: string) => {
+    if (!selectedStaff) return;
+
+    if (!window.confirm("Are you sure you want to remove this position from this staff member?")) {
+      return;
+    }
+
+    try {
+      await api.delete(`/staff/positions/${positionId}`);
+      showSnackbar("Position removed successfully", "success");
+      // Reload staff data
+      hasLoadedRef.current = false;
+      const { data } = await api.get(`/staff/${selectedStaff.id}`);
+      const updatedStaff = staff.map((s) => (s.id === selectedStaff.id ? data.staff : s));
+      setStaff(updatedStaff);
+      setSelectedStaff(data.staff); // Update selected staff in detail dialog
+    } catch (err: any) {
+      showSnackbar(err?.response?.data?.message || "Failed to remove position", "error");
+    }
+  };
+
+  // Currency formatting helpers
+  const formatCurrency = (value: string | number): string => {
+    if (!value && value !== 0) return "";
+    // Remove all non-digit characters except decimal point
+    const numStr = String(value).replace(/[^\d.]/g, "");
+    if (!numStr) return "";
+    const num = parseFloat(numStr);
+    if (isNaN(num)) return "";
+    // Format with commas and 2 decimal places
+    return num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
+  const parseCurrency = (value: string): string => {
+    // Remove all non-digit characters except decimal point
+    return value.replace(/[^\d.]/g, "");
+  };
+
   // Salary management
   const handleOpenSalaryDialog = (staffMember: Staff, salary?: Salary) => {
     setSelectedStaff(staffMember);
+    setSelectedSalary(salary || null);
     if (salary) {
+      // Format dates for display (convert from YYYY-MM-DD to mm/dd/yy)
+      const formatDateForInput = (dateStr: string) => {
+        if (!dateStr) return "";
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) return dateStr;
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        const year = String(date.getFullYear()).slice(-2);
+        return `${month}/${day}/${year}`;
+      };
+      
       setSalaryForm({
-        salaryAmount: salary.salaryAmount.toString(),
+        salaryAmount: formatCurrency(salary.salaryAmount),
         salaryType: salary.salaryType,
-        effectiveDate: salary.effectiveDate,
-        endDate: salary.endDate || "",
+        effectiveDate: formatDateForInput(salary.effectiveDate),
+        endDate: salary.endDate ? formatDateForInput(salary.endDate) : "",
         payFrequency: salary.payFrequency,
         notes: salary.notes || "",
       });
@@ -485,22 +801,45 @@ export default function StaffManagement() {
     if (!selectedStaff) return;
 
     try {
-      await api.post(`/staff/${selectedStaff.id}/salaries`, {
-        salaryAmount: parseFloat(salaryForm.salaryAmount),
+      // Convert mm/dd/yy back to YYYY-MM-DD format
+      const convertDateToISO = (dateStr: string) => {
+        if (!dateStr) return null;
+        // Handle both mm/dd/yy and YYYY-MM-DD formats
+        if (dateStr.includes("/")) {
+          const [month, day, year] = dateStr.split("/");
+          const fullYear = year.length === 2 ? `20${year}` : year;
+          return `${fullYear}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+        }
+        return dateStr;
+      };
+
+      const salaryData = {
+        salaryAmount: parseFloat(parseCurrency(salaryForm.salaryAmount)),
         salaryType: salaryForm.salaryType,
-        effectiveDate: salaryForm.effectiveDate,
-        endDate: salaryForm.endDate || null,
+        effectiveDate: convertDateToISO(salaryForm.effectiveDate) || "",
+        endDate: salaryForm.endDate ? convertDateToISO(salaryForm.endDate) : null,
         payFrequency: salaryForm.payFrequency,
         notes: salaryForm.notes || null,
-      });
+      };
 
-      showSnackbar("Salary added successfully", "success");
+      if (selectedSalary) {
+        // Update existing salary
+        await api.put(`/staff/salaries/${selectedSalary.id}`, salaryData);
+        showSnackbar("Salary updated successfully", "success");
+      } else {
+        // Create new salary
+        await api.post(`/staff/${selectedStaff.id}/salaries`, salaryData);
+        showSnackbar("Salary added successfully", "success");
+      }
+      
       setSalaryDialog(false);
+      setSelectedSalary(null);
       // Reload staff data
       hasLoadedRef.current = false;
       const { data } = await api.get(`/staff/${selectedStaff.id}`);
       const updatedStaff = staff.map((s) => (s.id === selectedStaff.id ? data.staff : s));
       setStaff(updatedStaff);
+      setSelectedStaff(data.staff); // Update selected staff in detail dialog
     } catch (err: any) {
       showSnackbar(err?.response?.data?.message || "Failed to save salary", "error");
     }
@@ -660,6 +999,195 @@ export default function StaffManagement() {
       handleStaffMenuClose();
     } catch (err: any) {
       showSnackbar("Failed to load staff details", "error");
+    }
+  };
+
+  // Payroll management
+  const handleOpenPayrollDialog = async (staffMember: Staff) => {
+    setSelectedStaff(staffMember);
+    try {
+      // Try to fetch existing payroll
+      const { data } = await api.get(`/payroll/staff/${staffMember.id}`);
+      if (data.payroll) {
+        setPayrollForm({
+          legalName: data.payroll.legalName || "",
+          grade: data.payroll.grade || "",
+          jobNumber2: data.payroll.jobNumber2 || "",
+          freeDaycare: data.payroll.freeDaycare || false,
+          misc2: data.payroll.misc2 || "",
+          misc3: data.payroll.misc3 || "",
+          totalPackage2526: data.payroll.totalPackage2526?.toString() || "",
+          maxQuarter: data.payroll.maxQuarter?.toString() || "",
+          tuition: data.payroll.tuition?.toString() || "",
+          actualQuarter: data.payroll.actualQuarter?.toString() || "",
+          annualGrossSalary: data.payroll.annualGrossSalary?.toString() || "",
+          nachlas: data.payroll.nachlas?.toString() || "",
+          otherBenefit: data.payroll.otherBenefit?.toString() || "",
+          parsonage: data.payroll.parsonage?.toString() || "",
+          parsonageAllocation: data.payroll.parsonageAllocation?.toString() || "",
+          travel: data.payroll.travel?.toString() || "",
+          insurance: data.payroll.insurance?.toString() || "",
+          ccName: data.payroll.ccName || "",
+          ccAnnualAmount: data.payroll.ccAnnualAmount?.toString() || "",
+          retirement403b: data.payroll.retirement403b?.toString() || "",
+          paycheckAmount: data.payroll.paycheckAmount?.toString() || "",
+          monthlyParsonage: data.payroll.monthlyParsonage?.toString() || "",
+          travelStipend: data.payroll.travelStipend?.toString() || "",
+          ccDeduction: data.payroll.ccDeduction?.toString() || "",
+          insuranceDeduction: data.payroll.insuranceDeduction?.toString() || "",
+          annualAdjustment: data.payroll.annualAdjustment?.toString() || "",
+          paychecksRemaining: data.payroll.paychecksRemaining?.toString() || "",
+          perPaycheckAdjustment: data.payroll.perPaycheckAdjustment?.toString() || "",
+          adjustedCheckAmount: data.payroll.adjustedCheckAmount?.toString() || "",
+          ptoDays: data.payroll.ptoDays?.toString() || "",
+          academicYear: data.payroll.academicYear || "",
+        });
+      } else {
+        // Initialize empty form
+        setPayrollForm({
+          legalName: "",
+          grade: "",
+          jobNumber2: "",
+          freeDaycare: false,
+          misc2: "",
+          misc3: "",
+          totalPackage2526: "",
+          maxQuarter: "",
+          tuition: "",
+          actualQuarter: "",
+          annualGrossSalary: "",
+          nachlas: "",
+          otherBenefit: "",
+          parsonage: "",
+          parsonageAllocation: "",
+          travel: "",
+          insurance: "",
+          ccName: "",
+          ccAnnualAmount: "",
+          retirement403b: "",
+          paycheckAmount: "",
+          monthlyParsonage: "",
+          travelStipend: "",
+          ccDeduction: "",
+          insuranceDeduction: "",
+          annualAdjustment: "",
+          paychecksRemaining: "",
+          perPaycheckAdjustment: "",
+          adjustedCheckAmount: "",
+          ptoDays: "",
+          academicYear: new Date().getFullYear() + "-" + (new Date().getFullYear() + 1),
+        });
+      }
+    } catch (err: any) {
+      // If no payroll exists, initialize empty form
+      if (err?.response?.status === 404) {
+        setPayrollForm({
+          legalName: "",
+          grade: "",
+          jobNumber2: "",
+          freeDaycare: false,
+          misc2: "",
+          misc3: "",
+          totalPackage2526: "",
+          maxQuarter: "",
+          tuition: "",
+          actualQuarter: "",
+          annualGrossSalary: "",
+          nachlas: "",
+          otherBenefit: "",
+          parsonage: "",
+          parsonageAllocation: "",
+          travel: "",
+          insurance: "",
+          ccName: "",
+          ccAnnualAmount: "",
+          retirement403b: "",
+          paycheckAmount: "",
+          monthlyParsonage: "",
+          travelStipend: "",
+          ccDeduction: "",
+          insuranceDeduction: "",
+          annualAdjustment: "",
+          paychecksRemaining: "",
+          perPaycheckAdjustment: "",
+          adjustedCheckAmount: "",
+          ptoDays: "",
+          academicYear: new Date().getFullYear() + "-" + (new Date().getFullYear() + 1),
+        });
+      } else {
+        showSnackbar("Failed to load payroll data", "error");
+        return;
+      }
+    }
+    setPayrollDialog(true);
+  };
+
+  const handleSavePayroll = async () => {
+    if (!selectedStaff) return;
+
+    try {
+      const payrollData = {
+        legalName: payrollForm.legalName || null,
+        grade: payrollForm.grade || null,
+        jobNumber2: payrollForm.jobNumber2 || null,
+        freeDaycare: payrollForm.freeDaycare,
+        misc2: payrollForm.misc2 || null,
+        misc3: payrollForm.misc3 || null,
+        totalPackage2526: payrollForm.totalPackage2526 ? parseFloat(payrollForm.totalPackage2526) : null,
+        maxQuarter: payrollForm.maxQuarter ? parseFloat(payrollForm.maxQuarter) : null,
+        tuition: payrollForm.tuition ? parseFloat(payrollForm.tuition) : null,
+        actualQuarter: payrollForm.actualQuarter ? parseFloat(payrollForm.actualQuarter) : null,
+        annualGrossSalary: payrollForm.annualGrossSalary ? parseFloat(payrollForm.annualGrossSalary) : null,
+        nachlas: payrollForm.nachlas ? parseFloat(payrollForm.nachlas) : null,
+        otherBenefit: payrollForm.otherBenefit ? parseFloat(payrollForm.otherBenefit) : null,
+        parsonage: payrollForm.parsonage ? parseFloat(payrollForm.parsonage) : null,
+        parsonageAllocation: payrollForm.parsonageAllocation ? parseFloat(payrollForm.parsonageAllocation) : null,
+        travel: payrollForm.travel ? parseFloat(payrollForm.travel) : null,
+        insurance: payrollForm.insurance ? parseFloat(payrollForm.insurance) : null,
+        ccName: payrollForm.ccName || null,
+        ccAnnualAmount: payrollForm.ccAnnualAmount ? parseFloat(payrollForm.ccAnnualAmount) : null,
+        retirement403b: payrollForm.retirement403b ? parseFloat(payrollForm.retirement403b) : null,
+        paycheckAmount: payrollForm.paycheckAmount ? parseFloat(payrollForm.paycheckAmount) : null,
+        monthlyParsonage: payrollForm.monthlyParsonage ? parseFloat(payrollForm.monthlyParsonage) : null,
+        travelStipend: payrollForm.travelStipend ? parseFloat(payrollForm.travelStipend) : null,
+        ccDeduction: payrollForm.ccDeduction ? parseFloat(payrollForm.ccDeduction) : null,
+        insuranceDeduction: payrollForm.insuranceDeduction ? parseFloat(payrollForm.insuranceDeduction) : null,
+        annualAdjustment: payrollForm.annualAdjustment ? parseFloat(payrollForm.annualAdjustment) : null,
+        paychecksRemaining: payrollForm.paychecksRemaining ? parseInt(payrollForm.paychecksRemaining) : null,
+        perPaycheckAdjustment: payrollForm.perPaycheckAdjustment ? parseFloat(payrollForm.perPaycheckAdjustment) : null,
+        adjustedCheckAmount: payrollForm.adjustedCheckAmount ? parseFloat(payrollForm.adjustedCheckAmount) : null,
+        ptoDays: payrollForm.ptoDays ? parseFloat(payrollForm.ptoDays) : null,
+        academicYear: payrollForm.academicYear || null,
+      };
+
+      // Check if payroll exists
+      try {
+        const { data: existing } = await api.get(`/payroll/staff/${selectedStaff.id}`);
+        if (existing.payroll) {
+          // Update existing
+          await api.put(`/payroll/${existing.payroll.id}`, payrollData);
+          showSnackbar("Payroll updated successfully", "success");
+        } else {
+          throw new Error("Not found");
+        }
+      } catch (err: any) {
+        if (err?.response?.status === 404 || err.message === "Not found") {
+          // Create new
+          await api.post(`/payroll/staff/${selectedStaff.id}`, payrollData);
+          showSnackbar("Payroll created successfully", "success");
+        } else {
+          throw err;
+        }
+      }
+
+      setPayrollDialog(false);
+      // Reload staff data
+      hasLoadedRef.current = false;
+      const { data } = await api.get(`/staff/${selectedStaff.id}`);
+      const updatedStaff = staff.map((s) => (s.id === selectedStaff.id ? data.staff : s));
+      setStaff(updatedStaff);
+    } catch (err: any) {
+      showSnackbar(err?.response?.data?.message || "Failed to save payroll", "error");
     }
   };
 
@@ -868,163 +1396,998 @@ export default function StaffManagement() {
       </Menu>
 
       {/* Staff Dialog */}
-      <Dialog open={staffDialog} onClose={() => setStaffDialog(false)} maxWidth="md" fullWidth>
+      <Dialog open={staffDialog} onClose={() => setStaffDialog(false)} maxWidth="lg" fullWidth>
         <DialogTitle>
-          {selectedStaff ? "Edit Staff Member" : "Add Staff Member"}
+          <Stack direction="row" spacing={1} alignItems="center">
+            <PersonAddIcon color="primary" />
+            <Typography variant="h6">
+              {selectedStaff ? "Edit Staff Member" : "Add Staff Member"}
+            </Typography>
+          </Stack>
         </DialogTitle>
         <DialogContent>
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="First Name"
-                  required
-                  value={staffForm.firstName}
-                  onChange={(e) => setStaffForm({ ...staffForm, firstName: e.target.value })}
-                />
+          <Stack spacing={4} sx={{ mt: 1 }}>
+            {/* Personal Information Section */}
+            <Box>
+              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+                <Typography variant="subtitle1" fontWeight={600} color="primary">
+                  Personal Information
+                </Typography>
+              </Stack>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="First Name"
+                    required
+                    value={staffForm.firstName}
+                    onChange={(e) => setStaffForm({ ...staffForm, firstName: e.target.value })}
+                    placeholder="Enter first name"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Last Name"
+                    required
+                    value={staffForm.lastName}
+                    onChange={(e) => setStaffForm({ ...staffForm, lastName: e.target.value })}
+                    placeholder="Enter last name"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Title (Mr., Mrs., etc.)"
+                    value={staffForm.title}
+                    onChange={(e) => setStaffForm({ ...staffForm, title: e.target.value })}
+                    placeholder="e.g., Mr., Mrs., Dr."
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Employee ID"
+                    value={staffForm.employeeId}
+                    onChange={(e) => setStaffForm({ ...staffForm, employeeId: e.target.value })}
+                    placeholder="Enter employee ID"
+                    helperText="Optional unique identifier"
+                  />
+                </Grid>
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Last Name"
-                  required
-                  value={staffForm.lastName}
-                  onChange={(e) => setStaffForm({ ...staffForm, lastName: e.target.value })}
-                />
+            </Box>
+
+            <Divider />
+
+            {/* Contact Information Section */}
+            <Box>
+              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+                <Typography variant="subtitle1" fontWeight={600} color="primary">
+                  Contact Information
+                </Typography>
+              </Stack>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Email Address"
+                    type="email"
+                    value={staffForm.email}
+                    onChange={(e) => setStaffForm({ ...staffForm, email: e.target.value })}
+                    placeholder="staff@example.com"
+                    helperText="Optional email address"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Phone Number"
+                    value={staffForm.phone}
+                    onChange={(e) => setStaffForm({ ...staffForm, phone: e.target.value })}
+                    placeholder="(555) 123-4567"
+                    helperText="Optional phone number"
+                  />
+                </Grid>
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Email"
-                  type="email"
-                  value={staffForm.email}
-                  onChange={(e) => setStaffForm({ ...staffForm, email: e.target.value })}
-                />
+            </Box>
+
+            <Divider />
+
+            {/* Employment Information Section */}
+            <Box>
+              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+                <Typography variant="subtitle1" fontWeight={600} color="primary">
+                  Employment Information
+                </Typography>
+              </Stack>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Hire Date"
+                    type="date"
+                    InputLabelProps={{ shrink: true }}
+                    value={staffForm.hireDate}
+                    onChange={(e) => setStaffForm({ ...staffForm, hireDate: e.target.value })}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="End Date (optional)"
+                    type="date"
+                    InputLabelProps={{ shrink: true }}
+                    value={staffForm.terminationDate}
+                    onChange={(e) => setStaffForm({ ...staffForm, terminationDate: e.target.value })}
+                    helperText="Leave blank if currently employed"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Employment Status</InputLabel>
+                    <Select
+                      value={staffForm.employmentStatus}
+                      label="Employment Status"
+                      onChange={(e) => setStaffForm({ ...staffForm, employmentStatus: e.target.value })}
+                    >
+                      <MenuItem value="active">Active</MenuItem>
+                      <MenuItem value="inactive">Inactive</MenuItem>
+                      <MenuItem value="terminated">Terminated</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Position</InputLabel>
+                    <Select
+                      value={staffForm.positionId}
+                      label="Position"
+                      onChange={(e) => setStaffForm({ ...staffForm, positionId: e.target.value })}
+                      disabled={!!selectedStaff}
+                    >
+                      <MenuItem value="">None</MenuItem>
+                      {positions.filter(p => p.isActive).map((pos) => (
+                        <MenuItem key={pos.id} value={pos.id}>
+                          {pos.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                    <FormHelperText>
+                      {selectedStaff ? "Positions can be managed in staff details" : "Select initial position (optional)"}
+                    </FormHelperText>
+                  </FormControl>
+                </Grid>
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Phone"
-                  value={staffForm.phone}
-                  onChange={(e) => setStaffForm({ ...staffForm, phone: e.target.value })}
-                />
+            </Box>
+
+            {/* Initial Compensation Section (only for new staff) */}
+            {!selectedStaff && (
+              <>
+                <Divider />
+                <Box>
+                  <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+                    <AttachMoneyIcon color="primary" fontSize="small" />
+                    <Typography variant="subtitle1" fontWeight={600} color="primary">
+                      Initial Compensation (Optional)
+                    </Typography>
+                  </Stack>
+                  <Alert severity="info" sx={{ mb: 2 }}>
+                    You can set an initial salary here, or add it later in the staff member's details.
+                  </Alert>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        label="Initial Salary"
+                        value={staffForm.initialSalary}
+                        onChange={(e) => {
+                          // Allow free typing - only remove invalid characters
+                          let value = e.target.value.replace(/[^\d.]/g, "");
+                          // Ensure only one decimal point
+                          const parts = value.split(".");
+                          if (parts.length > 2) {
+                            value = parts[0] + "." + parts.slice(1).join("");
+                          }
+                          // Limit decimal places to 2
+                          if (parts.length > 1 && parts[1].length > 2) {
+                            value = parts[0] + "." + parts[1].slice(0, 2);
+                          }
+                          setStaffForm({ ...staffForm, initialSalary: value });
+                        }}
+                        onBlur={(e) => {
+                          // Format with commas and 2 decimal places when user leaves field
+                          const rawValue = parseCurrency(e.target.value);
+                          if (rawValue) {
+                            const formatted = formatCurrency(rawValue);
+                            setStaffForm({ ...staffForm, initialSalary: formatted });
+                          }
+                        }}
+                        placeholder="0.00"
+                        InputProps={{
+                          startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                        }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <FormControl fullWidth>
+                        <InputLabel>Salary Type</InputLabel>
+                        <Select
+                          value={staffForm.salaryType}
+                          label="Salary Type"
+                          onChange={(e) => setStaffForm({ ...staffForm, salaryType: e.target.value })}
+                        >
+                          <MenuItem value="annual">Annual</MenuItem>
+                          <MenuItem value="monthly">Monthly</MenuItem>
+                          <MenuItem value="hourly">Hourly</MenuItem>
+                          <MenuItem value="per_diem">Per Diem</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <FormControl fullWidth>
+                        <InputLabel>Pay Frequency</InputLabel>
+                        <Select
+                          value={staffForm.payFrequency}
+                          label="Pay Frequency"
+                          onChange={(e) => setStaffForm({ ...staffForm, payFrequency: e.target.value })}
+                        >
+                          <MenuItem value="weekly">Weekly</MenuItem>
+                          <MenuItem value="bi-weekly">Bi-Weekly</MenuItem>
+                          <MenuItem value="monthly">Monthly</MenuItem>
+                          <MenuItem value="semi-monthly">Semi-Monthly</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                  </Grid>
+                </Box>
+              </>
+            )}
+
+            {/* Payroll Information Section (only for new staff) */}
+            {!selectedStaff && (
+              <>
+                <Divider />
+                <Accordion>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <AttachMoneyIcon color="primary" fontSize="small" />
+                      <Typography variant="subtitle1" fontWeight={600} color="primary">
+                        Payroll Information (Optional)
+                      </Typography>
+                    </Stack>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <Alert severity="info" sx={{ mb: 2 }}>
+                      You can add payroll information here, or add it later in the staff member's details.
+                    </Alert>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="Legal Name"
+                          value={staffForm.legalName}
+                          onChange={(e) => setStaffForm({ ...staffForm, legalName: e.target.value })}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="Grade"
+                          value={staffForm.grade}
+                          onChange={(e) => setStaffForm({ ...staffForm, grade: e.target.value })}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="Academic Year"
+                          value={staffForm.academicYear}
+                          onChange={(e) => setStaffForm({ ...staffForm, academicYear: e.target.value })}
+                          placeholder="e.g., 2025-2026"
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="Job #2"
+                          value={staffForm.jobNumber2}
+                          onChange={(e) => setStaffForm({ ...staffForm, jobNumber2: e.target.value })}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={staffForm.freeDaycare}
+                              onChange={(e) => setStaffForm({ ...staffForm, freeDaycare: e.target.checked })}
+                            />
+                          }
+                          label="Free Daycare"
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="Annual Gross Salary"
+                          value={staffForm.annualGrossSalary}
+                          onChange={(e) => {
+                            let value = e.target.value.replace(/[^\d.]/g, "");
+                            const parts = value.split(".");
+                            if (parts.length > 2) {
+                              value = parts[0] + "." + parts.slice(1).join("");
+                            }
+                            if (parts.length > 1 && parts[1].length > 2) {
+                              value = parts[0] + "." + parts[1].slice(0, 2);
+                            }
+                            setStaffForm({ ...staffForm, annualGrossSalary: value });
+                          }}
+                          onBlur={(e) => {
+                            const rawValue = parseCurrency(e.target.value);
+                            if (rawValue) {
+                              const formatted = formatCurrency(rawValue);
+                              setStaffForm({ ...staffForm, annualGrossSalary: formatted });
+                            }
+                          }}
+                          InputProps={{
+                            startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                          }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="Total Package (25-26)"
+                          value={staffForm.totalPackage2526}
+                          onChange={(e) => {
+                            let value = e.target.value.replace(/[^\d.]/g, "");
+                            const parts = value.split(".");
+                            if (parts.length > 2) {
+                              value = parts[0] + "." + parts.slice(1).join("");
+                            }
+                            if (parts.length > 1 && parts[1].length > 2) {
+                              value = parts[0] + "." + parts[1].slice(0, 2);
+                            }
+                            setStaffForm({ ...staffForm, totalPackage2526: value });
+                          }}
+                          onBlur={(e) => {
+                            const rawValue = parseCurrency(e.target.value);
+                            if (rawValue) {
+                              const formatted = formatCurrency(rawValue);
+                              setStaffForm({ ...staffForm, totalPackage2526: formatted });
+                            }
+                          }}
+                          InputProps={{
+                            startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                          }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="Max Quarter"
+                          value={staffForm.maxQuarter}
+                          onChange={(e) => {
+                            let value = e.target.value.replace(/[^\d.]/g, "");
+                            const parts = value.split(".");
+                            if (parts.length > 2) {
+                              value = parts[0] + "." + parts.slice(1).join("");
+                            }
+                            if (parts.length > 1 && parts[1].length > 2) {
+                              value = parts[0] + "." + parts[1].slice(0, 2);
+                            }
+                            setStaffForm({ ...staffForm, maxQuarter: value });
+                          }}
+                          onBlur={(e) => {
+                            const rawValue = parseCurrency(e.target.value);
+                            if (rawValue) {
+                              const formatted = formatCurrency(rawValue);
+                              setStaffForm({ ...staffForm, maxQuarter: formatted });
+                            }
+                          }}
+                          InputProps={{
+                            startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                          }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="Tuition"
+                          value={staffForm.tuition}
+                          onChange={(e) => {
+                            let value = e.target.value.replace(/[^\d.]/g, "");
+                            const parts = value.split(".");
+                            if (parts.length > 2) {
+                              value = parts[0] + "." + parts.slice(1).join("");
+                            }
+                            if (parts.length > 1 && parts[1].length > 2) {
+                              value = parts[0] + "." + parts[1].slice(0, 2);
+                            }
+                            setStaffForm({ ...staffForm, tuition: value });
+                          }}
+                          onBlur={(e) => {
+                            const rawValue = parseCurrency(e.target.value);
+                            if (rawValue) {
+                              const formatted = formatCurrency(rawValue);
+                              setStaffForm({ ...staffForm, tuition: formatted });
+                            }
+                          }}
+                          InputProps={{
+                            startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                          }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="Actual Quarter"
+                          value={staffForm.actualQuarter}
+                          onChange={(e) => {
+                            let value = e.target.value.replace(/[^\d.]/g, "");
+                            const parts = value.split(".");
+                            if (parts.length > 2) {
+                              value = parts[0] + "." + parts.slice(1).join("");
+                            }
+                            if (parts.length > 1 && parts[1].length > 2) {
+                              value = parts[0] + "." + parts[1].slice(0, 2);
+                            }
+                            setStaffForm({ ...staffForm, actualQuarter: value });
+                          }}
+                          onBlur={(e) => {
+                            const rawValue = parseCurrency(e.target.value);
+                            if (rawValue) {
+                              const formatted = formatCurrency(rawValue);
+                              setStaffForm({ ...staffForm, actualQuarter: formatted });
+                            }
+                          }}
+                          InputProps={{
+                            startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                          }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="Nachlas"
+                          value={staffForm.nachlas}
+                          onChange={(e) => {
+                            let value = e.target.value.replace(/[^\d.]/g, "");
+                            const parts = value.split(".");
+                            if (parts.length > 2) {
+                              value = parts[0] + "." + parts.slice(1).join("");
+                            }
+                            if (parts.length > 1 && parts[1].length > 2) {
+                              value = parts[0] + "." + parts[1].slice(0, 2);
+                            }
+                            setStaffForm({ ...staffForm, nachlas: value });
+                          }}
+                          onBlur={(e) => {
+                            const rawValue = parseCurrency(e.target.value);
+                            if (rawValue) {
+                              const formatted = formatCurrency(rawValue);
+                              setStaffForm({ ...staffForm, nachlas: formatted });
+                            }
+                          }}
+                          InputProps={{
+                            startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                          }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="Other Benefit"
+                          value={staffForm.otherBenefit}
+                          onChange={(e) => {
+                            let value = e.target.value.replace(/[^\d.]/g, "");
+                            const parts = value.split(".");
+                            if (parts.length > 2) {
+                              value = parts[0] + "." + parts.slice(1).join("");
+                            }
+                            if (parts.length > 1 && parts[1].length > 2) {
+                              value = parts[0] + "." + parts[1].slice(0, 2);
+                            }
+                            setStaffForm({ ...staffForm, otherBenefit: value });
+                          }}
+                          onBlur={(e) => {
+                            const rawValue = parseCurrency(e.target.value);
+                            if (rawValue) {
+                              const formatted = formatCurrency(rawValue);
+                              setStaffForm({ ...staffForm, otherBenefit: formatted });
+                            }
+                          }}
+                          InputProps={{
+                            startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                          }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="Parsonage"
+                          value={staffForm.parsonage}
+                          onChange={(e) => {
+                            let value = e.target.value.replace(/[^\d.]/g, "");
+                            const parts = value.split(".");
+                            if (parts.length > 2) {
+                              value = parts[0] + "." + parts.slice(1).join("");
+                            }
+                            if (parts.length > 1 && parts[1].length > 2) {
+                              value = parts[0] + "." + parts[1].slice(0, 2);
+                            }
+                            setStaffForm({ ...staffForm, parsonage: value });
+                          }}
+                          onBlur={(e) => {
+                            const rawValue = parseCurrency(e.target.value);
+                            if (rawValue) {
+                              const formatted = formatCurrency(rawValue);
+                              setStaffForm({ ...staffForm, parsonage: formatted });
+                            }
+                          }}
+                          InputProps={{
+                            startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                          }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="Parsonage Allocation"
+                          value={staffForm.parsonageAllocation}
+                          onChange={(e) => {
+                            let value = e.target.value.replace(/[^\d.]/g, "");
+                            const parts = value.split(".");
+                            if (parts.length > 2) {
+                              value = parts[0] + "." + parts.slice(1).join("");
+                            }
+                            if (parts.length > 1 && parts[1].length > 2) {
+                              value = parts[0] + "." + parts[1].slice(0, 2);
+                            }
+                            setStaffForm({ ...staffForm, parsonageAllocation: value });
+                          }}
+                          onBlur={(e) => {
+                            const rawValue = parseCurrency(e.target.value);
+                            if (rawValue) {
+                              const formatted = formatCurrency(rawValue);
+                              setStaffForm({ ...staffForm, parsonageAllocation: formatted });
+                            }
+                          }}
+                          InputProps={{
+                            startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                          }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="Travel"
+                          value={staffForm.travel}
+                          onChange={(e) => {
+                            let value = e.target.value.replace(/[^\d.]/g, "");
+                            const parts = value.split(".");
+                            if (parts.length > 2) {
+                              value = parts[0] + "." + parts.slice(1).join("");
+                            }
+                            if (parts.length > 1 && parts[1].length > 2) {
+                              value = parts[0] + "." + parts[1].slice(0, 2);
+                            }
+                            setStaffForm({ ...staffForm, travel: value });
+                          }}
+                          onBlur={(e) => {
+                            const rawValue = parseCurrency(e.target.value);
+                            if (rawValue) {
+                              const formatted = formatCurrency(rawValue);
+                              setStaffForm({ ...staffForm, travel: formatted });
+                            }
+                          }}
+                          InputProps={{
+                            startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                          }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="Insurance"
+                          value={staffForm.insurance}
+                          onChange={(e) => {
+                            let value = e.target.value.replace(/[^\d.]/g, "");
+                            const parts = value.split(".");
+                            if (parts.length > 2) {
+                              value = parts[0] + "." + parts.slice(1).join("");
+                            }
+                            if (parts.length > 1 && parts[1].length > 2) {
+                              value = parts[0] + "." + parts[1].slice(0, 2);
+                            }
+                            setStaffForm({ ...staffForm, insurance: value });
+                          }}
+                          onBlur={(e) => {
+                            const rawValue = parseCurrency(e.target.value);
+                            if (rawValue) {
+                              const formatted = formatCurrency(rawValue);
+                              setStaffForm({ ...staffForm, insurance: formatted });
+                            }
+                          }}
+                          InputProps={{
+                            startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                          }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="CC Name"
+                          value={staffForm.ccName}
+                          onChange={(e) => setStaffForm({ ...staffForm, ccName: e.target.value })}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="CC Annual Amount"
+                          value={staffForm.ccAnnualAmount}
+                          onChange={(e) => {
+                            let value = e.target.value.replace(/[^\d.]/g, "");
+                            const parts = value.split(".");
+                            if (parts.length > 2) {
+                              value = parts[0] + "." + parts.slice(1).join("");
+                            }
+                            if (parts.length > 1 && parts[1].length > 2) {
+                              value = parts[0] + "." + parts[1].slice(0, 2);
+                            }
+                            setStaffForm({ ...staffForm, ccAnnualAmount: value });
+                          }}
+                          onBlur={(e) => {
+                            const rawValue = parseCurrency(e.target.value);
+                            if (rawValue) {
+                              const formatted = formatCurrency(rawValue);
+                              setStaffForm({ ...staffForm, ccAnnualAmount: formatted });
+                            }
+                          }}
+                          InputProps={{
+                            startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                          }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="Retirement 403b"
+                          value={staffForm.retirement403b}
+                          onChange={(e) => {
+                            let value = e.target.value.replace(/[^\d.]/g, "");
+                            const parts = value.split(".");
+                            if (parts.length > 2) {
+                              value = parts[0] + "." + parts.slice(1).join("");
+                            }
+                            if (parts.length > 1 && parts[1].length > 2) {
+                              value = parts[0] + "." + parts[1].slice(0, 2);
+                            }
+                            setStaffForm({ ...staffForm, retirement403b: value });
+                          }}
+                          onBlur={(e) => {
+                            const rawValue = parseCurrency(e.target.value);
+                            if (rawValue) {
+                              const formatted = formatCurrency(rawValue);
+                              setStaffForm({ ...staffForm, retirement403b: formatted });
+                            }
+                          }}
+                          InputProps={{
+                            startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                          }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="Paycheck Amount"
+                          value={staffForm.paycheckAmount}
+                          onChange={(e) => {
+                            let value = e.target.value.replace(/[^\d.]/g, "");
+                            const parts = value.split(".");
+                            if (parts.length > 2) {
+                              value = parts[0] + "." + parts.slice(1).join("");
+                            }
+                            if (parts.length > 1 && parts[1].length > 2) {
+                              value = parts[0] + "." + parts[1].slice(0, 2);
+                            }
+                            setStaffForm({ ...staffForm, paycheckAmount: value });
+                          }}
+                          onBlur={(e) => {
+                            const rawValue = parseCurrency(e.target.value);
+                            if (rawValue) {
+                              const formatted = formatCurrency(rawValue);
+                              setStaffForm({ ...staffForm, paycheckAmount: formatted });
+                            }
+                          }}
+                          InputProps={{
+                            startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                          }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="Monthly Parsonage"
+                          value={staffForm.monthlyParsonage}
+                          onChange={(e) => {
+                            let value = e.target.value.replace(/[^\d.]/g, "");
+                            const parts = value.split(".");
+                            if (parts.length > 2) {
+                              value = parts[0] + "." + parts.slice(1).join("");
+                            }
+                            if (parts.length > 1 && parts[1].length > 2) {
+                              value = parts[0] + "." + parts[1].slice(0, 2);
+                            }
+                            setStaffForm({ ...staffForm, monthlyParsonage: value });
+                          }}
+                          onBlur={(e) => {
+                            const rawValue = parseCurrency(e.target.value);
+                            if (rawValue) {
+                              const formatted = formatCurrency(rawValue);
+                              setStaffForm({ ...staffForm, monthlyParsonage: formatted });
+                            }
+                          }}
+                          InputProps={{
+                            startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                          }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="Travel Stipend"
+                          value={staffForm.travelStipend}
+                          onChange={(e) => {
+                            let value = e.target.value.replace(/[^\d.]/g, "");
+                            const parts = value.split(".");
+                            if (parts.length > 2) {
+                              value = parts[0] + "." + parts.slice(1).join("");
+                            }
+                            if (parts.length > 1 && parts[1].length > 2) {
+                              value = parts[0] + "." + parts[1].slice(0, 2);
+                            }
+                            setStaffForm({ ...staffForm, travelStipend: value });
+                          }}
+                          onBlur={(e) => {
+                            const rawValue = parseCurrency(e.target.value);
+                            if (rawValue) {
+                              const formatted = formatCurrency(rawValue);
+                              setStaffForm({ ...staffForm, travelStipend: formatted });
+                            }
+                          }}
+                          InputProps={{
+                            startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                          }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="CC Deduction"
+                          value={staffForm.ccDeduction}
+                          onChange={(e) => {
+                            let value = e.target.value.replace(/[^\d.]/g, "");
+                            const parts = value.split(".");
+                            if (parts.length > 2) {
+                              value = parts[0] + "." + parts.slice(1).join("");
+                            }
+                            if (parts.length > 1 && parts[1].length > 2) {
+                              value = parts[0] + "." + parts[1].slice(0, 2);
+                            }
+                            setStaffForm({ ...staffForm, ccDeduction: value });
+                          }}
+                          onBlur={(e) => {
+                            const rawValue = parseCurrency(e.target.value);
+                            if (rawValue) {
+                              const formatted = formatCurrency(rawValue);
+                              setStaffForm({ ...staffForm, ccDeduction: formatted });
+                            }
+                          }}
+                          InputProps={{
+                            startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                          }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="Insurance Deduction"
+                          value={staffForm.insuranceDeduction}
+                          onChange={(e) => {
+                            let value = e.target.value.replace(/[^\d.]/g, "");
+                            const parts = value.split(".");
+                            if (parts.length > 2) {
+                              value = parts[0] + "." + parts.slice(1).join("");
+                            }
+                            if (parts.length > 1 && parts[1].length > 2) {
+                              value = parts[0] + "." + parts[1].slice(0, 2);
+                            }
+                            setStaffForm({ ...staffForm, insuranceDeduction: value });
+                          }}
+                          onBlur={(e) => {
+                            const rawValue = parseCurrency(e.target.value);
+                            if (rawValue) {
+                              const formatted = formatCurrency(rawValue);
+                              setStaffForm({ ...staffForm, insuranceDeduction: formatted });
+                            }
+                          }}
+                          InputProps={{
+                            startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                          }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="Annual Adjustment"
+                          value={staffForm.annualAdjustment}
+                          onChange={(e) => {
+                            let value = e.target.value.replace(/[^\d.]/g, "");
+                            const parts = value.split(".");
+                            if (parts.length > 2) {
+                              value = parts[0] + "." + parts.slice(1).join("");
+                            }
+                            if (parts.length > 1 && parts[1].length > 2) {
+                              value = parts[0] + "." + parts[1].slice(0, 2);
+                            }
+                            setStaffForm({ ...staffForm, annualAdjustment: value });
+                          }}
+                          onBlur={(e) => {
+                            const rawValue = parseCurrency(e.target.value);
+                            if (rawValue) {
+                              const formatted = formatCurrency(rawValue);
+                              setStaffForm({ ...staffForm, annualAdjustment: formatted });
+                            }
+                          }}
+                          InputProps={{
+                            startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                          }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="Paychecks Remaining"
+                          type="number"
+                          value={staffForm.paychecksRemaining}
+                          onChange={(e) => setStaffForm({ ...staffForm, paychecksRemaining: e.target.value })}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="Per Paycheck Adjustment"
+                          value={staffForm.perPaycheckAdjustment}
+                          onChange={(e) => {
+                            let value = e.target.value.replace(/[^\d.]/g, "");
+                            const parts = value.split(".");
+                            if (parts.length > 2) {
+                              value = parts[0] + "." + parts.slice(1).join("");
+                            }
+                            if (parts.length > 1 && parts[1].length > 2) {
+                              value = parts[0] + "." + parts[1].slice(0, 2);
+                            }
+                            setStaffForm({ ...staffForm, perPaycheckAdjustment: value });
+                          }}
+                          onBlur={(e) => {
+                            const rawValue = parseCurrency(e.target.value);
+                            if (rawValue) {
+                              const formatted = formatCurrency(rawValue);
+                              setStaffForm({ ...staffForm, perPaycheckAdjustment: formatted });
+                            }
+                          }}
+                          InputProps={{
+                            startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                          }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="Adjusted Check Amount"
+                          value={staffForm.adjustedCheckAmount}
+                          onChange={(e) => {
+                            let value = e.target.value.replace(/[^\d.]/g, "");
+                            const parts = value.split(".");
+                            if (parts.length > 2) {
+                              value = parts[0] + "." + parts.slice(1).join("");
+                            }
+                            if (parts.length > 1 && parts[1].length > 2) {
+                              value = parts[0] + "." + parts[1].slice(0, 2);
+                            }
+                            setStaffForm({ ...staffForm, adjustedCheckAmount: value });
+                          }}
+                          onBlur={(e) => {
+                            const rawValue = parseCurrency(e.target.value);
+                            if (rawValue) {
+                              const formatted = formatCurrency(rawValue);
+                              setStaffForm({ ...staffForm, adjustedCheckAmount: formatted });
+                            }
+                          }}
+                          InputProps={{
+                            startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                          }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="PTO Days"
+                          type="number"
+                          value={staffForm.ptoDays}
+                          onChange={(e) => setStaffForm({ ...staffForm, ptoDays: e.target.value })}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="Misc 2"
+                          value={staffForm.misc2}
+                          onChange={(e) => setStaffForm({ ...staffForm, misc2: e.target.value })}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="Misc 3"
+                          value={staffForm.misc3}
+                          onChange={(e) => setStaffForm({ ...staffForm, misc3: e.target.value })}
+                        />
+                      </Grid>
+                    </Grid>
+                  </AccordionDetails>
+                </Accordion>
+              </>
+            )}
+
+            <Divider />
+
+            {/* Additional Information Section */}
+            <Box>
+              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+                <Typography variant="subtitle1" fontWeight={600} color="primary">
+                  Additional Information
+                </Typography>
+              </Stack>
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Bio"
+                    multiline
+                    rows={3}
+                    value={staffForm.bio}
+                    onChange={(e) => setStaffForm({ ...staffForm, bio: e.target.value })}
+                    placeholder="Enter a brief biography or background information"
+                    helperText="Optional biographical information"
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Notes"
+                    multiline
+                    rows={2}
+                    value={staffForm.notes}
+                    onChange={(e) => setStaffForm({ ...staffForm, notes: e.target.value })}
+                    placeholder="Enter any additional notes or comments"
+                    helperText="Internal notes (not visible to staff member)"
+                  />
+                </Grid>
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Employee ID"
-                  value={staffForm.employeeId}
-                  onChange={(e) => setStaffForm({ ...staffForm, employeeId: e.target.value })}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Title (Mr., Mrs., etc.)"
-                  value={staffForm.title}
-                  onChange={(e) => setStaffForm({ ...staffForm, title: e.target.value })}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Hire Date"
-                  type="date"
-                  InputLabelProps={{ shrink: true }}
-                  value={staffForm.hireDate}
-                  onChange={(e) => setStaffForm({ ...staffForm, hireDate: e.target.value })}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Employment Status</InputLabel>
-                  <Select
-                    value={staffForm.employmentStatus}
-                    label="Employment Status"
-                    onChange={(e) => setStaffForm({ ...staffForm, employmentStatus: e.target.value })}
-                  >
-                    <MenuItem value="active">Active</MenuItem>
-                    <MenuItem value="inactive">Inactive</MenuItem>
-                    <MenuItem value="terminated">Terminated</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Position</InputLabel>
-                  <Select
-                    value={staffForm.positionId}
-                    label="Position"
-                    onChange={(e) => setStaffForm({ ...staffForm, positionId: e.target.value })}
-                    disabled={!!selectedStaff}
-                  >
-                    <MenuItem value="">None</MenuItem>
-                    {positions.filter(p => p.isActive).map((pos) => (
-                      <MenuItem key={pos.id} value={pos.id}>
-                        {pos.name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Initial Salary"
-                  type="number"
-                  value={staffForm.initialSalary}
-                  onChange={(e) => setStaffForm({ ...staffForm, initialSalary: e.target.value })}
-                  disabled={!!selectedStaff}
-                  helperText={selectedStaff ? "Edit salary in staff details" : "Optional: Set initial salary"}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth disabled={!!selectedStaff}>
-                  <InputLabel>Salary Type</InputLabel>
-                  <Select
-                    value={staffForm.salaryType}
-                    label="Salary Type"
-                    onChange={(e) => setStaffForm({ ...staffForm, salaryType: e.target.value })}
-                  >
-                    <MenuItem value="annual">Annual</MenuItem>
-                    <MenuItem value="monthly">Monthly</MenuItem>
-                    <MenuItem value="hourly">Hourly</MenuItem>
-                    <MenuItem value="per_diem">Per Diem</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Bio"
-                  multiline
-                  rows={3}
-                  value={staffForm.bio}
-                  onChange={(e) => setStaffForm({ ...staffForm, bio: e.target.value })}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Notes"
-                  multiline
-                  rows={2}
-                  value={staffForm.notes}
-                  onChange={(e) => setStaffForm({ ...staffForm, notes: e.target.value })}
-                />
-              </Grid>
-            </Grid>
+            </Box>
           </Stack>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setStaffDialog(false)}>Cancel</Button>
           <Button
             variant="contained"
             onClick={handleSaveStaff}
             disabled={!staffForm.firstName || !staffForm.lastName}
+            startIcon={selectedStaff ? <EditIcon /> : <PersonAddIcon />}
           >
-            {selectedStaff ? "Update" : "Create"}
+            {selectedStaff ? "Update Staff Member" : "Create Staff Member"}
           </Button>
         </DialogActions>
       </Dialog>
@@ -1112,17 +2475,44 @@ export default function StaffManagement() {
       </Dialog>
 
       {/* Salary Dialog */}
-      <Dialog open={salaryDialog} onClose={() => setSalaryDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Add Salary</DialogTitle>
+      <Dialog open={salaryDialog} onClose={() => {
+        setSalaryDialog(false);
+        setSelectedSalary(null);
+      }} maxWidth="sm" fullWidth>
+        <DialogTitle>{selectedSalary ? "Edit Salary" : "Add Salary"}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField
               fullWidth
               label="Salary Amount"
-              type="number"
               required
               value={salaryForm.salaryAmount}
-              onChange={(e) => setSalaryForm({ ...salaryForm, salaryAmount: e.target.value })}
+              onChange={(e) => {
+                // Allow free typing - only remove invalid characters
+                let value = e.target.value.replace(/[^\d.]/g, "");
+                // Ensure only one decimal point
+                const parts = value.split(".");
+                if (parts.length > 2) {
+                  value = parts[0] + "." + parts.slice(1).join("");
+                }
+                // Limit decimal places to 2
+                if (parts.length > 1 && parts[1].length > 2) {
+                  value = parts[0] + "." + parts[1].slice(0, 2);
+                }
+                setSalaryForm({ ...salaryForm, salaryAmount: value });
+              }}
+              onBlur={(e) => {
+                // Format with commas and 2 decimal places when user leaves field
+                const rawValue = parseCurrency(e.target.value);
+                if (rawValue) {
+                  const formatted = formatCurrency(rawValue);
+                  setSalaryForm({ ...salaryForm, salaryAmount: formatted });
+                }
+              }}
+              InputProps={{
+                startAdornment: <InputAdornment position="start">$</InputAdornment>,
+              }}
+              placeholder="0.00"
             />
             <FormControl fullWidth>
               <InputLabel>Salary Type</InputLabel>
@@ -1152,20 +2542,28 @@ export default function StaffManagement() {
             </FormControl>
             <TextField
               fullWidth
-              label="Effective Date"
-              type="date"
+              label="Effective Date (mm/dd/yy)"
               required
-              InputLabelProps={{ shrink: true }}
+              placeholder="mm/dd/yy"
               value={salaryForm.effectiveDate}
-              onChange={(e) => setSalaryForm({ ...salaryForm, effectiveDate: e.target.value })}
+              onChange={(e) => {
+                let value = e.target.value.replace(/\D/g, ""); // Remove non-digits
+                if (value.length >= 2) value = value.slice(0, 2) + "/" + value.slice(2);
+                if (value.length >= 5) value = value.slice(0, 5) + "/" + value.slice(5, 7);
+                setSalaryForm({ ...salaryForm, effectiveDate: value });
+              }}
             />
             <TextField
               fullWidth
-              label="End Date (optional)"
-              type="date"
-              InputLabelProps={{ shrink: true }}
+              label="End Date (optional) (mm/dd/yy)"
+              placeholder="mm/dd/yy"
               value={salaryForm.endDate}
-              onChange={(e) => setSalaryForm({ ...salaryForm, endDate: e.target.value })}
+              onChange={(e) => {
+                let value = e.target.value.replace(/\D/g, ""); // Remove non-digits
+                if (value.length >= 2) value = value.slice(0, 2) + "/" + value.slice(2);
+                if (value.length >= 5) value = value.slice(0, 5) + "/" + value.slice(5, 7);
+                setSalaryForm({ ...salaryForm, endDate: value });
+              }}
             />
             <TextField
               fullWidth
@@ -1184,7 +2582,7 @@ export default function StaffManagement() {
             onClick={handleSaveSalary}
             disabled={!salaryForm.salaryAmount || !salaryForm.effectiveDate}
           >
-            Add Salary
+            {selectedSalary ? "Update Salary" : "Add Salary"}
           </Button>
         </DialogActions>
       </Dialog>
@@ -1408,7 +2806,7 @@ export default function StaffManagement() {
             </IconButton>
           </Stack>
         </DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{ height: { xs: "70vh", sm: "75vh", md: "80vh" }, overflowY: "auto" }}>
           {selectedStaff && (
             <Box sx={{ mt: 2 }}>
               <Tabs value={detailTab} onChange={(_, v) => setDetailTab(v)}>
@@ -1417,37 +2815,376 @@ export default function StaffManagement() {
                 <Tab label="Salaries" />
                 <Tab label="Benefits" />
                 <Tab label="Documents" />
+                <Tab label="Payroll" />
               </Tabs>
 
-              <Box sx={{ mt: 3 }}>
+              <Box sx={{ mt: 3, minHeight: { xs: "50vh", sm: "55vh", md: "60vh" } }}>
                 {detailTab === 0 && (
-                  <Stack spacing={2}>
+                  <Stack spacing={3}>
+                    {/* Quick Stats Cards */}
                     <Grid container spacing={2}>
-                      <Grid item xs={12} sm={6}>
-                        <Typography variant="subtitle2" color="text.secondary">Email</Typography>
-                        <Typography>{selectedStaff.email || "-"}</Typography>
+                      <Grid item xs={12} sm={6} md={3}>
+                        <Card variant="outlined" sx={{ p: 2, height: "100%" }}>
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            <WorkIcon color="primary" />
+                            <Box>
+                              <Typography variant="caption" color="text.secondary">
+                                Positions
+                              </Typography>
+                              <Typography variant="h6">
+                                {selectedStaff.positions?.length || 0}
+                              </Typography>
+                            </Box>
+                          </Stack>
+                        </Card>
                       </Grid>
-                      <Grid item xs={12} sm={6}>
-                        <Typography variant="subtitle2" color="text.secondary">Phone</Typography>
-                        <Typography>{selectedStaff.phone || "-"}</Typography>
+                      <Grid item xs={12} sm={6} md={3}>
+                        <Card variant="outlined" sx={{ p: 2, height: "100%" }}>
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            <AttachMoneyIcon color="primary" />
+                            <Box>
+                              <Typography variant="caption" color="text.secondary">
+                                Salary Records
+                              </Typography>
+                              <Typography variant="h6">
+                                {selectedStaff.salaries?.length || 0}
+                              </Typography>
+                            </Box>
+                          </Stack>
+                        </Card>
                       </Grid>
-                      <Grid item xs={12} sm={6}>
-                        <Typography variant="subtitle2" color="text.secondary">Employee ID</Typography>
-                        <Typography>{selectedStaff.employeeId || "-"}</Typography>
+                      <Grid item xs={12} sm={6} md={3}>
+                        <Card variant="outlined" sx={{ p: 2, height: "100%" }}>
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            <HealthAndSafetyIcon color="primary" />
+                            <Box>
+                              <Typography variant="caption" color="text.secondary">
+                                Benefits
+                              </Typography>
+                              <Typography variant="h6">
+                                {selectedStaff.benefits?.length || 0}
+                              </Typography>
+                            </Box>
+                          </Stack>
+                        </Card>
                       </Grid>
-                      <Grid item xs={12} sm={6}>
-                        <Typography variant="subtitle2" color="text.secondary">Hire Date</Typography>
-                        <Typography>{selectedStaff.hireDate || "-"}</Typography>
-                      </Grid>
-                      <Grid item xs={12}>
-                        <Typography variant="subtitle2" color="text.secondary">Bio</Typography>
-                        <Typography>{selectedStaff.bio || "-"}</Typography>
-                      </Grid>
-                      <Grid item xs={12}>
-                        <Typography variant="subtitle2" color="text.secondary">Notes</Typography>
-                        <Typography>{selectedStaff.notes || "-"}</Typography>
+                      <Grid item xs={12} sm={6} md={3}>
+                        <Card variant="outlined" sx={{ p: 2, height: "100%" }}>
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            <DescriptionIcon color="primary" />
+                            <Box>
+                              <Typography variant="caption" color="text.secondary">
+                                Documents
+                              </Typography>
+                              <Typography variant="h6">
+                                {selectedStaff.documents?.length || 0}
+                              </Typography>
+                            </Box>
+                          </Stack>
+                        </Card>
                       </Grid>
                     </Grid>
+
+                    {/* Personal Information Section */}
+                    <Card variant="outlined">
+                      <CardContent>
+                        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+                          <PersonAddIcon color="primary" />
+                          <Typography variant="h6">Personal Information</Typography>
+                        </Stack>
+                        <Divider sx={{ mb: 2 }} />
+                        <Grid container spacing={3}>
+                          <Grid item xs={12} sm={6}>
+                            <Stack spacing={0.5}>
+                              <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                Full Name
+                              </Typography>
+                              <Typography variant="body1">
+                                {selectedStaff.title ? `${selectedStaff.title} ` : ""}
+                                {selectedStaff.firstName} {selectedStaff.lastName}
+                              </Typography>
+                            </Stack>
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <Stack spacing={0.5}>
+                              <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                Employee ID
+                              </Typography>
+                              <Typography variant="body1">{selectedStaff.employeeId || "-"}</Typography>
+                            </Stack>
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <Stack spacing={0.5}>
+                              <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                Email
+                              </Typography>
+                              <Typography variant="body1">
+                                {selectedStaff.email ? (
+                                  <a href={`mailto:${selectedStaff.email}`} style={{ color: "inherit", textDecoration: "none" }}>
+                                    {selectedStaff.email}
+                                  </a>
+                                ) : (
+                                  "-"
+                                )}
+                              </Typography>
+                            </Stack>
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <Stack spacing={0.5}>
+                              <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                Phone
+                              </Typography>
+                              <Typography variant="body1">
+                                {selectedStaff.phone ? (
+                                  <a href={`tel:${selectedStaff.phone}`} style={{ color: "inherit", textDecoration: "none" }}>
+                                    {selectedStaff.phone}
+                                  </a>
+                                ) : (
+                                  "-"
+                                )}
+                              </Typography>
+                            </Stack>
+                          </Grid>
+                        </Grid>
+                      </CardContent>
+                    </Card>
+
+                    {/* Employment Information Section */}
+                    <Card variant="outlined">
+                      <CardContent>
+                        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+                          <WorkIcon color="primary" />
+                          <Typography variant="h6">Employment Information</Typography>
+                        </Stack>
+                        <Divider sx={{ mb: 2 }} />
+                        <Grid container spacing={3}>
+                          <Grid item xs={12} sm={6}>
+                            <Stack spacing={0.5}>
+                              <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                Employment Status
+                              </Typography>
+                              <Chip
+                                label={selectedStaff.employmentStatus || "Unknown"}
+                                size="small"
+                                color={
+                                  selectedStaff.employmentStatus === "active"
+                                    ? "success"
+                                    : selectedStaff.employmentStatus === "inactive"
+                                    ? "warning"
+                                    : "error"
+                                }
+                                sx={{ width: "fit-content" }}
+                              />
+                            </Stack>
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <Stack spacing={0.5}>
+                              <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                Hire Date
+                              </Typography>
+                              <Typography variant="body1">
+                                {selectedStaff.hireDate
+                                  ? new Date(selectedStaff.hireDate).toLocaleDateString("en-US", {
+                                      year: "numeric",
+                                      month: "long",
+                                      day: "numeric",
+                                    })
+                                  : "-"}
+                              </Typography>
+                            </Stack>
+                          </Grid>
+                          {selectedStaff.terminationDate && (
+                            <Grid item xs={12} sm={6}>
+                              <Stack spacing={0.5}>
+                                <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                  Termination Date
+                                </Typography>
+                                <Typography variant="body1">
+                                  {new Date(selectedStaff.terminationDate).toLocaleDateString("en-US", {
+                                    year: "numeric",
+                                    month: "long",
+                                    day: "numeric",
+                                  })}
+                                </Typography>
+                              </Stack>
+                            </Grid>
+                          )}
+                          {selectedStaff.positions && selectedStaff.positions.length > 0 && (
+                            <Grid item xs={12}>
+                              <Stack spacing={0.5}>
+                                <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                  Current Positions
+                                </Typography>
+                                <Stack direction="row" spacing={1} flexWrap="wrap">
+                                  {selectedStaff.positions
+                                    .filter((p) => p.isActive)
+                                    .map((pos) => (
+                                      <Chip
+                                        key={pos.id}
+                                        label={pos.positionName}
+                                        size="small"
+                                        variant="outlined"
+                                        color="primary"
+                                      />
+                                    ))}
+                                  {selectedStaff.positions.filter((p) => p.isActive).length === 0 && (
+                                    <Typography variant="body2" color="text.secondary">
+                                      No active positions
+                                    </Typography>
+                                  )}
+                                </Stack>
+                              </Stack>
+                            </Grid>
+                          )}
+                        </Grid>
+                      </CardContent>
+                    </Card>
+
+                    {/* Current Salary Summary */}
+                    {selectedStaff.salaries && selectedStaff.salaries.length > 0 && (
+                      <Card variant="outlined">
+                        <CardContent>
+                          <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+                            <AttachMoneyIcon color="primary" />
+                            <Typography variant="h6">Current Salary</Typography>
+                          </Stack>
+                          <Divider sx={{ mb: 2 }} />
+                          {(() => {
+                            const currentSalary = selectedStaff.salaries.find(
+                              (s) => !s.endDate || new Date(s.endDate) >= new Date()
+                            ) || selectedStaff.salaries[0];
+                            return currentSalary ? (
+                              <Grid container spacing={3}>
+                                <Grid item xs={12} sm={4}>
+                                  <Stack spacing={0.5}>
+                                    <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                      Amount
+                                    </Typography>
+                                    <Typography variant="h6" color="primary">
+                                      ${currentSalary.salaryAmount.toLocaleString()}
+                                    </Typography>
+                                  </Stack>
+                                </Grid>
+                                <Grid item xs={12} sm={4}>
+                                  <Stack spacing={0.5}>
+                                    <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                      Type
+                                    </Typography>
+                                    <Typography variant="body1" textTransform="capitalize">
+                                      {currentSalary.salaryType}
+                                    </Typography>
+                                  </Stack>
+                                </Grid>
+                                <Grid item xs={12} sm={4}>
+                                  <Stack spacing={0.5}>
+                                    <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                      Frequency
+                                    </Typography>
+                                    <Typography variant="body1" textTransform="capitalize">
+                                      {currentSalary.payFrequency}
+                                    </Typography>
+                                  </Stack>
+                                </Grid>
+                              </Grid>
+                            ) : null;
+                          })()}
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Bio Section */}
+                    {selectedStaff.bio && (
+                      <Card variant="outlined">
+                        <CardContent>
+                          <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+                            <DescriptionIcon color="primary" />
+                            <Typography variant="h6">Biography</Typography>
+                          </Stack>
+                          <Divider sx={{ mb: 2 }} />
+                          <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+                            {selectedStaff.bio}
+                          </Typography>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Notes Section */}
+                    {selectedStaff.notes && (
+                      <Card variant="outlined">
+                        <CardContent>
+                          <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+                            <DescriptionIcon color="primary" />
+                            <Typography variant="h6">Notes</Typography>
+                          </Stack>
+                          <Divider sx={{ mb: 2 }} />
+                          <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+                            {selectedStaff.notes}
+                          </Typography>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Quick Actions */}
+                    <Card variant="outlined">
+                      <CardContent>
+                        <Typography variant="h6" sx={{ mb: 2 }}>
+                          Quick Actions
+                        </Typography>
+                        <Divider sx={{ mb: 2 }} />
+                        <Stack direction="row" spacing={2} flexWrap="wrap">
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={<EditIcon />}
+                            onClick={() => {
+                              handleOpenStaffDialog(selectedStaff);
+                            }}
+                          >
+                            Edit Staff
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={<WorkIcon />}
+                            onClick={() => {
+                              handleOpenPositionDialog(selectedStaff);
+                            }}
+                          >
+                            Add Position
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={<AttachMoneyIcon />}
+                            onClick={() => {
+                              handleOpenSalaryDialog(selectedStaff);
+                            }}
+                          >
+                            Add Salary
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={<HealthAndSafetyIcon />}
+                            onClick={() => {
+                              handleOpenBenefitDialog(selectedStaff);
+                            }}
+                          >
+                            Add Benefit
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={<DescriptionIcon />}
+                            onClick={() => {
+                              handleOpenDocumentDialog(selectedStaff);
+                            }}
+                          >
+                            Upload Document
+                          </Button>
+                        </Stack>
+                      </CardContent>
+                    </Card>
                   </Stack>
                 )}
 
@@ -1459,7 +3196,6 @@ export default function StaffManagement() {
                         size="small"
                         startIcon={<AddIcon />}
                         onClick={() => {
-                          setDetailDialog(false);
                           handleOpenPositionDialog(selectedStaff);
                         }}
                       >
@@ -1476,24 +3212,53 @@ export default function StaffManagement() {
                               <TableCell>Start Date</TableCell>
                               <TableCell>End Date</TableCell>
                               <TableCell>Status</TableCell>
+                              <TableCell align="right">Actions</TableCell>
                             </TableRow>
                           </TableHead>
                           <TableBody>
-                            {selectedStaff.positions.map((pos) => (
-                              <TableRow key={pos.id}>
-                                <TableCell>{pos.positionName}</TableCell>
-                                <TableCell>{pos.gradeName || "-"}</TableCell>
-                                <TableCell>{pos.startDate || "-"}</TableCell>
-                                <TableCell>{pos.endDate || "-"}</TableCell>
-                                <TableCell>
-                                  <Chip
-                                    label={pos.isActive ? "Active" : "Inactive"}
-                                    size="small"
-                                    color={pos.isActive ? "success" : "default"}
-                                  />
-                                </TableCell>
-                              </TableRow>
-                            ))}
+                            {selectedStaff.positions.map((pos) => {
+                              // Format date as mm/dd/yy
+                              const formatDate = (dateStr: string | null | undefined) => {
+                                if (!dateStr) return "-";
+                                try {
+                                  const date = new Date(dateStr);
+                                  if (isNaN(date.getTime())) return dateStr;
+                                  const month = String(date.getMonth() + 1).padStart(2, "0");
+                                  const day = String(date.getDate()).padStart(2, "0");
+                                  const year = String(date.getFullYear()).slice(-2);
+                                  return `${month}/${day}/${year}`;
+                                } catch {
+                                  return dateStr;
+                                }
+                              };
+                              
+                              return (
+                                <TableRow key={pos.id}>
+                                  <TableCell>{pos.positionName}</TableCell>
+                                  <TableCell>{pos.gradeName || "-"}</TableCell>
+                                  <TableCell>{formatDate(pos.startDate)}</TableCell>
+                                  <TableCell>{formatDate(pos.endDate)}</TableCell>
+                                  <TableCell>
+                                    <Chip
+                                      label={pos.isActive ? "Active" : "Inactive"}
+                                      size="small"
+                                      color={pos.isActive ? "success" : "default"}
+                                    />
+                                  </TableCell>
+                                  <TableCell align="right">
+                                    <Tooltip title="Remove Position">
+                                      <IconButton
+                                        size="small"
+                                        color="error"
+                                        onClick={() => handleDeletePosition(pos.id)}
+                                      >
+                                        <DeleteIcon fontSize="small" />
+                                      </IconButton>
+                                    </Tooltip>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
                           </TableBody>
                         </Table>
                       </TableContainer>
@@ -1511,7 +3276,6 @@ export default function StaffManagement() {
                         size="small"
                         startIcon={<AddIcon />}
                         onClick={() => {
-                          setDetailDialog(false);
                           handleOpenSalaryDialog(selectedStaff);
                         }}
                       >
@@ -1528,18 +3292,48 @@ export default function StaffManagement() {
                               <TableCell>Frequency</TableCell>
                               <TableCell>Effective Date</TableCell>
                               <TableCell>End Date</TableCell>
+                              <TableCell align="right">Actions</TableCell>
                             </TableRow>
                           </TableHead>
                           <TableBody>
-                            {selectedStaff.salaries.map((sal) => (
-                              <TableRow key={sal.id}>
-                                <TableCell>${sal.salaryAmount.toLocaleString()}</TableCell>
-                                <TableCell>{sal.salaryType}</TableCell>
-                                <TableCell>{sal.payFrequency}</TableCell>
-                                <TableCell>{sal.effectiveDate}</TableCell>
-                                <TableCell>{sal.endDate || "Current"}</TableCell>
-                              </TableRow>
-                            ))}
+                            {selectedStaff.salaries.map((sal) => {
+                              // Format date as mm/dd/yy
+                              const formatDate = (dateStr: string | null | undefined) => {
+                                if (!dateStr) return "Current";
+                                try {
+                                  const date = new Date(dateStr);
+                                  if (isNaN(date.getTime())) return dateStr;
+                                  const month = String(date.getMonth() + 1).padStart(2, "0");
+                                  const day = String(date.getDate()).padStart(2, "0");
+                                  const year = String(date.getFullYear()).slice(-2);
+                                  return `${month}/${day}/${year}`;
+                                } catch {
+                                  return dateStr;
+                                }
+                              };
+                              
+                              return (
+                                <TableRow key={sal.id}>
+                                  <TableCell>${sal.salaryAmount.toLocaleString()}</TableCell>
+                                  <TableCell>{sal.salaryType}</TableCell>
+                                  <TableCell>{sal.payFrequency}</TableCell>
+                                  <TableCell>{formatDate(sal.effectiveDate)}</TableCell>
+                                  <TableCell>{formatDate(sal.endDate)}</TableCell>
+                                  <TableCell align="right">
+                                    <Tooltip title="Edit">
+                                      <IconButton
+                                        size="small"
+                                        onClick={() => {
+                                          handleOpenSalaryDialog(selectedStaff, sal);
+                                        }}
+                                      >
+                                        <EditIcon fontSize="small" />
+                                      </IconButton>
+                                    </Tooltip>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
                           </TableBody>
                         </Table>
                       </TableContainer>
@@ -1666,6 +3460,78 @@ export default function StaffManagement() {
                       </TableContainer>
                     ) : (
                       <Alert severity="info">No documents uploaded.</Alert>
+                    )}
+                  </Stack>
+                )}
+
+                {detailTab === 5 && (
+                  <Stack spacing={2}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                      <Typography variant="h6">Payroll Information</Typography>
+                      <Button
+                        size="small"
+                        variant="contained"
+                        startIcon={<EditIcon />}
+                        onClick={() => {
+                          handleOpenPayrollDialog(selectedStaff);
+                        }}
+                      >
+                        {selectedStaff.payroll ? "Edit Payroll" : "Add Payroll"}
+                      </Button>
+                    </Stack>
+                    {selectedStaff.payroll ? (
+                      <Grid container spacing={2}>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="subtitle2" color="text.secondary">Legal Name</Typography>
+                          <Typography>{selectedStaff.payroll.legalName || "-"}</Typography>
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="subtitle2" color="text.secondary">Grade</Typography>
+                          <Typography>{selectedStaff.payroll.grade || "-"}</Typography>
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="subtitle2" color="text.secondary">Academic Year</Typography>
+                          <Typography>{selectedStaff.payroll.academicYear || "-"}</Typography>
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="subtitle2" color="text.secondary">Annual Gross Salary</Typography>
+                          <Typography>
+                            {selectedStaff.payroll.annualGrossSalary
+                              ? `$${selectedStaff.payroll.annualGrossSalary.toLocaleString()}`
+                              : "-"}
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="subtitle2" color="text.secondary">Total Package (25-26)</Typography>
+                          <Typography>
+                            {selectedStaff.payroll.totalPackage2526
+                              ? `$${selectedStaff.payroll.totalPackage2526.toLocaleString()}`
+                              : "-"}
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="subtitle2" color="text.secondary">Paycheck Amount</Typography>
+                          <Typography>
+                            {selectedStaff.payroll.paycheckAmount
+                              ? `$${selectedStaff.payroll.paycheckAmount.toLocaleString()}`
+                              : "-"}
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="subtitle2" color="text.secondary">PTO Days</Typography>
+                          <Typography>{selectedStaff.payroll.ptoDays || "-"}</Typography>
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="subtitle2" color="text.secondary">Free Daycare</Typography>
+                          <Chip
+                            label={selectedStaff.payroll.freeDaycare ? "Yes" : "No"}
+                            size="small"
+                            color={selectedStaff.payroll.freeDaycare ? "success" : "default"}
+                          />
+                        </Grid>
+                      </Grid>
+                    ) : (
+                      <Alert severity="info">No payroll information available. Click "Add Payroll" to create a payroll record.</Alert>
                     )}
                   </Stack>
                 )}
@@ -1963,6 +3829,368 @@ export default function StaffManagement() {
             startIcon={<DeleteIcon />}
           >
             Delete Position
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Payroll Dialog */}
+      <Dialog open={payrollDialog} onClose={() => setPayrollDialog(false)} maxWidth="lg" fullWidth>
+        <DialogTitle>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <AttachMoneyIcon color="primary" />
+            <Typography variant="h6">Payroll Information</Typography>
+          </Stack>
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={4} sx={{ mt: 1, maxHeight: "70vh", overflowY: "auto" }}>
+            {/* Basic Information Section */}
+            <Box>
+              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+                <Typography variant="subtitle1" fontWeight={600} color="primary">
+                  Basic Information
+                </Typography>
+              </Stack>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Legal Name"
+                    value={payrollForm.legalName}
+                    onChange={(e) => setPayrollForm({ ...payrollForm, legalName: e.target.value })}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Grade"
+                    value={payrollForm.grade}
+                    onChange={(e) => setPayrollForm({ ...payrollForm, grade: e.target.value })}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Academic Year"
+                    value={payrollForm.academicYear}
+                    onChange={(e) => setPayrollForm({ ...payrollForm, academicYear: e.target.value })}
+                    placeholder="e.g., 2025-2026"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Job #2"
+                    value={payrollForm.jobNumber2}
+                    onChange={(e) => setPayrollForm({ ...payrollForm, jobNumber2: e.target.value })}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Free Daycare</InputLabel>
+                    <Select
+                      value={payrollForm.freeDaycare ? "yes" : "no"}
+                      label="Free Daycare"
+                      onChange={(e) => setPayrollForm({ ...payrollForm, freeDaycare: e.target.value === "yes" })}
+                    >
+                      <MenuItem value="no">No</MenuItem>
+                      <MenuItem value="yes">Yes</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Misc 2"
+                    value={payrollForm.misc2}
+                    onChange={(e) => setPayrollForm({ ...payrollForm, misc2: e.target.value })}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Misc 3"
+                    value={payrollForm.misc3}
+                    onChange={(e) => setPayrollForm({ ...payrollForm, misc3: e.target.value })}
+                  />
+                </Grid>
+              </Grid>
+            </Box>
+
+            {/* Package/Salary Information Section */}
+            <Box>
+              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+                <Typography variant="subtitle1" fontWeight={600} color="primary">
+                  Package & Salary Information
+                </Typography>
+              </Stack>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Total Package (25-26)"
+                    type="number"
+                    value={payrollForm.totalPackage2526}
+                    onChange={(e) => setPayrollForm({ ...payrollForm, totalPackage2526: e.target.value })}
+                    InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Max Quarter"
+                    type="number"
+                    value={payrollForm.maxQuarter}
+                    onChange={(e) => setPayrollForm({ ...payrollForm, maxQuarter: e.target.value })}
+                    InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Tuition"
+                    type="number"
+                    value={payrollForm.tuition}
+                    onChange={(e) => setPayrollForm({ ...payrollForm, tuition: e.target.value })}
+                    InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Actual Quarter"
+                    type="number"
+                    value={payrollForm.actualQuarter}
+                    onChange={(e) => setPayrollForm({ ...payrollForm, actualQuarter: e.target.value })}
+                    InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Annual Gross Salary"
+                    type="number"
+                    value={payrollForm.annualGrossSalary}
+                    onChange={(e) => setPayrollForm({ ...payrollForm, annualGrossSalary: e.target.value })}
+                    InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                  />
+                </Grid>
+              </Grid>
+            </Box>
+
+            {/* Benefits Section */}
+            <Box>
+              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+                <Typography variant="subtitle1" fontWeight={600} color="primary">
+                  Benefits
+                </Typography>
+              </Stack>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Nachlas"
+                    type="number"
+                    value={payrollForm.nachlas}
+                    onChange={(e) => setPayrollForm({ ...payrollForm, nachlas: e.target.value })}
+                    InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Other Benefit"
+                    type="number"
+                    value={payrollForm.otherBenefit}
+                    onChange={(e) => setPayrollForm({ ...payrollForm, otherBenefit: e.target.value })}
+                    InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Parsonage"
+                    type="number"
+                    value={payrollForm.parsonage}
+                    onChange={(e) => setPayrollForm({ ...payrollForm, parsonage: e.target.value })}
+                    InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Parsonage Allocation"
+                    type="number"
+                    value={payrollForm.parsonageAllocation}
+                    onChange={(e) => setPayrollForm({ ...payrollForm, parsonageAllocation: e.target.value })}
+                    InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Travel"
+                    type="number"
+                    value={payrollForm.travel}
+                    onChange={(e) => setPayrollForm({ ...payrollForm, travel: e.target.value })}
+                    InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Insurance"
+                    type="number"
+                    value={payrollForm.insurance}
+                    onChange={(e) => setPayrollForm({ ...payrollForm, insurance: e.target.value })}
+                    InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="CC Name"
+                    value={payrollForm.ccName}
+                    onChange={(e) => setPayrollForm({ ...payrollForm, ccName: e.target.value })}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="CC Annual Amount"
+                    type="number"
+                    value={payrollForm.ccAnnualAmount}
+                    onChange={(e) => setPayrollForm({ ...payrollForm, ccAnnualAmount: e.target.value })}
+                    InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="403B+F:V (Retirement)"
+                    type="number"
+                    value={payrollForm.retirement403b}
+                    onChange={(e) => setPayrollForm({ ...payrollForm, retirement403b: e.target.value })}
+                    InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                  />
+                </Grid>
+              </Grid>
+            </Box>
+
+            {/* Paycheck Details Section */}
+            <Box>
+              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+                <Typography variant="subtitle1" fontWeight={600} color="primary">
+                  Paycheck Details
+                </Typography>
+              </Stack>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Paycheck Amount"
+                    type="number"
+                    value={payrollForm.paycheckAmount}
+                    onChange={(e) => setPayrollForm({ ...payrollForm, paycheckAmount: e.target.value })}
+                    InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Monthly Parsonage"
+                    type="number"
+                    value={payrollForm.monthlyParsonage}
+                    onChange={(e) => setPayrollForm({ ...payrollForm, monthlyParsonage: e.target.value })}
+                    InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Travel Stipend"
+                    type="number"
+                    value={payrollForm.travelStipend}
+                    onChange={(e) => setPayrollForm({ ...payrollForm, travelStipend: e.target.value })}
+                    InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="CC Deduction"
+                    type="number"
+                    value={payrollForm.ccDeduction}
+                    onChange={(e) => setPayrollForm({ ...payrollForm, ccDeduction: e.target.value })}
+                    InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Insurance Deduction"
+                    type="number"
+                    value={payrollForm.insuranceDeduction}
+                    onChange={(e) => setPayrollForm({ ...payrollForm, insuranceDeduction: e.target.value })}
+                    InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Annual Adjustment"
+                    type="number"
+                    value={payrollForm.annualAdjustment}
+                    onChange={(e) => setPayrollForm({ ...payrollForm, annualAdjustment: e.target.value })}
+                    InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Paychecks Remaining"
+                    type="number"
+                    value={payrollForm.paychecksRemaining}
+                    onChange={(e) => setPayrollForm({ ...payrollForm, paychecksRemaining: e.target.value })}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Per Paycheck Adjustment"
+                    type="number"
+                    value={payrollForm.perPaycheckAdjustment}
+                    onChange={(e) => setPayrollForm({ ...payrollForm, perPaycheckAdjustment: e.target.value })}
+                    InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Adjusted Check Amount"
+                    type="number"
+                    value={payrollForm.adjustedCheckAmount}
+                    onChange={(e) => setPayrollForm({ ...payrollForm, adjustedCheckAmount: e.target.value })}
+                    InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="PTO Days"
+                    type="number"
+                    value={payrollForm.ptoDays}
+                    onChange={(e) => setPayrollForm({ ...payrollForm, ptoDays: e.target.value })}
+                    helperText="Can be fractional (e.g., 2.5)"
+                  />
+                </Grid>
+              </Grid>
+            </Box>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPayrollDialog(false)}>Cancel</Button>
+          <Button variant="contained" onClick={handleSavePayroll} startIcon={<AttachMoneyIcon />}>
+            Save Payroll
           </Button>
         </DialogActions>
       </Dialog>

@@ -89,17 +89,34 @@ export const staffService = {
     return result.rows.length > 0 ? rowToStaff(result.rows[0]) : null;
   },
 
-  async getPositions(staffId) {
+  async getPositions(staffId, includeInactive = false) {
     if (!staffId) return [];
-    const result = await query(
-      `SELECT sp.*, g.name as grade_name, g.level as grade_level
+    let sql = `SELECT sp.*, g.name as grade_name, g.level as grade_level
        FROM staff_positions sp
        LEFT JOIN grades g ON sp.grade_id = g.id
-       WHERE sp.staff_id = $1 AND sp.is_active = true
-       ORDER BY sp.start_date DESC`,
-      [staffId]
-    );
-    return result.rows;
+       WHERE sp.staff_id = $1`;
+    if (!includeInactive) {
+      sql += ` AND sp.is_active = true`;
+    }
+    sql += ` ORDER BY sp.start_date DESC`;
+    const result = await query(sql, [staffId]);
+    
+    // Map to camelCase format
+    return result.rows.map(row => ({
+      id: row.id,
+      staffId: row.staff_id,
+      positionId: row.position_id,
+      positionName: row.position_name,
+      gradeId: row.grade_id,
+      gradeName: row.grade_name,
+      gradeLevel: row.grade_level,
+      startDate: row.start_date,
+      endDate: row.end_date,
+      isActive: row.is_active,
+      notes: row.notes,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
   },
 
   async getClasses(staffId) {
@@ -280,6 +297,14 @@ export const staffService = {
       [staffId, positionId, positionName, gradeId, startDate, endDate]
     );
     return result.rows[0];
+  },
+
+  async removePosition(positionId) {
+    if (!positionId) {
+      throw new Error("Position ID is required");
+    }
+    const result = await query("DELETE FROM staff_positions WHERE id = $1 RETURNING id", [positionId]);
+    return result.rows.length > 0;
   },
 };
 

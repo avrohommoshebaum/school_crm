@@ -17,11 +17,15 @@ export function initializeGCS() {
     const projectId = process.env.GOOGLE_CLOUD_PROJECT;
     if (!projectId) {
       console.warn("⚠️ GOOGLE_CLOUD_PROJECT not set. GCS storage will be disabled.");
+      console.warn("⚠️ Set GOOGLE_CLOUD_PROJECT environment variable to enable file uploads.");
+      storageClient = null;
+      bucketName = null;
       return null;
     }
 
     // Initialize Storage client
     // In Cloud Run, credentials are automatically provided
+    // In local development, you may need to set GOOGLE_APPLICATION_CREDENTIALS
     storageClient = new Storage({
       projectId,
     });
@@ -29,10 +33,13 @@ export function initializeGCS() {
     // Get bucket name from env or use default
     bucketName = process.env.GCS_BUCKET_NAME || `${projectId}-robocall-audio`;
     
-    // GCS Storage initialized
+    console.log(`✅ GCS Storage initialized: project=${projectId}, bucket=${bucketName}`);
     return storageClient;
   } catch (error) {
     console.error("❌ Error initializing GCS:", error.message);
+    console.error("❌ Make sure GOOGLE_CLOUD_PROJECT is set and credentials are configured.");
+    storageClient = null;
+    bucketName = null;
     return null;
   }
 }
@@ -48,16 +55,22 @@ function getStorageClient() {
 }
 
 /**
- * Upload audio file to GCS
+ * Upload file to GCS (general purpose)
  * @param {Buffer|Uint8Array} fileBuffer - File buffer
- * @param {string} fileName - Original file name
- * @param {string} contentType - MIME type (e.g., 'audio/mpeg', 'audio/wav')
+ * @param {string} fileName - Original file name or full path
+ * @param {string} contentType - MIME type (e.g., 'audio/mpeg', 'audio/wav', 'application/pdf')
+ * @param {string} pathPrefix - Optional path prefix (e.g., 'robocalls', 'staff-documents')
+ * @param {number} expiresInDays - Days until signed URL expires (default: 365 for long-term, 7 for documents)
  * @returns {Promise<{url: string, gcsPath: string, publicUrl: string}>}
  */
-export async function uploadAudioFile(fileBuffer, fileName, contentType = "audio/mpeg") {
+export async function uploadFile(fileBuffer, fileName, contentType = "application/octet-stream", pathPrefix = "files", expiresInDays = 7) {
   const client = getStorageClient();
   if (!client) {
-    throw new Error("GCS client not initialized");
+    const projectId = process.env.GOOGLE_CLOUD_PROJECT;
+    if (!projectId) {
+      throw new Error("GCS client not initialized: GOOGLE_CLOUD_PROJECT environment variable is not set. Please set GOOGLE_CLOUD_PROJECT to enable file uploads.");
+    }
+    throw new Error("GCS client not initialized: Failed to initialize Google Cloud Storage. Please check your GCS credentials and configuration.");
   }
 
   if (!bucketName) {
@@ -77,10 +90,17 @@ export async function uploadAudioFile(fileBuffer, fileName, contentType = "audio
       });
     }
 
-    // Generate unique file path with timestamp
-    const timestamp = Date.now();
-    const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, "_");
-    const gcsFileName = `robocalls/${timestamp}_${sanitizedFileName}`;
+    // If fileName already contains a path, use it as-is; otherwise, generate one
+    let gcsFileName;
+    if (fileName.includes("/")) {
+      // Already has a path, use it
+      gcsFileName = fileName;
+    } else {
+      // Generate unique file path with timestamp
+      const timestamp = Date.now();
+      const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, "_");
+      gcsFileName = `${pathPrefix}/${timestamp}_${sanitizedFileName}`;
+    }
 
     // Upload file
     const file = bucket.file(gcsFileName);
@@ -95,10 +115,10 @@ export async function uploadAudioFile(fileBuffer, fileName, contentType = "audio
     // Make file private (not publicly accessible)
     await file.makePrivate();
 
-    // Generate signed URL valid for 1 year (long-term for robocalls)
+    // Generate signed URL
     const [signedUrl] = await file.getSignedUrl({
       action: "read",
-      expires: Date.now() + 365 * 24 * 60 * 60 * 1000, // 1 year
+      expires: Date.now() + expiresInDays * 24 * 60 * 60 * 1000,
       version: "v4",
     });
 
@@ -109,8 +129,19 @@ export async function uploadAudioFile(fileBuffer, fileName, contentType = "audio
     };
   } catch (error) {
     console.error("Error uploading to GCS:", error);
-    throw new Error(`Failed to upload audio file: ${error.message}`);
+    throw new Error(`Failed to upload file: ${error.message}`);
   }
+}
+
+/**
+ * Upload audio file to GCS (convenience function for backward compatibility)
+ * @param {Buffer|Uint8Array} fileBuffer - File buffer
+ * @param {string} fileName - Original file name
+ * @param {string} contentType - MIME type (e.g., 'audio/mpeg', 'audio/wav')
+ * @returns {Promise<{url: string, gcsPath: string, publicUrl: string}>}
+ */
+export async function uploadAudioFile(fileBuffer, fileName, contentType = "audio/mpeg") {
+  return uploadFile(fileBuffer, fileName, contentType, "robocalls", 365);
 }
 
 /**
@@ -122,7 +153,11 @@ export async function uploadAudioFile(fileBuffer, fileName, contentType = "audio
 export async function getSignedUrl(gcsPath, expiresInHours = 24) {
   const client = getStorageClient();
   if (!client || !bucketName) {
-    throw new Error("GCS not initialized");
+    const projectId = process.env.GOOGLE_CLOUD_PROJECT;
+    if (!projectId) {
+      throw new Error("GCS not initialized: GOOGLE_CLOUD_PROJECT environment variable is not set. Please set GOOGLE_CLOUD_PROJECT to enable file downloads.");
+    }
+    throw new Error("GCS not initialized: Failed to initialize Google Cloud Storage. Please check your GCS credentials and configuration.");
   }
 
   try {
@@ -147,14 +182,18 @@ export async function getSignedUrl(gcsPath, expiresInHours = 24) {
 }
 
 /**
- * Delete audio file from GCS
+ * Delete file from GCS (general purpose)
  * @param {string} gcsPath - Path to file in GCS
  * @returns {Promise<void>}
  */
-export async function deleteAudioFile(gcsPath) {
+export async function deleteFile(gcsPath) {
   const client = getStorageClient();
   if (!client || !bucketName) {
-    throw new Error("GCS not initialized");
+    const projectId = process.env.GOOGLE_CLOUD_PROJECT;
+    if (!projectId) {
+      throw new Error("GCS not initialized: GOOGLE_CLOUD_PROJECT environment variable is not set. Please set GOOGLE_CLOUD_PROJECT to enable file deletion.");
+    }
+    throw new Error("GCS not initialized: Failed to initialize Google Cloud Storage. Please check your GCS credentials and configuration.");
   }
 
   try {
@@ -162,8 +201,17 @@ export async function deleteAudioFile(gcsPath) {
     await file.delete();
   } catch (error) {
     console.error("Error deleting from GCS:", error);
-    throw new Error(`Failed to delete audio file: ${error.message}`);
+    throw new Error(`Failed to delete file: ${error.message}`);
   }
+}
+
+/**
+ * Delete audio file from GCS (convenience function for backward compatibility)
+ * @param {string} gcsPath - Path to file in GCS
+ * @returns {Promise<void>}
+ */
+export async function deleteAudioFile(gcsPath) {
+  return deleteFile(gcsPath);
 }
 
 /**

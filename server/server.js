@@ -119,6 +119,13 @@ async function initialize() {
     } catch (error) {
       // Schema already exists or minor issues - continue
     }
+
+    const setupPayrollSchema = (await import("./db/scripts/setupPayrollSchema.js")).default;
+    try {
+      await setupPayrollSchema();
+    } catch (error) {
+      // Schema already exists or minor issues - continue
+    }
     
     // Ensure admin role has all permissions (including newly added ones)
     const ensureAdminHasAllPermissions = (await import("./scripts/ensureAdminHasAllPermissions.js")).default;
@@ -199,6 +206,10 @@ async function initialize() {
     // Position routes
     const positionRoutes = (await import("./routes/positionRoutes.js")).default;
     app.use("/api/positions", positionRoutes);
+    
+    // Payroll routes
+    const payrollRoutes = (await import("./routes/payrollRoutes.js")).default;
+    app.use("/api/payroll", payrollRoutes);
     
     // Initialize Twilio
     const { initializeTwilio } = await import("./utils/twilio.js");

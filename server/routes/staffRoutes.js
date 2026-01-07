@@ -14,6 +14,7 @@ import {
   deleteStaff,
   getStaffPositions,
   createPosition,
+  deletePosition,
   getStaffSalaries,
   createSalary,
   updateSalary,
@@ -51,6 +52,7 @@ router.delete("/:id", deleteStaff);
 // Positions
 router.get("/:staffId/positions", getStaffPositions);
 router.post("/:staffId/positions", createPosition);
+router.delete("/positions/:id", deletePosition);
 
 // Salaries
 router.get("/:staffId/salaries", getStaffSalaries);

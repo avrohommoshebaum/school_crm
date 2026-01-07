@@ -9,6 +9,7 @@ import { studentService } from "../db/services/studentService.js";
 import { classService } from "../db/services/classService.js";
 import { staffService } from "../db/services/staffService.js";
 import { familyService } from "../db/services/familyService.js";
+import { payrollService } from "../db/services/payrollService.js";
 import { sanitizeString } from "../utils/validation.js";
 
 // Auto-detect column mappings based on common field names
@@ -41,6 +42,100 @@ const autoDetectColumns = (headers, type) => {
     )] || null;
     mapping.employmentStatus = headers[headerLower.findIndex(h => 
       h.includes("status") || h.includes("employment") || h.includes("active")
+    )] || null;
+    // Payroll fields
+    mapping.legalName = headers[headerLower.findIndex(h => 
+      h.includes("legal") && h.includes("name")
+    )] || null;
+    mapping.grade = headers[headerLower.findIndex(h => 
+      h.includes("grade") && !h.includes("point")
+    )] || null;
+    mapping.jobNumber2 = headers[headerLower.findIndex(h => 
+      h.includes("job") && (h.includes("2") || h.includes("#2") || h.includes("number") && h.includes("2"))
+    )] || null;
+    mapping.academicYear = headers[headerLower.findIndex(h => 
+      h.includes("academic") && h.includes("year") || h.includes("year") && h.includes("academic")
+    )] || null;
+    mapping.annualGrossSalary = headers[headerLower.findIndex(h => 
+      h.includes("annual") && (h.includes("gross") || h.includes("salary"))
+    )] || null;
+    mapping.totalPackage2526 = headers[headerLower.findIndex(h => 
+      h.includes("total") && (h.includes("package") || h.includes("25-26") || h.includes("2526"))
+    )] || null;
+    mapping.maxQuarter = headers[headerLower.findIndex(h => 
+      h.includes("max") && h.includes("quarter")
+    )] || null;
+    mapping.tuition = headers[headerLower.findIndex(h => 
+      h.includes("tuition")
+    )] || null;
+    mapping.actualQuarter = headers[headerLower.findIndex(h => 
+      h.includes("actual") && h.includes("quarter")
+    )] || null;
+    mapping.nachlas = headers[headerLower.findIndex(h => 
+      h.includes("nachlas")
+    )] || null;
+    mapping.otherBenefit = headers[headerLower.findIndex(h => 
+      h.includes("other") && h.includes("benefit")
+    )] || null;
+    mapping.parsonage = headers[headerLower.findIndex(h => 
+      h.includes("parsonage") && !h.includes("allocation") && !h.includes("monthly")
+    )] || null;
+    mapping.parsonageAllocation = headers[headerLower.findIndex(h => 
+      h.includes("parsonage") && h.includes("allocation")
+    )] || null;
+    mapping.travel = headers[headerLower.findIndex(h => 
+      h.includes("travel") && !h.includes("stipend")
+    )] || null;
+    mapping.insurance = headers[headerLower.findIndex(h => 
+      h.includes("insurance") && !h.includes("deduction")
+    )] || null;
+    mapping.ccName = headers[headerLower.findIndex(h => 
+      (h.includes("cc") || h.includes("credit")) && h.includes("name")
+    )] || null;
+    mapping.ccAnnualAmount = headers[headerLower.findIndex(h => 
+      (h.includes("cc") || h.includes("credit")) && (h.includes("annual") || h.includes("amount"))
+    )] || null;
+    mapping.retirement403b = headers[headerLower.findIndex(h => 
+      h.includes("retirement") || h.includes("403b") || h.includes("401k")
+    )] || null;
+    mapping.paycheckAmount = headers[headerLower.findIndex(h => 
+      h.includes("paycheck") && h.includes("amount")
+    )] || null;
+    mapping.monthlyParsonage = headers[headerLower.findIndex(h => 
+      h.includes("monthly") && h.includes("parsonage")
+    )] || null;
+    mapping.travelStipend = headers[headerLower.findIndex(h => 
+      h.includes("travel") && h.includes("stipend")
+    )] || null;
+    mapping.ccDeduction = headers[headerLower.findIndex(h => 
+      (h.includes("cc") || h.includes("credit")) && h.includes("deduction")
+    )] || null;
+    mapping.insuranceDeduction = headers[headerLower.findIndex(h => 
+      h.includes("insurance") && h.includes("deduction")
+    )] || null;
+    mapping.annualAdjustment = headers[headerLower.findIndex(h => 
+      h.includes("annual") && h.includes("adjustment")
+    )] || null;
+    mapping.paychecksRemaining = headers[headerLower.findIndex(h => 
+      h.includes("paycheck") && h.includes("remaining")
+    )] || null;
+    mapping.perPaycheckAdjustment = headers[headerLower.findIndex(h => 
+      h.includes("per") && h.includes("paycheck") && h.includes("adjustment")
+    )] || null;
+    mapping.adjustedCheckAmount = headers[headerLower.findIndex(h => 
+      h.includes("adjusted") && (h.includes("check") || h.includes("amount"))
+    )] || null;
+    mapping.ptoDays = headers[headerLower.findIndex(h => 
+      h.includes("pto") || (h.includes("paid") && h.includes("time") && h.includes("off")) || h.includes("vacation")
+    )] || null;
+    mapping.freeDaycare = headers[headerLower.findIndex(h => 
+      h.includes("free") && h.includes("daycare")
+    )] || null;
+    mapping.misc2 = headers[headerLower.findIndex(h => 
+      h.includes("misc") && (h.includes("2") || h.includes("two"))
+    )] || null;
+    mapping.misc3 = headers[headerLower.findIndex(h => 
+      h.includes("misc") && (h.includes("3") || h.includes("three"))
     )] || null;
   } else if (type === "students") {
     mapping.firstName = headers[headerLower.findIndex(h => 
@@ -556,6 +651,73 @@ export const importStaff = async (req, res) => {
           employmentStatus: columnMapping.employmentStatus ? String(row[headers.indexOf(columnMapping.employmentStatus)] || "").trim() : 'active',
         };
 
+        // Extract payroll data if any payroll fields are mapped
+        const payrollData = {};
+        const parseNumericField = (fieldName) => {
+          if (!columnMapping[fieldName]) return null;
+          const colIndex = headers.indexOf(columnMapping[fieldName]);
+          if (colIndex < 0) return null;
+          const value = String(row[colIndex] || "").trim();
+          if (!value) return null;
+          // Remove currency symbols and commas
+          const numValue = parseFloat(value.replace(/[^0-9.-]/g, ""));
+          return isNaN(numValue) ? null : numValue;
+        };
+
+        const parseStringField = (fieldName) => {
+          if (!columnMapping[fieldName]) return null;
+          const colIndex = headers.indexOf(columnMapping[fieldName]);
+          if (colIndex < 0) return null;
+          const value = String(row[colIndex] || "").trim();
+          return value || null;
+        };
+
+        const parseBooleanField = (fieldName) => {
+          if (!columnMapping[fieldName]) return false;
+          const colIndex = headers.indexOf(columnMapping[fieldName]);
+          if (colIndex < 0) return false;
+          const value = String(row[colIndex] || "").trim().toLowerCase();
+          return value === "yes" || value === "true" || value === "1" || value === "y";
+        };
+
+        if (columnMapping.legalName) payrollData.legalName = parseStringField("legalName");
+        if (columnMapping.grade) payrollData.grade = parseStringField("grade");
+        if (columnMapping.jobNumber2) payrollData.jobNumber2 = parseStringField("jobNumber2");
+        if (columnMapping.academicYear) payrollData.academicYear = parseStringField("academicYear");
+        if (columnMapping.freeDaycare) payrollData.freeDaycare = parseBooleanField("freeDaycare");
+        if (columnMapping.misc2) payrollData.misc2 = parseStringField("misc2");
+        if (columnMapping.misc3) payrollData.misc3 = parseStringField("misc3");
+        if (columnMapping.totalPackage2526) payrollData.totalPackage2526 = parseNumericField("totalPackage2526");
+        if (columnMapping.maxQuarter) payrollData.maxQuarter = parseNumericField("maxQuarter");
+        if (columnMapping.tuition) payrollData.tuition = parseNumericField("tuition");
+        if (columnMapping.actualQuarter) payrollData.actualQuarter = parseNumericField("actualQuarter");
+        if (columnMapping.annualGrossSalary) payrollData.annualGrossSalary = parseNumericField("annualGrossSalary");
+        if (columnMapping.nachlas) payrollData.nachlas = parseNumericField("nachlas");
+        if (columnMapping.otherBenefit) payrollData.otherBenefit = parseNumericField("otherBenefit");
+        if (columnMapping.parsonage) payrollData.parsonage = parseNumericField("parsonage");
+        if (columnMapping.parsonageAllocation) payrollData.parsonageAllocation = parseNumericField("parsonageAllocation");
+        if (columnMapping.travel) payrollData.travel = parseNumericField("travel");
+        if (columnMapping.insurance) payrollData.insurance = parseNumericField("insurance");
+        if (columnMapping.ccName) payrollData.ccName = parseStringField("ccName");
+        if (columnMapping.ccAnnualAmount) payrollData.ccAnnualAmount = parseNumericField("ccAnnualAmount");
+        if (columnMapping.retirement403b) payrollData.retirement403b = parseNumericField("retirement403b");
+        if (columnMapping.paycheckAmount) payrollData.paycheckAmount = parseNumericField("paycheckAmount");
+        if (columnMapping.monthlyParsonage) payrollData.monthlyParsonage = parseNumericField("monthlyParsonage");
+        if (columnMapping.travelStipend) payrollData.travelStipend = parseNumericField("travelStipend");
+        if (columnMapping.ccDeduction) payrollData.ccDeduction = parseNumericField("ccDeduction");
+        if (columnMapping.insuranceDeduction) payrollData.insuranceDeduction = parseNumericField("insuranceDeduction");
+        if (columnMapping.annualAdjustment) payrollData.annualAdjustment = parseNumericField("annualAdjustment");
+        if (columnMapping.paychecksRemaining) payrollData.paychecksRemaining = parseNumericField("paychecksRemaining");
+        if (columnMapping.perPaycheckAdjustment) payrollData.perPaycheckAdjustment = parseNumericField("perPaycheckAdjustment");
+        if (columnMapping.adjustedCheckAmount) payrollData.adjustedCheckAmount = parseNumericField("adjustedCheckAmount");
+        if (columnMapping.ptoDays) payrollData.ptoDays = parseNumericField("ptoDays");
+
+        // Check if any payroll data exists
+        const hasPayrollData = Object.keys(payrollData).length > 0;
+        if (hasPayrollData) {
+          staffData._payrollData = payrollData;
+        }
+
         staff.push(staffData);
       } catch (error) {
         errors.push({ row: rowIndex, error: error.message });
@@ -564,12 +726,32 @@ export const importStaff = async (req, res) => {
 
     // Bulk create staff
     let imported = 0;
-    for (const staffData of staff) {
+    for (const staffDataItem of staff) {
       try {
-        await staffService.create(staffData);
+        // Extract payroll data before creating staff
+        const { _payrollData, ...staffData } = staffDataItem;
+        
+        // Create staff member
+        const createdStaff = await staffService.create(staffData);
+        const staffId = createdStaff.id;
+
+        // Create payroll record if payroll data exists
+        if (_payrollData && Object.keys(_payrollData).length > 0) {
+          try {
+            await payrollService.create(staffId, _payrollData);
+          } catch (payrollError) {
+            console.error(`Error creating payroll for staff ${staffId}:`, payrollError);
+            // Don't fail the whole import if payroll creation fails
+            errors.push({ 
+              row: `Staff: ${staffData.firstName} ${staffData.lastName}`, 
+              error: `Staff created but payroll creation failed: ${payrollError.message}` 
+            });
+          }
+        }
+
         imported++;
       } catch (error) {
-        errors.push({ row: `Staff: ${staffData.firstName} ${staffData.lastName}`, error: error.message });
+        errors.push({ row: `Staff: ${staffDataItem.firstName} ${staffDataItem.lastName}`, error: error.message });
       }
     }
 
