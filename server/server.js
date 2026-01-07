@@ -91,6 +91,43 @@ async function initialize() {
     } catch (error) {
       // Schema already exists or minor issues - continue
     }
+
+    const setupExtendedSchema = (await import("./db/scripts/setupExtendedSchema.js")).default;
+    try {
+      await setupExtendedSchema();
+    } catch (error) {
+      // Schema already exists or minor issues - continue
+    }
+
+    const setupPrincipalCenterSchema = (await import("./db/scripts/setupPrincipalCenterSchema.js")).default;
+    try {
+      await setupPrincipalCenterSchema();
+    } catch (error) {
+      // Schema already exists or minor issues - continue
+    }
+
+    const setupStaffManagementSchema = (await import("./db/scripts/setupStaffManagementSchema.js")).default;
+    try {
+      await setupStaffManagementSchema();
+    } catch (error) {
+      // Schema already exists or minor issues - continue
+    }
+
+    const setupPositionsSchema = (await import("./db/scripts/setupPositionsSchema.js")).default;
+    try {
+      await setupPositionsSchema();
+    } catch (error) {
+      // Schema already exists or minor issues - continue
+    }
+    
+    // Ensure admin role has all permissions (including newly added ones)
+    const ensureAdminHasAllPermissions = (await import("./scripts/ensureAdminHasAllPermissions.js")).default;
+    try {
+      await ensureAdminHasAllPermissions();
+    } catch (error) {
+      console.error("⚠️  Warning: Could not update admin role permissions:", error.message);
+      // Continue anyway - admin override should still work
+    }
     
     await configureSession(app);
     configurePassport(app);
@@ -126,6 +163,42 @@ async function initialize() {
     // System settings routes
     const systemSettingsRoutes = (await import("./routes/systemSettingsRoutes.js")).default;
     app.use("/api/system-settings", systemSettingsRoutes);
+    
+    // Principal Center routes
+    const principalRoutes = (await import("./routes/principalRoutes.js")).default;
+    app.use("/api/principal", principalRoutes);
+    
+    // Grade routes
+    const gradeRoutes = (await import("./routes/gradeRoutes.js")).default;
+    app.use("/api/grades", gradeRoutes);
+    
+    // Student routes
+    const studentRoutes = (await import("./routes/studentRoutes.js")).default;
+    app.use("/api/students", studentRoutes);
+    
+    // Class routes
+    const classRoutes = (await import("./routes/classRoutes.js")).default;
+    app.use("/api/classes", classRoutes);
+    
+    // Staff routes
+    const staffRoutes = (await import("./routes/staffRoutes.js")).default;
+    app.use("/api/staff", staffRoutes);
+    
+    // Family routes
+    const familyRoutes = (await import("./routes/familyRoutes.js")).default;
+    app.use("/api/families", familyRoutes);
+    
+    // Principal assignment routes (admin only)
+    const principalAssignmentRoutes = (await import("./routes/principalAssignmentRoutes.js")).default;
+    app.use("/api/principal-assignments", principalAssignmentRoutes);
+    
+    // Import routes
+    const importRoutes = (await import("./routes/importRoutes.js")).default;
+    app.use("/api/import", importRoutes);
+    
+    // Position routes
+    const positionRoutes = (await import("./routes/positionRoutes.js")).default;
+    app.use("/api/positions", positionRoutes);
     
     // Initialize Twilio
     const { initializeTwilio } = await import("./utils/twilio.js");

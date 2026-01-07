@@ -5,6 +5,8 @@ import SecurityIcon from "@mui/icons-material/Security";
 import EmailIcon from "@mui/icons-material/Email";
 import SmsIcon from "@mui/icons-material/Sms";
 
+import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
+
 export const PERMISSIONS = [
   { key: "students", label: "Students", icon: SchoolIcon },
   { key: "classes", label: "Classes" },
@@ -19,6 +21,10 @@ export const PERMISSIONS = [
   { key: "communications_email", label: "Send Email", icon: EmailIcon },
   { key: "communications_sms", label: "Send SMS", icon: SmsIcon },
   { key: "communications_voice", label: "Robocalls" },
+
+  { key: "principalCenter", label: "Principal Center", icon: AdminPanelSettingsIcon },
+  { key: "headPrincipal", label: "Head Principal", icon: AdminPanelSettingsIcon },
+  { key: "staff", label: "Staff Management", icon: PeopleIcon },
 
   { key: "users", label: "Users", icon: PeopleIcon },
   { key: "roles", label: "Roles", icon: SecurityIcon },

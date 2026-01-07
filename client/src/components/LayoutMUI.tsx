@@ -122,9 +122,10 @@ const navigationItems: NavItem[] = [
     name: "Principal Center",
     path: "/principal",
     icon: AdminPanelSettingsIcon,
-    permission: { module: "students", action: "view" },
+    permission: { module: "principalCenter", action: "view" },
     children: [
       { name: "Overview", path: "/principal", icon: DashboardIcon },
+      { name: "Head Principal", path: "/principal/head-principal", icon: AdminPanelSettingsIcon, permission: { module: "headPrincipal", action: "view" } },
       { name: "Student Logs", path: "/principal/student-logs", icon: AssignmentIcon },
       { name: "Flagged Students", path: "/principal/flagged-students", icon: FlagIcon },
       { name: "Parent Meetings", path: "/principal/parent-meetings", icon: EventIcon },
@@ -153,6 +154,7 @@ const navigationItems: NavItem[] = [
     children: [
       { name: "Overview", path: "/admin", icon: DashboardIcon, permission: { module: "users", action: "view" } },
       { name: "User Management", path: "/admin/users", icon: PeopleIcon, permission: { module: "users", action: "view" } },
+      { name: "Staff Management", path: "/admin/staff", icon: PeopleIcon, permission: { module: "staff", action: "view" } },
       { name: "Role Management", path: "/admin/roles", icon: SecurityIcon, permission: { module: "roles", action: "view" } },
       { name: "School Settings", path: "/admin/school-settings", icon: SchoolIcon, permission: { module: "settings", action: "view" } },
       { name: "School Calendar", path: "/admin/school-calendar", icon: CalendarMonthIcon, permission: { module: "settings", action: "view" } },

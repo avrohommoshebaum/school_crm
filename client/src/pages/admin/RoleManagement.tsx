@@ -354,8 +354,8 @@ const canDeleteRoles = hasPermission(user, "roles", "delete");
 
     const payload = {
       name: normalizedName,
-      displayName: newRole.displayName.trim(),
-      description: newRole.description.trim(),
+      displayName: (newRole.displayName || "").trim(),
+      description: (newRole.description || "").trim(),
       permissions: newRole.permissions,
     };
 

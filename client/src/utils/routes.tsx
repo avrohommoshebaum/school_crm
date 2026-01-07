@@ -14,6 +14,7 @@ const AcceptInvite = lazy(() => import("../pages/invite/AcceptInvite"));
 const InviteSuccess = lazy(() => import("../pages/invite/InviteSuccess"));
 const AdminDashboard = lazy(() => import("../pages/admin/AdminDashboard"));
 const UserManagement = lazy(() => import("../pages/admin/UserManagement"));
+const StaffManagement = lazy(() => import("../pages/admin/StaffManagement"));
 const RoleManagement = lazy(() => import("../pages/admin/RoleManagement"));
 const ProfilePage = lazy(() => import("../pages/profile/ProfilePage"));
 const SettingsPage = lazy(() => import("../pages/profile/SettingsPage"));
@@ -46,7 +47,11 @@ const Classes = lazy(() => import("../pages/Classes"));
 const Applications = lazy(() => import("../pages/Applications"));
 const ApplicationForm = lazy(() => import("../pages/ApplicationForm"));
 const ReportCards = lazy(() => import("../pages/ReportCards"));
-const PrincipalCenter = lazy(() => import("../pages/PrincipalCenter"));
+const PrincipalCenter = lazy(() => import("../pages/principal/PrincipalCenter"));
+const HeadPrincipal = lazy(() => import("../pages/principal/HeadPrincipal"));
+const GradeView = lazy(() => import("../pages/principal/GradeView"));
+const ClassView = lazy(() => import("../pages/principal/ClassView"));
+const StudentView = lazy(() => import("../pages/principal/StudentView"));
 const StudentLogs = lazy(() => import("../pages/principal/StudentLogs"));
 const FlaggedStudents = lazy(() => import("../pages/principal/FlaggedStudents"));
 const ParentMeetings = lazy(() => import("../pages/principal/ParentMeetings"));
@@ -244,6 +249,30 @@ const router = createBrowserRouter([
                 element: <LazyRoute Component={PrincipalCenter} />,
               },
               {
+                path: "head-principal",
+                element: (
+                  <ProtectedRoute permission={{ module: "headPrincipal", action: "view" }} />
+                ),
+                children: [
+                  {
+                    index: true,
+                    element: <LazyRoute Component={HeadPrincipal} />,
+                  },
+                ],
+              },
+              {
+                path: "grades/:gradeId",
+                element: <LazyRoute Component={GradeView} />,
+              },
+              {
+                path: "classes/:classId",
+                element: <LazyRoute Component={ClassView} />,
+              },
+              {
+                path: "students/:studentId",
+                element: <LazyRoute Component={StudentView} />,
+              },
+              {
                 path: "student-logs",
                 element: <LazyRoute Component={StudentLogs} />,
               },
@@ -303,6 +332,10 @@ const router = createBrowserRouter([
               {
                 path: "users",
                 element: <LazyRoute Component={UserManagement} />,
+              },
+              {
+                path: "staff",
+                element: <LazyRoute Component={StaffManagement} />,
               },
               {
                 path: "roles",

@@ -17,6 +17,10 @@ export const PERMISSION_KEYS = [
   "tuition",
   "donations",
 
+  "principalCenter",
+  "headPrincipal",
+  "staff",
+
   "users",
   "roles",
   "invites",
