@@ -4,6 +4,125 @@
  */
 
 import { payrollService, payrollHistoryService } from "../db/services/payrollService.js";
+import { staffBenefitService } from "../db/services/staffManagementService.js";
+import { query } from "../db/postgresConnect.js";
+
+/**
+ * Sync benefits from payroll to benefits table
+ */
+async function syncBenefitsFromPayroll(staffId, payrollData) {
+  try {
+    // Get the current payroll record to determine effective date
+    const payroll = await payrollService.findByStaffId(staffId);
+    if (!payroll) return;
+
+    // Merge payrollData with existing payroll to get full data
+    const fullPayrollData = { ...payroll, ...payrollData };
+
+    const effectiveDate = payroll.createdAt 
+      ? new Date(payroll.createdAt).toISOString().split('T')[0]
+      : new Date().toISOString().split('T')[0];
+
+    // Get existing benefits for matching
+    const existingBenefits = await staffBenefitService.findByStaffId(staffId);
+
+    // Benefit mappings from payroll to benefits table
+    const benefitMappings = [
+      {
+        payrollField: 'insurance',
+        type: 'health_insurance',
+        name: 'Health Insurance',
+        value: fullPayrollData.insurance,
+      },
+      {
+        payrollField: 'retirement403b',
+        type: 'retirement',
+        name: '403B Retirement',
+        value: fullPayrollData.retirement403b,
+      },
+      {
+        payrollField: 'ccAnnualAmount',
+        type: 'other',
+        name: fullPayrollData.ccName || 'CC Benefit',
+        value: fullPayrollData.ccAnnualAmount,
+      },
+      {
+        payrollField: 'nachlas',
+        type: 'other',
+        name: 'Nachlas',
+        value: fullPayrollData.nachlas,
+      },
+      {
+        payrollField: 'otherBenefit',
+        type: 'other',
+        name: 'Other Benefit',
+        value: fullPayrollData.otherBenefit,
+      },
+      {
+        payrollField: 'parsonage',
+        type: 'parsonage',
+        name: 'Parsonage',
+        value: fullPayrollData.parsonage,
+      },
+      {
+        payrollField: 'travel',
+        type: 'other',
+        name: 'Travel',
+        value: fullPayrollData.travel,
+      },
+    ];
+
+    for (const mapping of benefitMappings) {
+      const value = mapping.value;
+      
+      // Skip if value is null, undefined, or 0
+      if (!value || parseFloat(value) <= 0) {
+        // Remove existing benefit if value is now 0/null
+        const existing = existingBenefits.find(
+          b => b.benefitType === mapping.type && 
+          b.benefitName === mapping.name &&
+          (b.notes?.includes('payroll') || b.notes?.includes('Synced'))
+        );
+        if (existing) {
+          await staffBenefitService.delete(existing.id);
+        }
+        continue;
+      }
+
+      const amount = parseFloat(value);
+
+      // Find existing benefit with matching type and name (from payroll)
+      // Also match if name matches even if notes don't (for backwards compatibility)
+      const existing = existingBenefits.find(
+        b => b.benefitType === mapping.type && 
+        ((b.benefitName === mapping.name && (b.notes?.includes('payroll') || b.notes?.includes('Synced'))) ||
+         (b.benefitName === mapping.name && mapping.type !== 'other')) // For non-other types, match by type and name
+      );
+
+      if (existing) {
+        // Update existing benefit
+        await staffBenefitService.update(existing.id, {
+          employerContribution: amount,
+          benefitName: mapping.name, // Update name in case ccName changed
+        });
+      } else {
+        // Create new benefit
+        await staffBenefitService.create({
+          staffId,
+          benefitType: mapping.type,
+          benefitName: mapping.name,
+          employerContribution: amount,
+          employeeContribution: 0,
+          effectiveDate,
+          notes: `Synced from payroll data`,
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Error syncing benefits from payroll:', error);
+    // Don't throw - this is a sync operation, shouldn't fail the main update
+  }
+}
 
 export const getPayroll = async (req, res) => {
   try {
@@ -36,6 +155,12 @@ export const createPayroll = async (req, res) => {
   try {
     const { staffId } = req.params;
     const payroll = await payrollService.create(staffId, req.body);
+
+    // Sync benefits to benefits table
+    if (payroll && payroll.id) {
+      await syncBenefitsFromPayroll(staffId, req.body);
+    }
+
     res.status(201).json({ message: "Payroll record created successfully", payroll });
   } catch (error) {
     console.error("Error creating payroll:", error);
@@ -50,6 +175,13 @@ export const updatePayroll = async (req, res) => {
     if (!payroll) {
       return res.status(404).json({ message: "Payroll record not found" });
     }
+
+    // Sync benefits to benefits table
+    const payrollRecord = await payrollService.findById(id);
+    if (payrollRecord && payrollRecord.staffId) {
+      await syncBenefitsFromPayroll(payrollRecord.staffId, req.body);
+    }
+
     res.json({ message: "Payroll record updated successfully", payroll });
   } catch (error) {
     console.error("Error updating payroll:", error);

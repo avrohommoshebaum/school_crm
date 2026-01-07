@@ -62,7 +62,6 @@ import DescriptionIcon from "@mui/icons-material/Description";
 import WorkIcon from "@mui/icons-material/Work";
 import CloseIcon from "@mui/icons-material/Close";
 import AddIcon from "@mui/icons-material/Add";
-import RemoveIcon from "@mui/icons-material/Remove";
 import DownloadIcon from "@mui/icons-material/Download";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 
@@ -216,6 +215,7 @@ export default function StaffManagement() {
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [payrollDialog, setPayrollDialog] = useState(false);
   const [selectedSalary, setSelectedSalary] = useState<Salary | null>(null);
+  const [selectedBenefit, setSelectedBenefit] = useState<Benefit | null>(null);
 
   // Forms
   const [staffForm, setStaffForm] = useState({
@@ -349,8 +349,18 @@ export default function StaffManagement() {
 
   // Excel import
   const [excelFile, setExcelFile] = useState<File | null>(null);
+  const [excelHeaders, setExcelHeaders] = useState<string[]>([]);
+  const [excelSampleRows, setExcelSampleRows] = useState<any[]>([]);
+  const [columnMapping, setColumnMapping] = useState<Record<string, string>>({});
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<any>(null);
+  const [importErrors, setImportErrors] = useState<any[]>([]);
+  const [showImportErrors, setShowImportErrors] = useState(false);
+  const [fixErrorDialog, setFixErrorDialog] = useState(false);
+  const [editingError, setEditingError] = useState<any>(null);
+  const [saving, setSaving] = useState(false);
+  const [merging, setMerging] = useState(false);
+  const [mergingRow, setMergingRow] = useState<number | null>(null);
 
   // Snackbar
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" as "success" | "error" | "warning" });
@@ -848,6 +858,7 @@ export default function StaffManagement() {
   // Benefit management
   const handleOpenBenefitDialog = (staffMember: Staff, benefit?: Benefit) => {
     setSelectedStaff(staffMember);
+    setSelectedBenefit(benefit || null);
     if (benefit) {
       setBenefitForm({
         benefitType: benefit.benefitType,
@@ -880,7 +891,7 @@ export default function StaffManagement() {
     if (!selectedStaff) return;
 
     try {
-      await api.post(`/staff/${selectedStaff.id}/benefits`, {
+      const benefitData = {
         benefitType: benefitForm.benefitType,
         benefitName: benefitForm.benefitName || null,
         provider: benefitForm.provider || null,
@@ -890,15 +901,26 @@ export default function StaffManagement() {
         effectiveDate: benefitForm.effectiveDate,
         endDate: benefitForm.endDate || null,
         notes: benefitForm.notes || null,
-      });
+      };
 
-      showSnackbar("Benefit added successfully", "success");
+      if (selectedBenefit) {
+        // Update existing benefit
+        await api.put(`/staff/benefits/${selectedBenefit.id}`, benefitData);
+        showSnackbar("Benefit updated successfully", "success");
+      } else {
+        // Create new benefit
+        await api.post(`/staff/${selectedStaff.id}/benefits`, benefitData);
+        showSnackbar("Benefit added successfully", "success");
+      }
+
       setBenefitDialog(false);
+      setSelectedBenefit(null);
       // Reload staff data
       hasLoadedRef.current = false;
       const { data } = await api.get(`/staff/${selectedStaff.id}`);
       const updatedStaff = staff.map((s) => (s.id === selectedStaff.id ? data.staff : s));
       setStaff(updatedStaff);
+      setSelectedStaff(data.staff); // Update selected staff in detail dialog
     } catch (err: any) {
       showSnackbar(err?.response?.data?.message || "Failed to save benefit", "error");
     }
@@ -950,9 +972,190 @@ export default function StaffManagement() {
   };
 
   // Excel import
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setExcelFile(file);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const { data } = await api.post("/import/parse", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      setExcelHeaders(data.headers || []);
+      setExcelSampleRows(data.sampleRows || []);
+      
+      // Auto-detect column mapping (similar to backend autoDetectColumns)
+      const autoMapping: Record<string, string> = {};
+      const headerLower = (data.headers || []).map((h: string) => h.toLowerCase().trim());
+      
+      // Staff fields
+      const firstNameIdx = headerLower.findIndex((h: string) => h.includes("first") || h.includes("fname") || h.includes("given"));
+      if (firstNameIdx >= 0) autoMapping.firstName = data.headers[firstNameIdx];
+      
+      const lastNameIdx = headerLower.findIndex((h: string) => h.includes("last") || h.includes("lname") || h.includes("surname") || (h.includes("family") && !h.includes("name")));
+      if (lastNameIdx >= 0) autoMapping.lastName = data.headers[lastNameIdx];
+      
+      const emailIdx = headerLower.findIndex((h: string) => h.includes("email") || h.includes("e-mail"));
+      if (emailIdx >= 0) autoMapping.email = data.headers[emailIdx];
+      
+      const phoneIdx = headerLower.findIndex((h: string) => h.includes("phone") || h.includes("tel") || h.includes("mobile"));
+      if (phoneIdx >= 0) autoMapping.phone = data.headers[phoneIdx];
+      
+      const employeeIdIdx = headerLower.findIndex((h: string) => h.includes("employee") || h.includes("emp") || (h.includes("id") && !h.includes("student")));
+      if (employeeIdIdx >= 0) autoMapping.employeeId = data.headers[employeeIdIdx];
+      
+      const titleIdx = headerLower.findIndex((h: string) => h.includes("title"));
+      if (titleIdx >= 0) autoMapping.title = data.headers[titleIdx];
+      
+      const hireDateIdx = headerLower.findIndex((h: string) => h.includes("hire") || h.includes("start") && h.includes("date"));
+      if (hireDateIdx >= 0) autoMapping.hireDate = data.headers[hireDateIdx];
+      
+      const employmentStatusIdx = headerLower.findIndex((h: string) => h.includes("status") || h.includes("employment"));
+      if (employmentStatusIdx >= 0) autoMapping.employmentStatus = data.headers[employmentStatusIdx];
+      
+      // Payroll fields
+      const legalNameIdx = headerLower.findIndex((h: string) => h.includes("legal") && h.includes("name"));
+      if (legalNameIdx >= 0) autoMapping.legalName = data.headers[legalNameIdx];
+      
+      const gradeIdx = headerLower.findIndex((h: string) => h.includes("grade") && !h.includes("point"));
+      if (gradeIdx >= 0) autoMapping.grade = data.headers[gradeIdx];
+      
+      const jobNumber2Idx = headerLower.findIndex((h: string) => h.includes("job") && (h.includes("2") || h.includes("#2")));
+      if (jobNumber2Idx >= 0) autoMapping.jobNumber2 = data.headers[jobNumber2Idx];
+      
+      const academicYearIdx = headerLower.findIndex((h: string) => (h.includes("academic") && h.includes("year")) || (h.includes("year") && h.includes("academic")));
+      if (academicYearIdx >= 0) autoMapping.academicYear = data.headers[academicYearIdx];
+      
+      const annualGrossSalaryIdx = headerLower.findIndex((h: string) => h.includes("annual") && (h.includes("gross") || h.includes("salary")));
+      if (annualGrossSalaryIdx >= 0) autoMapping.annualGrossSalary = data.headers[annualGrossSalaryIdx];
+      
+      const totalPackageIdx = headerLower.findIndex((h: string) => h.includes("total") && (h.includes("package") || h.includes("pkg") || h.includes("25-26") || h.includes("2526")));
+      if (totalPackageIdx >= 0) autoMapping.totalPackage2526 = data.headers[totalPackageIdx];
+      
+      const maxQuarterIdx = headerLower.findIndex((h: string) => h.includes("max") && (h.includes("quarter") || h.includes("qtr")));
+      if (maxQuarterIdx >= 0) autoMapping.maxQuarter = data.headers[maxQuarterIdx];
+      
+      const tuitionIdx = headerLower.findIndex((h: string) => h.includes("tuition"));
+      if (tuitionIdx >= 0) autoMapping.tuition = data.headers[tuitionIdx];
+      
+      const actualQuarterIdx = headerLower.findIndex((h: string) => h.includes("actual") && (h.includes("quarter") || h.includes("qtr")));
+      if (actualQuarterIdx >= 0) autoMapping.actualQuarter = data.headers[actualQuarterIdx];
+      
+      const nachlasIdx = headerLower.findIndex((h: string) => h.includes("nachlas"));
+      if (nachlasIdx >= 0) autoMapping.nachlas = data.headers[nachlasIdx];
+      
+      const otherBenefitIdx = headerLower.findIndex((h: string) => (h.includes("other") && h.includes("benefit")) || (h.includes("other") && !h.includes("misc")));
+      if (otherBenefitIdx >= 0) autoMapping.otherBenefit = data.headers[otherBenefitIdx];
+      
+      const parsonageIdx = headerLower.findIndex((h: string) => h.includes("parsonage") && !h.includes("allocation") && !h.includes("monthly"));
+      if (parsonageIdx >= 0) autoMapping.parsonage = data.headers[parsonageIdx];
+      
+      const parsonageAllocationIdx = headerLower.findIndex((h: string) => h.includes("parsonage") && h.includes("allocation"));
+      if (parsonageAllocationIdx >= 0) autoMapping.parsonageAllocation = data.headers[parsonageAllocationIdx];
+      
+      const travelIdx = headerLower.findIndex((h: string) => h.includes("travel") && !h.includes("stipend"));
+      if (travelIdx >= 0) autoMapping.travel = data.headers[travelIdx];
+      
+      const insuranceIdx = headerLower.findIndex((h: string) => h.includes("insurance") && !h.includes("deduction"));
+      if (insuranceIdx >= 0) autoMapping.insurance = data.headers[insuranceIdx];
+      
+      const ccNameIdx = headerLower.findIndex((h: string) => (h.includes("cc") || h.includes("credit")) && h.includes("name"));
+      if (ccNameIdx >= 0) autoMapping.ccName = data.headers[ccNameIdx];
+      
+      const ccAnnualAmountIdx = headerLower.findIndex((h: string) => (h.includes("cc") || h.includes("credit")) && (h.includes("annual") || h.includes("amount")));
+      if (ccAnnualAmountIdx >= 0) autoMapping.ccAnnualAmount = data.headers[ccAnnualAmountIdx];
+      
+      const retirement403bIdx = headerLower.findIndex((h: string) => h.includes("retirement") || h.includes("403b") || h.includes("401k"));
+      if (retirement403bIdx >= 0) autoMapping.retirement403b = data.headers[retirement403bIdx];
+      
+      const paycheckAmountIdx = headerLower.findIndex((h: string) => (h.includes("paycheck") && h.includes("amount")) || (h.includes("paycheck") && !h.includes("remaining") && !h.includes("adjustment") && !h.includes("per")));
+      if (paycheckAmountIdx >= 0) autoMapping.paycheckAmount = data.headers[paycheckAmountIdx];
+      
+      const monthlyParsonageIdx = headerLower.findIndex((h: string) => h.includes("monthly") && h.includes("parsonage"));
+      if (monthlyParsonageIdx >= 0) autoMapping.monthlyParsonage = data.headers[monthlyParsonageIdx];
+      
+      const travelStipendIdx = headerLower.findIndex((h: string) => h.includes("travel") && h.includes("stipend"));
+      if (travelStipendIdx >= 0) autoMapping.travelStipend = data.headers[travelStipendIdx];
+      
+      const ccDeductionIdx = headerLower.findIndex((h: string) => (h.includes("cc") || h.includes("credit")) && h.includes("deduction"));
+      if (ccDeductionIdx >= 0) autoMapping.ccDeduction = data.headers[ccDeductionIdx];
+      
+      const insuranceDeductionIdx = headerLower.findIndex((h: string) => h.includes("insurance") && h.includes("deduction"));
+      if (insuranceDeductionIdx >= 0) autoMapping.insuranceDeduction = data.headers[insuranceDeductionIdx];
+      
+      const annualAdjustmentIdx = headerLower.findIndex((h: string) => h.includes("annual") && h.includes("adjustment"));
+      if (annualAdjustmentIdx >= 0) autoMapping.annualAdjustment = data.headers[annualAdjustmentIdx];
+      
+      const paychecksRemainingIdx = headerLower.findIndex((h: string) => h.includes("paycheck") && h.includes("remaining"));
+      if (paychecksRemainingIdx >= 0) autoMapping.paychecksRemaining = data.headers[paychecksRemainingIdx];
+      
+      const perPaycheckAdjustmentIdx = headerLower.findIndex((h: string) => h.includes("per") && h.includes("paycheck") && h.includes("adjustment"));
+      if (perPaycheckAdjustmentIdx >= 0) autoMapping.perPaycheckAdjustment = data.headers[perPaycheckAdjustmentIdx];
+      
+      const adjustedCheckAmountIdx = headerLower.findIndex((h: string) => h.includes("adjusted") && (h.includes("check") || h.includes("amount")));
+      if (adjustedCheckAmountIdx >= 0) autoMapping.adjustedCheckAmount = data.headers[adjustedCheckAmountIdx];
+      
+      const ptoDaysIdx = headerLower.findIndex((h: string) => h.includes("pto") || (h.includes("paid") && h.includes("time") && h.includes("off")) || h.includes("vacation"));
+      if (ptoDaysIdx >= 0) autoMapping.ptoDays = data.headers[ptoDaysIdx];
+      
+      const freeDaycareIdx = headerLower.findIndex((h: string) => h.includes("free") && h.includes("daycare"));
+      if (freeDaycareIdx >= 0) autoMapping.freeDaycare = data.headers[freeDaycareIdx];
+      
+      const misc2Idx = headerLower.findIndex((h: string) => h.includes("misc") && (h.includes("2") || h.includes("two")));
+      if (misc2Idx >= 0) autoMapping.misc2 = data.headers[misc2Idx];
+      
+      const misc3Idx = headerLower.findIndex((h: string) => h.includes("misc") && (h.includes("3") || h.includes("three")));
+      if (misc3Idx >= 0) autoMapping.misc3 = data.headers[misc3Idx];
+      
+      setColumnMapping(autoMapping);
+    } catch (err: any) {
+      console.error("Error parsing Excel:", err);
+      showSnackbar(err?.response?.data?.message || "Error parsing Excel file", "error");
+    }
+  };
+
+  const validateColumnMapping = (): string | null => {
+    if (!columnMapping.firstName && !columnMapping.lastName) {
+      return "Please map at least First Name or Last Name";
+    }
+    return null;
+  };
+
+  const getPreviewData = () => {
+    if (!excelSampleRows.length || !excelHeaders.length) return [];
+
+    const preview: any[] = [];
+    const firstNameIndex = columnMapping.firstName ? excelHeaders.indexOf(columnMapping.firstName) : -1;
+    const lastNameIndex = columnMapping.lastName ? excelHeaders.indexOf(columnMapping.lastName) : -1;
+    const emailIndex = columnMapping.email ? excelHeaders.indexOf(columnMapping.email) : -1;
+    const phoneIndex = columnMapping.phone ? excelHeaders.indexOf(columnMapping.phone) : -1;
+
+    excelSampleRows.slice(0, 5).forEach((row) => {
+      preview.push({
+        firstName: firstNameIndex >= 0 && row[firstNameIndex] ? String(row[firstNameIndex]).trim() : "",
+        lastName: lastNameIndex >= 0 && row[lastNameIndex] ? String(row[lastNameIndex]).trim() : "",
+        email: emailIndex >= 0 && row[emailIndex] ? String(row[emailIndex]).trim() : "",
+        phone: phoneIndex >= 0 && row[phoneIndex] ? String(row[phoneIndex]).trim() : "",
+      });
+    });
+
+    return preview;
+  };
+
   const handleExcelImport = async () => {
     if (!excelFile) {
       showSnackbar("Please select an Excel file", "error");
+      return;
+    }
+
+    const validationError = validateColumnMapping();
+    if (validationError) {
+      showSnackbar(validationError, "error");
       return;
     }
 
@@ -960,18 +1163,31 @@ export default function StaffManagement() {
       setImporting(true);
       const formData = new FormData();
       formData.append("file", excelFile);
+      formData.append("columnMapping", JSON.stringify(columnMapping));
+      formData.append("skipFirstRow", "true");
 
       const { data } = await api.post("/import/staff", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
-      setImportResult(data);
-      showSnackbar(`Import completed: ${data.imported} imported, ${data.errors} errors`, "success");
-      setImportDialog(false);
-      setExcelFile(null);
-      hasLoadedRef.current = false;
-      const { data: staffData } = await api.get("/staff");
-      setStaff(staffData.staff || []);
+      let message = `Import completed: ${data.imported} imported`;
+      if (data.errors > 0) {
+        message += `, ${data.errors} error${data.errors !== 1 ? "s" : ""}`;
+        setImportErrors(data.details?.errors || []);
+        setShowImportErrors(true);
+      }
+
+      showSnackbar(message, data.imported > 0 ? "success" : data.errors > 0 ? "warning" : "success");
+      
+      if (data.imported > 0 || data.errors === 0) {
+        setExcelFile(null);
+        setColumnMapping({});
+        setExcelHeaders([]);
+        setExcelSampleRows([]);
+        hasLoadedRef.current = false;
+        const { data: staffData } = await api.get("/staff");
+        setStaff(staffData.staff || []);
+      }
     } catch (err: any) {
       showSnackbar(err?.response?.data?.message || "Failed to import staff", "error");
     } finally {
@@ -1120,6 +1336,118 @@ export default function StaffManagement() {
       }
     }
     setPayrollDialog(true);
+  };
+
+  // Error handling for Excel import
+  const isDuplicateError = (error: { error: string; details?: any[] }): boolean => {
+    if (!error.error) return false;
+    const errorLower = error.error.toLowerCase();
+    return errorLower.includes("already exists") || 
+           errorLower.includes("email already exists") || 
+           errorLower.includes("duplicate");
+  };
+
+  const findExistingStaff = async (email?: string, employeeId?: string): Promise<Staff | null> => {
+    try {
+      const { data } = await api.get("/staff");
+      const allStaff: Staff[] = data.staff || [];
+      
+      if (email) {
+        const found = allStaff.find(s => s.email?.toLowerCase() === email.toLowerCase());
+        if (found) return found;
+      }
+      
+      if (employeeId) {
+        const found = allStaff.find(s => s.employeeId === employeeId);
+        if (found) return found;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error("Error finding existing staff:", error);
+      return null;
+    }
+  };
+
+  const handleMergeError = async (error?: any) => {
+    const errorToMerge = error || editingError;
+    if (!errorToMerge) return;
+    
+    try {
+      setSaving(true);
+      setMerging(true);
+      setMergingRow(errorToMerge.row);
+      
+      // Extract data from error
+      const errorData = errorToMerge.data || {};
+      const email = errorData.email;
+      const employeeId = errorData.employeeId;
+      
+      // Find existing staff
+      const existingStaff = await findExistingStaff(email, employeeId);
+      
+      if (!existingStaff) {
+        showSnackbar("Could not find existing staff member to merge with", "error");
+        return;
+      }
+      
+      // Merge data (for now, just update the existing staff with new data)
+      // In a real scenario, you might want to merge specific fields
+      const updateData: any = {};
+      if (errorData.firstName && !existingStaff.firstName) updateData.firstName = errorData.firstName;
+      if (errorData.lastName && !existingStaff.lastName) updateData.lastName = errorData.lastName;
+      if (errorData.phone && !existingStaff.phone) updateData.phone = errorData.phone;
+      if (errorData.email && !existingStaff.email) updateData.email = errorData.email;
+      if (errorData.employeeId && !existingStaff.employeeId) updateData.employeeId = errorData.employeeId;
+      
+      if (Object.keys(updateData).length > 0) {
+        await api.put(`/staff/${existingStaff.id}`, updateData);
+      }
+      
+      showSnackbar("Staff merged successfully", "success");
+      
+      // Remove this error from the errors list
+      const errorRow = errorToMerge.row;
+      setImportErrors(prev => {
+        const filtered = prev.filter(err => err.row !== errorRow);
+        if (filtered.length === 0) {
+          setShowImportErrors(false);
+        }
+        return filtered;
+      });
+      
+      // Close dialog and reset
+      setFixErrorDialog(false);
+      setEditingError(null);
+      
+      // Reload staff
+      hasLoadedRef.current = false;
+      const { data } = await api.get("/staff");
+      setStaff(data.staff || []);
+    } catch (error: any) {
+      console.error("Error merging staff:", error);
+      showSnackbar(error?.response?.data?.message || "Error merging staff", "error");
+    } finally {
+      setSaving(false);
+      setMerging(false);
+      setMergingRow(null);
+    }
+  };
+
+  const removeError = () => {
+    if (!editingError) return;
+    const errorRow = editingError.row;
+    
+    setImportErrors(prev => {
+      const filtered = prev.filter(err => err.row !== errorRow);
+      if (filtered.length === 0) {
+        setShowImportErrors(false);
+      }
+      return filtered;
+    });
+    
+    setFixErrorDialog(false);
+    setEditingError(null);
   };
 
   const handleSavePayroll = async () => {
@@ -2589,7 +2917,7 @@ export default function StaffManagement() {
 
       {/* Benefit Dialog */}
       <Dialog open={benefitDialog} onClose={() => setBenefitDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Add Benefit</DialogTitle>
+        <DialogTitle>{selectedBenefit ? "Edit Benefit" : "Add Benefit"}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <FormControl fullWidth required>
@@ -2606,6 +2934,7 @@ export default function StaffManagement() {
                 <MenuItem value="life_insurance">Life Insurance</MenuItem>
                 <MenuItem value="disability">Disability</MenuItem>
                 <MenuItem value="tuition_reimbursement">Tuition Reimbursement</MenuItem>
+                <MenuItem value="parsonage">Parsonage</MenuItem>
                 <MenuItem value="other">Other</MenuItem>
               </Select>
             </FormControl>
@@ -2670,13 +2999,16 @@ export default function StaffManagement() {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setBenefitDialog(false)}>Cancel</Button>
+          <Button onClick={() => {
+            setBenefitDialog(false);
+            setSelectedBenefit(null);
+          }}>Cancel</Button>
           <Button
             variant="contained"
             onClick={handleSaveBenefit}
             disabled={!benefitForm.benefitType || !benefitForm.effectiveDate}
           >
-            Add Benefit
+            {selectedBenefit ? "Update Benefit" : "Add Benefit"}
           </Button>
         </DialogActions>
       </Dialog>
@@ -2753,13 +3085,29 @@ export default function StaffManagement() {
       </Dialog>
 
       {/* Excel Import Dialog */}
-      <Dialog open={importDialog} onClose={() => setImportDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Import Staff from Excel</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            <Alert severity="info">
-              Upload an Excel file with staff information. The system will auto-detect columns.
+      <Dialog 
+        open={importDialog} 
+        onClose={() => !importing && setImportDialog(false)} 
+        maxWidth="lg" 
+        fullWidth
+        fullScreen={window.innerWidth < 600}
+        PaperProps={{
+          sx: {
+            m: { xs: 0, sm: 3 },
+            maxHeight: { xs: "100%", sm: "calc(100% - 64px)" },
+          },
+        }}
+      >
+        <DialogTitle sx={{ fontSize: { xs: "1.125rem", sm: "1.25rem" }, fontWeight: 600 }}>
+          Import Staff from Excel
+        </DialogTitle>
+        <DialogContent sx={{ px: { xs: 2, sm: 3 }, maxHeight: { xs: "calc(100vh - 140px)", sm: "70vh" }, overflowY: "auto" }}>
+          <Stack spacing={3} sx={{ mt: 1 }}>
+            <Alert severity="info" sx={{ fontSize: { xs: "0.8125rem", sm: "0.875rem" } }}>
+              Upload an Excel file (.xlsx, .xls, .csv) with staff information. Map columns to fields and preview before importing.
             </Alert>
+            
+            {/* File Selection */}
             <Button
               variant="outlined"
               component="label"
@@ -2770,26 +3118,856 @@ export default function StaffManagement() {
               <input
                 type="file"
                 hidden
-                accept=".xlsx,.xls"
-                onChange={(e) => setExcelFile(e.target.files?.[0] || null)}
+                accept=".xlsx,.xls,.csv"
+                onChange={handleFileSelect}
               />
             </Button>
-            {importResult && (
-              <Alert severity={importResult.errors > 0 ? "warning" : "success"}>
-                Imported: {importResult.imported}, Errors: {importResult.errors}
-              </Alert>
+
+            {/* Column Mapping */}
+            {excelHeaders.length > 0 && (
+              <>
+                <Divider />
+                <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+                  Map Excel Columns to Fields
+                </Typography>
+                
+                {/* Basic Staff Fields */}
+                <Box>
+                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5, fontWeight: 600 }}>
+                    Basic Information
+                  </Typography>
+                  <Stack spacing={2}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel>First Name Column *</InputLabel>
+                      <Select
+                        value={columnMapping.firstName || "none"}
+                        label={"First Name Column *"}
+                        onChange={(e) => setColumnMapping({ ...columnMapping, firstName: e.target.value === "none" ? undefined : e.target.value })}
+                      >
+                        <MenuItem value="none">None</MenuItem>
+                        {excelHeaders.map((header) => (
+                          <MenuItem key={header} value={header}>
+                            {header}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Last Name Column *</InputLabel>
+                      <Select
+                        value={columnMapping.lastName || "none"}
+                        label="Last Name Column *"
+                        onChange={(e) => setColumnMapping({ ...columnMapping, lastName: e.target.value === "none" ? undefined : e.target.value })}
+                      >
+                        <MenuItem value="none">None</MenuItem>
+                        {excelHeaders.map((header) => (
+                          <MenuItem key={header} value={header}>
+                            {header}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Email Column</InputLabel>
+                      <Select
+                        value={columnMapping.email || "none"}
+                        label="Email Column"
+                        onChange={(e) => setColumnMapping({ ...columnMapping, email: e.target.value === "none" ? undefined : e.target.value })}
+                      >
+                        <MenuItem value="none">None</MenuItem>
+                        {excelHeaders.map((header) => (
+                          <MenuItem key={header} value={header}>
+                            {header}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Phone Column</InputLabel>
+                      <Select
+                        value={columnMapping.phone || "none"}
+                        label="Phone Column"
+                        onChange={(e) => setColumnMapping({ ...columnMapping, phone: e.target.value === "none" ? undefined : e.target.value })}
+                      >
+                        <MenuItem value="none">None</MenuItem>
+                        {excelHeaders.map((header) => (
+                          <MenuItem key={header} value={header}>
+                            {header}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Employee ID Column</InputLabel>
+                      <Select
+                        value={columnMapping.employeeId || "none"}
+                        label="Employee ID Column"
+                        onChange={(e) => setColumnMapping({ ...columnMapping, employeeId: e.target.value === "none" ? undefined : e.target.value })}
+                      >
+                        <MenuItem value="none">None</MenuItem>
+                        {excelHeaders.map((header) => (
+                          <MenuItem key={header} value={header}>
+                            {header}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Hire Date Column</InputLabel>
+                      <Select
+                        value={columnMapping.hireDate || "none"}
+                        label="Hire Date Column"
+                        onChange={(e) => setColumnMapping({ ...columnMapping, hireDate: e.target.value === "none" ? undefined : e.target.value })}
+                      >
+                        <MenuItem value="none">None</MenuItem>
+                        {excelHeaders.map((header) => (
+                          <MenuItem key={header} value={header}>
+                            {header}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Title Column</InputLabel>
+                      <Select
+                        value={columnMapping.title || "none"}
+                        label="Title Column"
+                        onChange={(e) => setColumnMapping({ ...columnMapping, title: e.target.value === "none" ? undefined : e.target.value })}
+                      >
+                        <MenuItem value="none">None</MenuItem>
+                        {excelHeaders.map((header) => (
+                          <MenuItem key={header} value={header}>
+                            {header}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Employment Status Column</InputLabel>
+                      <Select
+                        value={columnMapping.employmentStatus || "none"}
+                        label="Employment Status Column"
+                        onChange={(e) => setColumnMapping({ ...columnMapping, employmentStatus: e.target.value === "none" ? undefined : e.target.value })}
+                      >
+                        <MenuItem value="none">None</MenuItem>
+                        {excelHeaders.map((header) => (
+                          <MenuItem key={header} value={header}>
+                            {header}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Stack>
+                </Box>
+
+                {/* Payroll Fields - Collapsible */}
+                <Accordion>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <AttachMoneyIcon color="primary" fontSize="small" />
+                      <Typography variant="subtitle2" fontWeight={600}>
+                        Payroll Information (Optional)
+                      </Typography>
+                    </Stack>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <Stack spacing={2}>
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Legal Name Column</InputLabel>
+                        <Select
+                          value={columnMapping.legalName || "none"}
+                          label="Legal Name Column"
+                          onChange={(e) => setColumnMapping({ ...columnMapping, legalName: e.target.value === "none" ? undefined : e.target.value })}
+                        >
+                          <MenuItem value="none">None</MenuItem>
+                          {excelHeaders.map((header) => (
+                            <MenuItem key={header} value={header}>
+                              {header}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Grade Column</InputLabel>
+                        <Select
+                          value={columnMapping.grade || "none"}
+                          label="Grade Column"
+                          onChange={(e) => setColumnMapping({ ...columnMapping, grade: e.target.value === "none" ? undefined : e.target.value })}
+                        >
+                          <MenuItem value="none">None</MenuItem>
+                          {excelHeaders.map((header) => (
+                            <MenuItem key={header} value={header}>
+                              {header}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Academic Year Column</InputLabel>
+                        <Select
+                          value={columnMapping.academicYear || "none"}
+                          label="Academic Year Column"
+                          onChange={(e) => setColumnMapping({ ...columnMapping, academicYear: e.target.value === "none" ? undefined : e.target.value })}
+                        >
+                          <MenuItem value="none">None</MenuItem>
+                          {excelHeaders.map((header) => (
+                            <MenuItem key={header} value={header}>
+                              {header}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Annual Gross Salary Column</InputLabel>
+                        <Select
+                          value={columnMapping.annualGrossSalary || "none"}
+                          label="Annual Gross Salary Column"
+                          onChange={(e) => setColumnMapping({ ...columnMapping, annualGrossSalary: e.target.value === "none" ? undefined : e.target.value })}
+                        >
+                          <MenuItem value="none">None</MenuItem>
+                          {excelHeaders.map((header) => (
+                            <MenuItem key={header} value={header}>
+                              {header}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Total Package (25-26) Column</InputLabel>
+                        <Select
+                          value={columnMapping.totalPackage2526 || "none"}
+                          label="Total Package (25-26) Column"
+                          onChange={(e) => setColumnMapping({ ...columnMapping, totalPackage2526: e.target.value === "none" ? undefined : e.target.value })}
+                        >
+                          <MenuItem value="none">None</MenuItem>
+                          {excelHeaders.map((header) => (
+                            <MenuItem key={header} value={header}>
+                              {header}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Max Quarter Column</InputLabel>
+                        <Select
+                          value={columnMapping.maxQuarter || "none"}
+                          label="Max Quarter Column"
+                          onChange={(e) => setColumnMapping({ ...columnMapping, maxQuarter: e.target.value === "none" ? undefined : e.target.value })}
+                        >
+                          <MenuItem value="none">None</MenuItem>
+                          {excelHeaders.map((header) => (
+                            <MenuItem key={header} value={header}>
+                              {header}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Tuition Column</InputLabel>
+                        <Select
+                          value={columnMapping.tuition || "none"}
+                          label="Tuition Column"
+                          onChange={(e) => setColumnMapping({ ...columnMapping, tuition: e.target.value === "none" ? undefined : e.target.value })}
+                        >
+                          <MenuItem value="none">None</MenuItem>
+                          {excelHeaders.map((header) => (
+                            <MenuItem key={header} value={header}>
+                              {header}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Actual Quarter Column</InputLabel>
+                        <Select
+                          value={columnMapping.actualQuarter || "none"}
+                          label="Actual Quarter Column"
+                          onChange={(e) => setColumnMapping({ ...columnMapping, actualQuarter: e.target.value === "none" ? undefined : e.target.value })}
+                        >
+                          <MenuItem value="none">None</MenuItem>
+                          {excelHeaders.map((header) => (
+                            <MenuItem key={header} value={header}>
+                              {header}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Job #2 (25-26 Job #2) Column</InputLabel>
+                        <Select
+                          value={columnMapping.jobNumber2 || "none"}
+                          label="Job #2 (25-26 Job #2) Column"
+                          onChange={(e) => setColumnMapping({ ...columnMapping, jobNumber2: e.target.value === "none" ? undefined : e.target.value })}
+                        >
+                          <MenuItem value="none">None</MenuItem>
+                          {excelHeaders.map((header) => (
+                            <MenuItem key={header} value={header}>
+                              {header}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Free Daycare Column</InputLabel>
+                        <Select
+                          value={columnMapping.freeDaycare || "none"}
+                          label="Free Daycare Column"
+                          onChange={(e) => setColumnMapping({ ...columnMapping, freeDaycare: e.target.value === "none" ? undefined : e.target.value })}
+                        >
+                          <MenuItem value="none">None</MenuItem>
+                          {excelHeaders.map((header) => (
+                            <MenuItem key={header} value={header}>
+                              {header}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Misc 2 Column</InputLabel>
+                        <Select
+                          value={columnMapping.misc2 || "none"}
+                          label="Misc 2 Column"
+                          onChange={(e) => setColumnMapping({ ...columnMapping, misc2: e.target.value === "none" ? undefined : e.target.value })}
+                        >
+                          <MenuItem value="none">None</MenuItem>
+                          {excelHeaders.map((header) => (
+                            <MenuItem key={header} value={header}>
+                              {header}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Misc 3 Column</InputLabel>
+                        <Select
+                          value={columnMapping.misc3 || "none"}
+                          label="Misc 3 Column"
+                          onChange={(e) => setColumnMapping({ ...columnMapping, misc3: e.target.value === "none" ? undefined : e.target.value })}
+                        >
+                          <MenuItem value="none">None</MenuItem>
+                          {excelHeaders.map((header) => (
+                            <MenuItem key={header} value={header}>
+                              {header}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+
+                      <Divider sx={{ my: 1 }} />
+                      <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 600 }}>
+                        Benefits
+                      </Typography>
+
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Nachlas Column</InputLabel>
+                        <Select
+                          value={columnMapping.nachlas || "none"}
+                          label="Nachlas Column"
+                          onChange={(e) => setColumnMapping({ ...columnMapping, nachlas: e.target.value === "none" ? undefined : e.target.value })}
+                        >
+                          <MenuItem value="none">None</MenuItem>
+                          {excelHeaders.map((header) => (
+                            <MenuItem key={header} value={header}>
+                              {header}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Other Benefit Column</InputLabel>
+                        <Select
+                          value={columnMapping.otherBenefit || "none"}
+                          label="Other Benefit Column"
+                          onChange={(e) => setColumnMapping({ ...columnMapping, otherBenefit: e.target.value === "none" ? undefined : e.target.value })}
+                        >
+                          <MenuItem value="none">None</MenuItem>
+                          {excelHeaders.map((header) => (
+                            <MenuItem key={header} value={header}>
+                              {header}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Parsonage Column</InputLabel>
+                        <Select
+                          value={columnMapping.parsonage || "none"}
+                          label="Parsonage Column"
+                          onChange={(e) => setColumnMapping({ ...columnMapping, parsonage: e.target.value === "none" ? undefined : e.target.value })}
+                        >
+                          <MenuItem value="none">None</MenuItem>
+                          {excelHeaders.map((header) => (
+                            <MenuItem key={header} value={header}>
+                              {header}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Parsonage Allocation Column</InputLabel>
+                        <Select
+                          value={columnMapping.parsonageAllocation || "none"}
+                          label="Parsonage Allocation Column"
+                          onChange={(e) => setColumnMapping({ ...columnMapping, parsonageAllocation: e.target.value === "none" ? undefined : e.target.value })}
+                        >
+                          <MenuItem value="none">None</MenuItem>
+                          {excelHeaders.map((header) => (
+                            <MenuItem key={header} value={header}>
+                              {header}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Travel Column</InputLabel>
+                        <Select
+                          value={columnMapping.travel || "none"}
+                          label="Travel Column"
+                          onChange={(e) => setColumnMapping({ ...columnMapping, travel: e.target.value === "none" ? undefined : e.target.value })}
+                        >
+                          <MenuItem value="none">None</MenuItem>
+                          {excelHeaders.map((header) => (
+                            <MenuItem key={header} value={header}>
+                              {header}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Insurance Column</InputLabel>
+                        <Select
+                          value={columnMapping.insurance || "none"}
+                          label="Insurance Column"
+                          onChange={(e) => setColumnMapping({ ...columnMapping, insurance: e.target.value === "none" ? undefined : e.target.value })}
+                        >
+                          <MenuItem value="none">None</MenuItem>
+                          {excelHeaders.map((header) => (
+                            <MenuItem key={header} value={header}>
+                              {header}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+
+                      <FormControl fullWidth size="small">
+                        <InputLabel>CC Name Column</InputLabel>
+                        <Select
+                          value={columnMapping.ccName || "none"}
+                          label="CC Name Column"
+                          onChange={(e) => setColumnMapping({ ...columnMapping, ccName: e.target.value === "none" ? undefined : e.target.value })}
+                        >
+                          <MenuItem value="none">None</MenuItem>
+                          {excelHeaders.map((header) => (
+                            <MenuItem key={header} value={header}>
+                              {header}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+
+                      <FormControl fullWidth size="small">
+                        <InputLabel>CC Annual Amount Column</InputLabel>
+                        <Select
+                          value={columnMapping.ccAnnualAmount || "none"}
+                          label="CC Annual Amount Column"
+                          onChange={(e) => setColumnMapping({ ...columnMapping, ccAnnualAmount: e.target.value === "none" ? undefined : e.target.value })}
+                        >
+                          <MenuItem value="none">None</MenuItem>
+                          {excelHeaders.map((header) => (
+                            <MenuItem key={header} value={header}>
+                              {header}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+
+                      <FormControl fullWidth size="small">
+                        <InputLabel>403B (Retirement) Column</InputLabel>
+                        <Select
+                          value={columnMapping.retirement403b || "none"}
+                          label="403B (Retirement) Column"
+                          onChange={(e) => setColumnMapping({ ...columnMapping, retirement403b: e.target.value === "none" ? undefined : e.target.value })}
+                        >
+                          <MenuItem value="none">None</MenuItem>
+                          {excelHeaders.map((header) => (
+                            <MenuItem key={header} value={header}>
+                              {header}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+
+                      <Divider sx={{ my: 1 }} />
+                      <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 600 }}>
+                        Paycheck Details
+                      </Typography>
+
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Paycheck Amount Column</InputLabel>
+                        <Select
+                          value={columnMapping.paycheckAmount || "none"}
+                          label="Paycheck Amount Column"
+                          onChange={(e) => setColumnMapping({ ...columnMapping, paycheckAmount: e.target.value === "none" ? undefined : e.target.value })}
+                        >
+                          <MenuItem value="none">None</MenuItem>
+                          {excelHeaders.map((header) => (
+                            <MenuItem key={header} value={header}>
+                              {header}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Monthly Parsonage Column</InputLabel>
+                        <Select
+                          value={columnMapping.monthlyParsonage || "none"}
+                          label="Monthly Parsonage Column"
+                          onChange={(e) => setColumnMapping({ ...columnMapping, monthlyParsonage: e.target.value === "none" ? undefined : e.target.value })}
+                        >
+                          <MenuItem value="none">None</MenuItem>
+                          {excelHeaders.map((header) => (
+                            <MenuItem key={header} value={header}>
+                              {header}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Travel Stipend Column</InputLabel>
+                        <Select
+                          value={columnMapping.travelStipend || "none"}
+                          label="Travel Stipend Column"
+                          onChange={(e) => setColumnMapping({ ...columnMapping, travelStipend: e.target.value === "none" ? undefined : e.target.value })}
+                        >
+                          <MenuItem value="none">None</MenuItem>
+                          {excelHeaders.map((header) => (
+                            <MenuItem key={header} value={header}>
+                              {header}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+
+                      <FormControl fullWidth size="small">
+                        <InputLabel>CC Deduction Column</InputLabel>
+                        <Select
+                          value={columnMapping.ccDeduction || "none"}
+                          label="CC Deduction Column"
+                          onChange={(e) => setColumnMapping({ ...columnMapping, ccDeduction: e.target.value === "none" ? undefined : e.target.value })}
+                        >
+                          <MenuItem value="none">None</MenuItem>
+                          {excelHeaders.map((header) => (
+                            <MenuItem key={header} value={header}>
+                              {header}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Insurance Deduction Column</InputLabel>
+                        <Select
+                          value={columnMapping.insuranceDeduction || "none"}
+                          label="Insurance Deduction Column"
+                          onChange={(e) => setColumnMapping({ ...columnMapping, insuranceDeduction: e.target.value === "none" ? undefined : e.target.value })}
+                        >
+                          <MenuItem value="none">None</MenuItem>
+                          {excelHeaders.map((header) => (
+                            <MenuItem key={header} value={header}>
+                              {header}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Annual Adjustment Column</InputLabel>
+                        <Select
+                          value={columnMapping.annualAdjustment || "none"}
+                          label="Annual Adjustment Column"
+                          onChange={(e) => setColumnMapping({ ...columnMapping, annualAdjustment: e.target.value === "none" ? undefined : e.target.value })}
+                        >
+                          <MenuItem value="none">None</MenuItem>
+                          {excelHeaders.map((header) => (
+                            <MenuItem key={header} value={header}>
+                              {header}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Paychecks Remaining Column</InputLabel>
+                        <Select
+                          value={columnMapping.paychecksRemaining || "none"}
+                          label="Paychecks Remaining Column"
+                          onChange={(e) => setColumnMapping({ ...columnMapping, paychecksRemaining: e.target.value === "none" ? undefined : e.target.value })}
+                        >
+                          <MenuItem value="none">None</MenuItem>
+                          {excelHeaders.map((header) => (
+                            <MenuItem key={header} value={header}>
+                              {header}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Per Paycheck Adjustment Column</InputLabel>
+                        <Select
+                          value={columnMapping.perPaycheckAdjustment || "none"}
+                          label="Per Paycheck Adjustment Column"
+                          onChange={(e) => setColumnMapping({ ...columnMapping, perPaycheckAdjustment: e.target.value === "none" ? undefined : e.target.value })}
+                        >
+                          <MenuItem value="none">None</MenuItem>
+                          {excelHeaders.map((header) => (
+                            <MenuItem key={header} value={header}>
+                              {header}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Adjusted Check Amount Column</InputLabel>
+                        <Select
+                          value={columnMapping.adjustedCheckAmount || "none"}
+                          label="Adjusted Check Amount Column"
+                          onChange={(e) => setColumnMapping({ ...columnMapping, adjustedCheckAmount: e.target.value === "none" ? undefined : e.target.value })}
+                        >
+                          <MenuItem value="none">None</MenuItem>
+                          {excelHeaders.map((header) => (
+                            <MenuItem key={header} value={header}>
+                              {header}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+
+                      <FormControl fullWidth size="small">
+                        <InputLabel>PTO Days Column</InputLabel>
+                        <Select
+                          value={columnMapping.ptoDays || "none"}
+                          label="PTO Days Column"
+                          onChange={(e) => setColumnMapping({ ...columnMapping, ptoDays: e.target.value === "none" ? undefined : e.target.value })}
+                        >
+                          <MenuItem value="none">None</MenuItem>
+                          {excelHeaders.map((header) => (
+                            <MenuItem key={header} value={header}>
+                              {header}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+
+                      <Alert severity="info" sx={{ mt: 1 }}>
+                        <Typography variant="caption">
+                          Map all payroll columns that match your Excel spreadsheet. Unmapped columns will be skipped during import.
+                        </Typography>
+                      </Alert>
+                    </Stack>
+                  </AccordionDetails>
+                </Accordion>
+
+                {/* Preview */}
+                {getPreviewData().length > 0 && (columnMapping.firstName || columnMapping.lastName) && (
+                  <>
+                    <Divider />
+                    <Box>
+                      <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+                        Preview of Mapped Data (First 5 Rows)
+                      </Typography>
+                      <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 400, overflow: "auto" }}>
+                        <Table size="small" stickyHeader>
+                          <TableHead>
+                            <TableRow>
+                              <TableCell sx={{ fontWeight: 600, bgcolor: "grey.100" }}>First Name</TableCell>
+                              <TableCell sx={{ fontWeight: 600, bgcolor: "grey.100" }}>Last Name</TableCell>
+                              <TableCell sx={{ fontWeight: 600, bgcolor: "grey.100" }}>Email</TableCell>
+                              <TableCell sx={{ fontWeight: 600, bgcolor: "grey.100" }}>Phone</TableCell>
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {getPreviewData().map((preview, idx) => (
+                              <TableRow key={idx} hover>
+                                <TableCell>{preview.firstName || "—"}</TableCell>
+                                <TableCell>{preview.lastName || "—"}</TableCell>
+                                <TableCell>{preview.email || "—"}</TableCell>
+                                <TableCell>{preview.phone || "—"}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+                    </Box>
+                  </>
+                )}
+              </>
+            )}
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: { xs: 2, sm: 3 }, py: 2, flexDirection: { xs: "column-reverse", sm: "row" }, gap: 1, borderTop: 1, borderColor: "divider" }}>
+          <Button 
+            onClick={() => {
+              if (!importing) {
+                setImportDialog(false);
+                setExcelFile(null);
+                setColumnMapping({});
+                setExcelHeaders([]);
+                setExcelSampleRows([]);
+              }
+            }} 
+            disabled={importing}
+            fullWidth={window.innerWidth < 600}
+            variant="outlined"
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleExcelImport}
+            disabled={!excelFile || importing || !columnMapping.firstName && !columnMapping.lastName}
+            startIcon={importing ? <CircularProgress size={20} /> : <UploadFileIcon />}
+            fullWidth={window.innerWidth < 600}
+          >
+            {importing ? "Importing..." : "Import Staff"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Import Errors Dialog */}
+      <Dialog open={showImportErrors} onClose={() => setShowImportErrors(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Import Errors ({importErrors.length})</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <Alert severity="warning">
+              {importErrors.length} error(s) occurred during import. Fix errors or skip rows.
+            </Alert>
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Row</TableCell>
+                    <TableCell>Error</TableCell>
+                    <TableCell>Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {importErrors.map((error, idx) => (
+                    <TableRow key={idx}>
+                      <TableCell>{error.row}</TableCell>
+                      <TableCell>
+                        <Typography variant="body2" color="error">
+                          {error.error}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Stack direction="row" spacing={1}>
+                          {isDuplicateError(error) && (
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={() => handleMergeError(error)}
+                              disabled={merging && mergingRow === error.row}
+                            >
+                              {merging && mergingRow === error.row ? "Merging..." : "Merge"}
+                            </Button>
+                          )}
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="error"
+                            onClick={() => {
+                              setEditingError(error);
+                              setFixErrorDialog(true);
+                            }}
+                          >
+                            Fix
+                          </Button>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={() => {
+                              setEditingError(error);
+                              removeError();
+                            }}
+                          >
+                            Skip
+                          </Button>
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowImportErrors(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Fix Error Dialog */}
+      <Dialog open={fixErrorDialog} onClose={() => !saving && setFixErrorDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Fix Import Error</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            {editingError && (
+              <>
+                <Alert severity="error">
+                  Row {editingError.row}: {editingError.error}
+                </Alert>
+                <Typography variant="body2" color="text.secondary">
+                  Please correct the data and try again, or skip this row.
+                </Typography>
+                {/* Add form fields to fix the error data here */}
+              </>
             )}
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setImportDialog(false)}>Cancel</Button>
+          <Button onClick={() => {
+            if (!saving) {
+              setFixErrorDialog(false);
+              setEditingError(null);
+            }
+          }} disabled={saving}>
+            Cancel
+          </Button>
           <Button
-            variant="contained"
-            onClick={handleExcelImport}
-            disabled={!excelFile || importing}
-            startIcon={importing ? <CircularProgress size={20} /> : <UploadFileIcon />}
+            variant="outlined"
+            color="error"
+            onClick={() => {
+              removeError();
+            }}
           >
-            {importing ? "Importing..." : "Import"}
+            Skip Row
           </Button>
         </DialogActions>
       </Dialog>
@@ -2900,8 +4078,17 @@ export default function StaffManagement() {
                                 Full Name
                               </Typography>
                               <Typography variant="body1">
-                                {selectedStaff.title ? `${selectedStaff.title} ` : ""}
                                 {selectedStaff.firstName} {selectedStaff.lastName}
+                              </Typography>
+                            </Stack>
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <Stack spacing={0.5}>
+                              <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                Title
+                              </Typography>
+                              <Typography variant="body1">
+                                {selectedStaff.title ? `${selectedStaff.title} ` : ""}
                               </Typography>
                             </Stack>
                           </Grid>
@@ -3369,19 +4556,50 @@ export default function StaffManagement() {
                               <TableCell>Employee Contribution</TableCell>
                               <TableCell>Employer Contribution</TableCell>
                               <TableCell>Effective Date</TableCell>
+                              <TableCell align="right">Actions</TableCell>
                             </TableRow>
                           </TableHead>
                           <TableBody>
-                            {selectedStaff.benefits.map((ben) => (
-                              <TableRow key={ben.id}>
-                                <TableCell>{ben.benefitType}</TableCell>
-                                <TableCell>{ben.benefitName || "-"}</TableCell>
-                                <TableCell>{ben.provider || "-"}</TableCell>
-                                <TableCell>${ben.employeeContribution.toLocaleString()}</TableCell>
-                                <TableCell>${ben.employerContribution.toLocaleString()}</TableCell>
-                                <TableCell>{ben.effectiveDate}</TableCell>
-                              </TableRow>
-                            ))}
+                            {selectedStaff.benefits.map((ben) => {
+                              // Format date as mm/dd/yy
+                              const formatDate = (dateStr: string | null | undefined) => {
+                                if (!dateStr) return "-";
+                                try {
+                                  const date = new Date(dateStr);
+                                  if (isNaN(date.getTime())) return dateStr;
+                                  const month = String(date.getMonth() + 1).padStart(2, "0");
+                                  const day = String(date.getDate()).padStart(2, "0");
+                                  const year = String(date.getFullYear()).slice(-2);
+                                  return `${month}/${day}/${year}`;
+                                } catch {
+                                  return dateStr;
+                                }
+                              };
+                              
+                              return (
+                                <TableRow key={ben.id}>
+                                  <TableCell>{ben.benefitType}</TableCell>
+                                  <TableCell>{ben.benefitName || "-"}</TableCell>
+                                  <TableCell>{ben.provider || "-"}</TableCell>
+                                  <TableCell>${ben.employeeContribution.toLocaleString()}</TableCell>
+                                  <TableCell>${ben.employerContribution.toLocaleString()}</TableCell>
+                                  <TableCell>{formatDate(ben.effectiveDate)}</TableCell>
+                                  <TableCell align="right">
+                                    <Tooltip title="Edit">
+                                      <IconButton
+                                        size="small"
+                                        onClick={() => {
+                                          setDetailDialog(false);
+                                          handleOpenBenefitDialog(selectedStaff, ben);
+                                        }}
+                                      >
+                                        <EditIcon fontSize="small" />
+                                      </IconButton>
+                                    </Tooltip>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
                           </TableBody>
                         </Table>
                       </TableContainer>
@@ -3465,9 +4683,12 @@ export default function StaffManagement() {
                 )}
 
                 {detailTab === 5 && (
-                  <Stack spacing={2}>
+                  <Stack spacing={3}>
                     <Stack direction="row" justifyContent="space-between" alignItems="center">
-                      <Typography variant="h6">Payroll Information</Typography>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <AttachMoneyIcon color="primary" />
+                        <Typography variant="h6">Payroll Information</Typography>
+                      </Stack>
                       <Button
                         size="small"
                         variant="contained"
@@ -3479,59 +4700,511 @@ export default function StaffManagement() {
                         {selectedStaff.payroll ? "Edit Payroll" : "Add Payroll"}
                       </Button>
                     </Stack>
+
                     {selectedStaff.payroll ? (
-                      <Grid container spacing={2}>
-                        <Grid item xs={12} sm={6}>
-                          <Typography variant="subtitle2" color="text.secondary">Legal Name</Typography>
-                          <Typography>{selectedStaff.payroll.legalName || "-"}</Typography>
+                      <>
+                        {/* Quick Summary Cards */}
+                        <Grid container spacing={2}>
+                          <Grid item xs={12} sm={6} md={3}>
+                            <Card variant="outlined" sx={{ p: 2, height: "100%", bgcolor: "primary.50" }}>
+                              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+                                <AttachMoneyIcon color="primary" fontSize="small" />
+                                <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                  Total Package
+                                </Typography>
+                              </Stack>
+                              <Typography variant="h6" color="primary" fontWeight={700}>
+                                {selectedStaff.payroll.totalPackage2526
+                                  ? `$${selectedStaff.payroll.totalPackage2526.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                  : "-"}
+                              </Typography>
+                              {selectedStaff.payroll.academicYear && (
+                                <Typography variant="caption" color="text.secondary">
+                                  {selectedStaff.payroll.academicYear}
+                                </Typography>
+                              )}
+                            </Card>
+                          </Grid>
+                          <Grid item xs={12} sm={6} md={3}>
+                            <Card variant="outlined" sx={{ p: 2, height: "100%" }}>
+                              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+                                <AttachMoneyIcon color="success" fontSize="small" />
+                                <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                  Annual Gross Salary
+                                </Typography>
+                              </Stack>
+                              <Typography variant="h6" color="success.main" fontWeight={700}>
+                                {selectedStaff.payroll.annualGrossSalary
+                                  ? `$${selectedStaff.payroll.annualGrossSalary.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                  : "-"}
+                              </Typography>
+                            </Card>
+                          </Grid>
+                          <Grid item xs={12} sm={6} md={3}>
+                            <Card variant="outlined" sx={{ p: 2, height: "100%" }}>
+                              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+                                <AttachMoneyIcon color="info" fontSize="small" />
+                                <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                  Paycheck Amount
+                                </Typography>
+                              </Stack>
+                              <Typography variant="h6" color="info.main" fontWeight={700}>
+                                {selectedStaff.payroll.paycheckAmount
+                                  ? `$${selectedStaff.payroll.paycheckAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                  : "-"}
+                              </Typography>
+                            </Card>
+                          </Grid>
+                          <Grid item xs={12} sm={6} md={3}>
+                            <Card variant="outlined" sx={{ p: 2, height: "100%" }}>
+                              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+                                <WorkIcon color="warning" fontSize="small" />
+                                <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                  PTO Days
+                                </Typography>
+                              </Stack>
+                              <Typography variant="h6" color="warning.main" fontWeight={700}>
+                                {selectedStaff.payroll.ptoDays !== null && selectedStaff.payroll.ptoDays !== undefined
+                                  ? selectedStaff.payroll.ptoDays.toString()
+                                  : "-"}
+                              </Typography>
+                            </Card>
+                          </Grid>
                         </Grid>
-                        <Grid item xs={12} sm={6}>
-                          <Typography variant="subtitle2" color="text.secondary">Grade</Typography>
-                          <Typography>{selectedStaff.payroll.grade || "-"}</Typography>
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                          <Typography variant="subtitle2" color="text.secondary">Academic Year</Typography>
-                          <Typography>{selectedStaff.payroll.academicYear || "-"}</Typography>
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                          <Typography variant="subtitle2" color="text.secondary">Annual Gross Salary</Typography>
-                          <Typography>
-                            {selectedStaff.payroll.annualGrossSalary
-                              ? `$${selectedStaff.payroll.annualGrossSalary.toLocaleString()}`
-                              : "-"}
-                          </Typography>
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                          <Typography variant="subtitle2" color="text.secondary">Total Package (25-26)</Typography>
-                          <Typography>
-                            {selectedStaff.payroll.totalPackage2526
-                              ? `$${selectedStaff.payroll.totalPackage2526.toLocaleString()}`
-                              : "-"}
-                          </Typography>
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                          <Typography variant="subtitle2" color="text.secondary">Paycheck Amount</Typography>
-                          <Typography>
-                            {selectedStaff.payroll.paycheckAmount
-                              ? `$${selectedStaff.payroll.paycheckAmount.toLocaleString()}`
-                              : "-"}
-                          </Typography>
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                          <Typography variant="subtitle2" color="text.secondary">PTO Days</Typography>
-                          <Typography>{selectedStaff.payroll.ptoDays || "-"}</Typography>
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                          <Typography variant="subtitle2" color="text.secondary">Free Daycare</Typography>
-                          <Chip
-                            label={selectedStaff.payroll.freeDaycare ? "Yes" : "No"}
-                            size="small"
-                            color={selectedStaff.payroll.freeDaycare ? "success" : "default"}
-                          />
-                        </Grid>
-                      </Grid>
+
+                        {/* Basic Information Section */}
+                        <Card variant="outlined">
+                          <CardContent>
+                            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+                              <PersonAddIcon color="primary" fontSize="small" />
+                              <Typography variant="subtitle1" fontWeight={600} color="primary">
+                                Basic Information
+                              </Typography>
+                            </Stack>
+                            <Divider sx={{ mb: 2 }} />
+                            <Grid container spacing={3}>
+                              <Grid item xs={12} sm={6} md={4}>
+                                <Stack spacing={0.5}>
+                                  <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                    Legal Name
+                                  </Typography>
+                                  <Typography variant="body1">
+                                    {selectedStaff.payroll.legalName || "-"}
+                                  </Typography>
+                                </Stack>
+                              </Grid>
+                              <Grid item xs={12} sm={6} md={4}>
+                                <Stack spacing={0.5}>
+                                  <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                    Grade
+                                  </Typography>
+                                  <Typography variant="body1">
+                                    {selectedStaff.payroll.grade || "-"}
+                                  </Typography>
+                                </Stack>
+                              </Grid>
+                              <Grid item xs={12} sm={6} md={4}>
+                                <Stack spacing={0.5}>
+                                  <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                    Academic Year
+                                  </Typography>
+                                  <Typography variant="body1">
+                                    {selectedStaff.payroll.academicYear || "-"}
+                                  </Typography>
+                                </Stack>
+                              </Grid>
+                              <Grid item xs={12} sm={6} md={4}>
+                                <Stack spacing={0.5}>
+                                  <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                    Job #2
+                                  </Typography>
+                                  <Typography variant="body1">
+                                    {selectedStaff.payroll.jobNumber2 || "-"}
+                                  </Typography>
+                                </Stack>
+                              </Grid>
+                              <Grid item xs={12} sm={6} md={4}>
+                                <Stack spacing={0.5}>
+                                  <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                    Free Daycare
+                                  </Typography>
+                                  <Chip
+                                    label={selectedStaff.payroll.freeDaycare ? "Yes" : "No"}
+                                    size="small"
+                                    color={selectedStaff.payroll.freeDaycare ? "success" : "default"}
+                                    sx={{ width: "fit-content" }}
+                                  />
+                                </Stack>
+                              </Grid>
+                              {selectedStaff.payroll.misc2 && (
+                                <Grid item xs={12} sm={6} md={4}>
+                                  <Stack spacing={0.5}>
+                                    <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                      Misc 2
+                                    </Typography>
+                                    <Typography variant="body1">
+                                      {selectedStaff.payroll.misc2}
+                                    </Typography>
+                                  </Stack>
+                                </Grid>
+                              )}
+                              {selectedStaff.payroll.misc3 && (
+                                <Grid item xs={12} sm={6} md={4}>
+                                  <Stack spacing={0.5}>
+                                    <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                      Misc 3
+                                    </Typography>
+                                    <Typography variant="body1">
+                                      {selectedStaff.payroll.misc3}
+                                    </Typography>
+                                  </Stack>
+                                </Grid>
+                              )}
+                            </Grid>
+                          </CardContent>
+                        </Card>
+
+                        {/* Package & Salary Information */}
+                        <Card variant="outlined">
+                          <CardContent>
+                            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+                              <AttachMoneyIcon color="primary" fontSize="small" />
+                              <Typography variant="subtitle1" fontWeight={600} color="primary">
+                                Package & Salary Information
+                              </Typography>
+                            </Stack>
+                            <Divider sx={{ mb: 2 }} />
+                            <Grid container spacing={3}>
+                              <Grid item xs={12} sm={6} md={4}>
+                                <Stack spacing={0.5}>
+                                  <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                    Total Package (25-26)
+                                  </Typography>
+                                  <Typography variant="body1" fontWeight={600}>
+                                    {selectedStaff.payroll.totalPackage2526
+                                      ? `$${selectedStaff.payroll.totalPackage2526.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                      : "-"}
+                                  </Typography>
+                                </Stack>
+                              </Grid>
+                              <Grid item xs={12} sm={6} md={4}>
+                                <Stack spacing={0.5}>
+                                  <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                    Annual Gross Salary
+                                  </Typography>
+                                  <Typography variant="body1" fontWeight={600}>
+                                    {selectedStaff.payroll.annualGrossSalary
+                                      ? `$${selectedStaff.payroll.annualGrossSalary.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                      : "-"}
+                                  </Typography>
+                                </Stack>
+                              </Grid>
+                              <Grid item xs={12} sm={6} md={4}>
+                                <Stack spacing={0.5}>
+                                  <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                    Max Quarter
+                                  </Typography>
+                                  <Typography variant="body1">
+                                    {selectedStaff.payroll.maxQuarter
+                                      ? `$${selectedStaff.payroll.maxQuarter.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                      : "-"}
+                                  </Typography>
+                                </Stack>
+                              </Grid>
+                              <Grid item xs={12} sm={6} md={4}>
+                                <Stack spacing={0.5}>
+                                  <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                    Tuition
+                                  </Typography>
+                                  <Typography variant="body1">
+                                    {selectedStaff.payroll.tuition
+                                      ? `$${selectedStaff.payroll.tuition.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                      : "-"}
+                                  </Typography>
+                                </Stack>
+                              </Grid>
+                              <Grid item xs={12} sm={6} md={4}>
+                                <Stack spacing={0.5}>
+                                  <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                    Actual Quarter
+                                  </Typography>
+                                  <Typography variant="body1">
+                                    {selectedStaff.payroll.actualQuarter
+                                      ? `$${selectedStaff.payroll.actualQuarter.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                      : "-"}
+                                  </Typography>
+                                </Stack>
+                              </Grid>
+                            </Grid>
+                          </CardContent>
+                        </Card>
+
+                        {/* Benefits Section */}
+                        {(selectedStaff.payroll.nachlas || selectedStaff.payroll.otherBenefit || selectedStaff.payroll.parsonage || 
+                          selectedStaff.payroll.parsonageAllocation || selectedStaff.payroll.travel || selectedStaff.payroll.insurance ||
+                          selectedStaff.payroll.ccName || selectedStaff.payroll.ccAnnualAmount || selectedStaff.payroll.retirement403b) && (
+                          <Card variant="outlined">
+                            <CardContent>
+                              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+                                <HealthAndSafetyIcon color="primary" fontSize="small" />
+                                <Typography variant="subtitle1" fontWeight={600} color="primary">
+                                  Benefits
+                                </Typography>
+                              </Stack>
+                              <Divider sx={{ mb: 2 }} />
+                              <Grid container spacing={3}>
+                                {selectedStaff.payroll.nachlas && (
+                                  <Grid item xs={12} sm={6} md={4}>
+                                    <Stack spacing={0.5}>
+                                      <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                        Nachlas
+                                      </Typography>
+                                      <Typography variant="body1">
+                                        ${selectedStaff.payroll.nachlas.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                      </Typography>
+                                    </Stack>
+                                  </Grid>
+                                )}
+                                {selectedStaff.payroll.otherBenefit && (
+                                  <Grid item xs={12} sm={6} md={4}>
+                                    <Stack spacing={0.5}>
+                                      <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                        Other Benefit
+                                      </Typography>
+                                      <Typography variant="body1">
+                                        ${selectedStaff.payroll.otherBenefit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                      </Typography>
+                                    </Stack>
+                                  </Grid>
+                                )}
+                                {selectedStaff.payroll.parsonage && (
+                                  <Grid item xs={12} sm={6} md={4}>
+                                    <Stack spacing={0.5}>
+                                      <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                        Parsonage
+                                      </Typography>
+                                      <Typography variant="body1">
+                                        ${selectedStaff.payroll.parsonage.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                      </Typography>
+                                    </Stack>
+                                  </Grid>
+                                )}
+                                {selectedStaff.payroll.parsonageAllocation && (
+                                  <Grid item xs={12} sm={6} md={4}>
+                                    <Stack spacing={0.5}>
+                                      <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                        Parsonage Allocation
+                                      </Typography>
+                                      <Typography variant="body1">
+                                        ${selectedStaff.payroll.parsonageAllocation.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                      </Typography>
+                                    </Stack>
+                                  </Grid>
+                                )}
+                                {selectedStaff.payroll.travel && (
+                                  <Grid item xs={12} sm={6} md={4}>
+                                    <Stack spacing={0.5}>
+                                      <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                        Travel
+                                      </Typography>
+                                      <Typography variant="body1">
+                                        ${selectedStaff.payroll.travel.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                      </Typography>
+                                    </Stack>
+                                  </Grid>
+                                )}
+                                {selectedStaff.payroll.insurance && (
+                                  <Grid item xs={12} sm={6} md={4}>
+                                    <Stack spacing={0.5}>
+                                      <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                        Insurance
+                                      </Typography>
+                                      <Typography variant="body1">
+                                        ${selectedStaff.payroll.insurance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                      </Typography>
+                                    </Stack>
+                                  </Grid>
+                                )}
+                                {selectedStaff.payroll.ccName && (
+                                  <Grid item xs={12} sm={6} md={4}>
+                                    <Stack spacing={0.5}>
+                                      <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                        CC Name
+                                      </Typography>
+                                      <Typography variant="body1">
+                                        {selectedStaff.payroll.ccName}
+                                      </Typography>
+                                    </Stack>
+                                  </Grid>
+                                )}
+                                {selectedStaff.payroll.ccAnnualAmount && (
+                                  <Grid item xs={12} sm={6} md={4}>
+                                    <Stack spacing={0.5}>
+                                      <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                        CC Annual Amount
+                                      </Typography>
+                                      <Typography variant="body1">
+                                        ${selectedStaff.payroll.ccAnnualAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                      </Typography>
+                                    </Stack>
+                                  </Grid>
+                                )}
+                                {selectedStaff.payroll.retirement403b && (
+                                  <Grid item xs={12} sm={6} md={4}>
+                                    <Stack spacing={0.5}>
+                                      <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                        403B (Retirement)
+                                      </Typography>
+                                      <Typography variant="body1">
+                                        ${selectedStaff.payroll.retirement403b.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                      </Typography>
+                                    </Stack>
+                                  </Grid>
+                                )}
+                              </Grid>
+                            </CardContent>
+                          </Card>
+                        )}
+
+                        {/* Paycheck Details Section */}
+                        {(selectedStaff.payroll.paycheckAmount || selectedStaff.payroll.monthlyParsonage || selectedStaff.payroll.travelStipend ||
+                          selectedStaff.payroll.ccDeduction || selectedStaff.payroll.insuranceDeduction || selectedStaff.payroll.annualAdjustment ||
+                          selectedStaff.payroll.paychecksRemaining || selectedStaff.payroll.perPaycheckAdjustment || selectedStaff.payroll.adjustedCheckAmount) && (
+                          <Card variant="outlined">
+                            <CardContent>
+                              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+                                <AttachMoneyIcon color="primary" fontSize="small" />
+                                <Typography variant="subtitle1" fontWeight={600} color="primary">
+                                  Paycheck Details
+                                </Typography>
+                              </Stack>
+                              <Divider sx={{ mb: 2 }} />
+                              <Grid container spacing={3}>
+                                {selectedStaff.payroll.paycheckAmount && (
+                                  <Grid item xs={12} sm={6} md={4}>
+                                    <Stack spacing={0.5}>
+                                      <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                        Paycheck Amount
+                                      </Typography>
+                                      <Typography variant="body1" fontWeight={600} color="primary">
+                                        ${selectedStaff.payroll.paycheckAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                      </Typography>
+                                    </Stack>
+                                  </Grid>
+                                )}
+                                {selectedStaff.payroll.monthlyParsonage && (
+                                  <Grid item xs={12} sm={6} md={4}>
+                                    <Stack spacing={0.5}>
+                                      <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                        Monthly Parsonage
+                                      </Typography>
+                                      <Typography variant="body1">
+                                        ${selectedStaff.payroll.monthlyParsonage.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                      </Typography>
+                                    </Stack>
+                                  </Grid>
+                                )}
+                                {selectedStaff.payroll.travelStipend && (
+                                  <Grid item xs={12} sm={6} md={4}>
+                                    <Stack spacing={0.5}>
+                                      <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                        Travel Stipend
+                                      </Typography>
+                                      <Typography variant="body1">
+                                        ${selectedStaff.payroll.travelStipend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                      </Typography>
+                                    </Stack>
+                                  </Grid>
+                                )}
+                                {selectedStaff.payroll.ccDeduction && (
+                                  <Grid item xs={12} sm={6} md={4}>
+                                    <Stack spacing={0.5}>
+                                      <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                        CC Deduction
+                                      </Typography>
+                                      <Typography variant="body1" color="error.main">
+                                        -${selectedStaff.payroll.ccDeduction.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                      </Typography>
+                                    </Stack>
+                                  </Grid>
+                                )}
+                                {selectedStaff.payroll.insuranceDeduction && (
+                                  <Grid item xs={12} sm={6} md={4}>
+                                    <Stack spacing={0.5}>
+                                      <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                        Insurance Deduction
+                                      </Typography>
+                                      <Typography variant="body1" color="error.main">
+                                        -${selectedStaff.payroll.insuranceDeduction.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                      </Typography>
+                                    </Stack>
+                                  </Grid>
+                                )}
+                                {selectedStaff.payroll.annualAdjustment && (
+                                  <Grid item xs={12} sm={6} md={4}>
+                                    <Stack spacing={0.5}>
+                                      <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                        Annual Adjustment
+                                      </Typography>
+                                      <Typography variant="body1" color={selectedStaff.payroll.annualAdjustment >= 0 ? "success.main" : "error.main"}>
+                                        {selectedStaff.payroll.annualAdjustment >= 0 ? "+" : ""}
+                                        ${selectedStaff.payroll.annualAdjustment.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                      </Typography>
+                                    </Stack>
+                                  </Grid>
+                                )}
+                                {selectedStaff.payroll.paychecksRemaining !== null && selectedStaff.payroll.paychecksRemaining !== undefined && (
+                                  <Grid item xs={12} sm={6} md={4}>
+                                    <Stack spacing={0.5}>
+                                      <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                        Paychecks Remaining
+                                      </Typography>
+                                      <Typography variant="body1">
+                                        {selectedStaff.payroll.paychecksRemaining}
+                                      </Typography>
+                                    </Stack>
+                                  </Grid>
+                                )}
+                                {selectedStaff.payroll.perPaycheckAdjustment && (
+                                  <Grid item xs={12} sm={6} md={4}>
+                                    <Stack spacing={0.5}>
+                                      <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                        Per Paycheck Adjustment
+                                      </Typography>
+                                      <Typography variant="body1" color={selectedStaff.payroll.perPaycheckAdjustment >= 0 ? "success.main" : "error.main"}>
+                                        {selectedStaff.payroll.perPaycheckAdjustment >= 0 ? "+" : ""}
+                                        ${selectedStaff.payroll.perPaycheckAdjustment.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                      </Typography>
+                                    </Stack>
+                                  </Grid>
+                                )}
+                                {selectedStaff.payroll.adjustedCheckAmount && (
+                                  <Grid item xs={12} sm={6} md={4}>
+                                    <Stack spacing={0.5}>
+                                      <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                        Adjusted Check Amount
+                                      </Typography>
+                                      <Typography variant="body1" fontWeight={600} color="success.main">
+                                        ${selectedStaff.payroll.adjustedCheckAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                      </Typography>
+                                    </Stack>
+                                  </Grid>
+                                )}
+                              </Grid>
+                            </CardContent>
+                          </Card>
+                        )}
+                      </>
                     ) : (
-                      <Alert severity="info">No payroll information available. Click "Add Payroll" to create a payroll record.</Alert>
+                      <Card variant="outlined">
+                        <CardContent>
+                          <Alert severity="info" icon={<AttachMoneyIcon />}>
+                            <Typography variant="body2">
+                              No payroll information available. Click "Add Payroll" to create a payroll record for this staff member.
+                            </Typography>
+                          </Alert>
+                        </CardContent>
+                      </Card>
                     )}
                   </Stack>
                 )}

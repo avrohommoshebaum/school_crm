@@ -11,6 +11,61 @@ import {
   staffDocumentService,
 } from "../db/services/staffManagementService.js";
 import { payrollService } from "../db/services/payrollService.js";
+import { query } from "../db/postgresConnect.js";
+
+/**
+ * Sync benefits back to payroll when benefits are updated
+ */
+async function syncBenefitsToPayroll(staffId, benefitData) {
+  try {
+    // Get current payroll record
+    const payroll = await payrollService.findByStaffId(staffId);
+    if (!payroll) return; // No payroll record, nothing to sync to
+
+    // Get all current benefits for this staff member
+    const allBenefits = await staffBenefitService.findByStaffId(staffId);
+
+    // Map benefit types to payroll fields
+    const benefitPayrollMap = {
+      'health_insurance': 'insurance',
+      'retirement': 'retirement403b',
+    };
+
+    const updates = {};
+
+    // Update specific benefit fields
+    if (benefitData.benefitType === 'health_insurance') {
+      updates.insurance = benefitData.employerContribution || 0;
+    } else if (benefitData.benefitType === 'retirement') {
+      updates.retirement403b = benefitData.employerContribution || 0;
+    } else if (benefitData.benefitType === 'parsonage') {
+      updates.parsonage = benefitData.employerContribution || 0;
+    } else if (benefitData.benefitType === 'other') {
+      // For other benefits, check the benefit name to map to correct field
+      const name = (benefitData.benefitName || '').toLowerCase();
+      if (name.includes('cc') || name.includes('child care')) {
+        updates.ccAnnualAmount = benefitData.employerContribution || 0;
+        if (benefitData.benefitName && benefitData.benefitName !== 'CC Benefit') {
+          updates.ccName = benefitData.benefitName;
+        }
+      } else if (name.includes('nachlas')) {
+        updates.nachlas = benefitData.employerContribution || 0;
+      } else if (name.includes('travel')) {
+        updates.travel = benefitData.employerContribution || 0;
+      } else if (name.includes('other')) {
+        updates.otherBenefit = benefitData.employerContribution || 0;
+      }
+    }
+
+    // Only update if there are changes
+    if (Object.keys(updates).length > 0) {
+      await payrollService.update(payroll.id, updates);
+    }
+  } catch (error) {
+    console.error('Error syncing benefits to payroll:', error);
+    // Don't throw - this is a sync operation, shouldn't fail the main update
+  }
+}
 
 export const getAllStaff = async (req, res) => {
   try {
@@ -241,6 +296,15 @@ export const createBenefit = async (req, res) => {
       staffId,
       createdBy: req.user._id || req.user.id,
     });
+
+    // Sync to payroll if benefit is from payroll (marked in notes) or is a known payroll benefit type
+    if (req.body.notes?.includes('payroll') || 
+        ['health_insurance', 'retirement', 'parsonage'].includes(benefit.benefitType) ||
+        (benefit.benefitType === 'other' && ['CC', 'Nachlas', 'Travel', 'Other Benefit'].some(name => 
+          benefit.benefitName?.includes(name)))) {
+      await syncBenefitsToPayroll(staffId, benefit);
+    }
+
     res.status(201).json({ message: "Benefit created successfully", benefit });
   } catch (error) {
     console.error("Error creating benefit:", error);
@@ -251,10 +315,38 @@ export const createBenefit = async (req, res) => {
 export const updateBenefit = async (req, res) => {
   try {
     const { id } = req.params;
+    
+    // Get the benefit before update to check staff_id and if it's a payroll benefit
+    const benefitResult = await query(
+      "SELECT staff_id, benefit_type, benefit_name, notes FROM staff_benefits WHERE id = $1",
+      [id]
+    );
+    
+    if (benefitResult.rows.length === 0) {
+      return res.status(404).json({ message: "Benefit not found" });
+    }
+
+    const oldBenefit = benefitResult.rows[0];
+    const staffId = oldBenefit.staff_id;
+    
     const benefit = await staffBenefitService.update(id, req.body);
     if (!benefit) {
       return res.status(404).json({ message: "Benefit not found" });
     }
+
+    // Sync to payroll if this is a payroll-related benefit
+    const benefitToSync = { ...benefit, benefitType: benefit.benefitType || oldBenefit.benefit_type };
+    // Check if notes indicate it's from payroll or if it matches payroll benefit patterns
+    const isPayrollBenefit = oldBenefit.notes?.includes('payroll') || oldBenefit.notes?.includes('Synced') ||
+      oldBenefit.notes?.includes('payroll') ||
+      ['health_insurance', 'retirement', 'parsonage'].includes(benefitToSync.benefitType) ||
+      (benefitToSync.benefitType === 'other' && ['CC', 'Nachlas', 'Travel', 'Other Benefit'].some(name => 
+        (benefitToSync.benefitName || oldBenefit.benefit_name || '').includes(name)));
+
+    if (isPayrollBenefit && staffId) {
+      await syncBenefitsToPayroll(staffId, benefitToSync);
+    }
+
     res.json({ message: "Benefit updated successfully", benefit });
   } catch (error) {
     console.error("Error updating benefit:", error);

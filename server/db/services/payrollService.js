@@ -89,6 +89,20 @@ export const payrollService = {
     }
   },
 
+  async findById(id) {
+    if (!id) return null;
+    try {
+      const result = await query("SELECT * FROM staff_payroll WHERE id = $1", [id]);
+      return result.rows.length > 0 ? rowToPayroll(result.rows[0]) : null;
+    } catch (error) {
+      // If table doesn't exist, return null instead of throwing
+      if (error.message && error.message.includes("does not exist")) {
+        return null;
+      }
+      throw error;
+    }
+  },
+
   async create(staffId, payrollData) {
     const {
       legalName,

@@ -105,6 +105,9 @@ const navigationItems: NavItem[] = [
   },
   { name: "Students", path: "/students", icon: PeopleIcon },
   { name: "Teachers", path: "/teachers", icon: SchoolIcon },
+  { name: "Classes", path: "/classes", icon: ClassIcon },
+  { name: "Applications", path: "/applications", icon: AssignmentTurnedInIcon },
+  { name: "Report Cards", path: "/report-cards", icon: DescriptionIcon },
   {
     name: "Teacher Center",
     path: "/teacher-center",
@@ -115,9 +118,7 @@ const navigationItems: NavItem[] = [
       { name: "Report Cards", path: "/teacher-center/report-cards", icon: DescriptionIcon },
     ],
   },
-  { name: "Classes", path: "/classes", icon: ClassIcon },
-  { name: "Applications", path: "/applications", icon: AssignmentTurnedInIcon },
-  { name: "Report Cards", path: "/report-cards", icon: DescriptionIcon },
+
   {
     name: "Principal Center",
     path: "/principal",
@@ -153,8 +154,8 @@ const navigationItems: NavItem[] = [
     permission: { module: "users", action: "view" },
     children: [
       { name: "Overview", path: "/admin", icon: DashboardIcon, permission: { module: "users", action: "view" } },
-      { name: "User Management", path: "/admin/users", icon: PeopleIcon, permission: { module: "users", action: "view" } },
       { name: "Staff Management", path: "/admin/staff", icon: PeopleIcon, permission: { module: "staff", action: "view" } },
+      { name: "User Management", path: "/admin/users", icon: PeopleIcon, permission: { module: "users", action: "view" } },
       { name: "Role Management", path: "/admin/roles", icon: SecurityIcon, permission: { module: "roles", action: "view" } },
       { name: "School Settings", path: "/admin/school-settings", icon: SchoolIcon, permission: { module: "settings", action: "view" } },
       { name: "School Calendar", path: "/admin/school-calendar", icon: CalendarMonthIcon, permission: { module: "settings", action: "view" } },

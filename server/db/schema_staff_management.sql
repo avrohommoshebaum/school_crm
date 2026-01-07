@@ -28,7 +28,7 @@ CREATE INDEX idx_staff_salaries_end_date ON staff_salaries(end_date);
 CREATE TABLE IF NOT EXISTS staff_benefits (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     staff_id UUID NOT NULL REFERENCES staff(id) ON DELETE CASCADE,
-    benefit_type VARCHAR(100) NOT NULL, -- 'health_insurance', 'dental', 'vision', 'retirement', 'life_insurance', 'disability', 'tuition_reimbursement', 'other'
+    benefit_type VARCHAR(100) NOT NULL, -- 'health_insurance', 'dental', 'vision', 'retirement', 'life_insurance', 'disability', 'tuition_reimbursement', 'parsonage', 'other'
     benefit_name VARCHAR(255), -- Specific plan name or description
     provider VARCHAR(255), -- Insurance company, etc.
     coverage_amount DECIMAL(12, 2), -- If applicable

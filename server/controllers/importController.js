@@ -10,6 +10,7 @@ import { classService } from "../db/services/classService.js";
 import { staffService } from "../db/services/staffService.js";
 import { familyService } from "../db/services/familyService.js";
 import { payrollService } from "../db/services/payrollService.js";
+import { staffSalaryService } from "../db/services/staffManagementService.js";
 import { sanitizeString } from "../utils/validation.js";
 
 // Auto-detect column mappings based on common field names
@@ -60,22 +61,22 @@ const autoDetectColumns = (headers, type) => {
       h.includes("annual") && (h.includes("gross") || h.includes("salary"))
     )] || null;
     mapping.totalPackage2526 = headers[headerLower.findIndex(h => 
-      h.includes("total") && (h.includes("package") || h.includes("25-26") || h.includes("2526"))
+      h.includes("total") && (h.includes("package") || h.includes("pkg") || h.includes("25-26") || h.includes("2526"))
     )] || null;
     mapping.maxQuarter = headers[headerLower.findIndex(h => 
-      h.includes("max") && h.includes("quarter")
+      h.includes("max") && (h.includes("quarter") || h.includes("qtr"))
     )] || null;
     mapping.tuition = headers[headerLower.findIndex(h => 
       h.includes("tuition")
     )] || null;
     mapping.actualQuarter = headers[headerLower.findIndex(h => 
-      h.includes("actual") && h.includes("quarter")
+      h.includes("actual") && (h.includes("quarter") || h.includes("qtr"))
     )] || null;
     mapping.nachlas = headers[headerLower.findIndex(h => 
       h.includes("nachlas")
     )] || null;
     mapping.otherBenefit = headers[headerLower.findIndex(h => 
-      h.includes("other") && h.includes("benefit")
+      (h.includes("other") && h.includes("benefit")) || (h.includes("other") && !h.includes("misc"))
     )] || null;
     mapping.parsonage = headers[headerLower.findIndex(h => 
       h.includes("parsonage") && !h.includes("allocation") && !h.includes("monthly")
@@ -99,7 +100,7 @@ const autoDetectColumns = (headers, type) => {
       h.includes("retirement") || h.includes("403b") || h.includes("401k")
     )] || null;
     mapping.paycheckAmount = headers[headerLower.findIndex(h => 
-      h.includes("paycheck") && h.includes("amount")
+      (h.includes("paycheck") && h.includes("amount")) || (h.includes("paycheck") && !h.includes("remaining") && !h.includes("adjustment") && !h.includes("per"))
     )] || null;
     mapping.monthlyParsonage = headers[headerLower.findIndex(h => 
       h.includes("monthly") && h.includes("parsonage")
@@ -632,11 +633,67 @@ export const importStaff = async (req, res) => {
       const rowIndex = startRow + i + 1;
 
       try {
+        // Check if row is empty (all mapped columns are empty)
+        let hasAnyData = false;
+        const mappedColumns = [
+          columnMapping.firstName,
+          columnMapping.lastName,
+          columnMapping.email,
+          columnMapping.phone,
+          columnMapping.employeeId,
+          columnMapping.title,
+          columnMapping.hireDate,
+          columnMapping.employmentStatus,
+        ].filter(Boolean); // Remove undefined/null values
+        
+        for (const colName of mappedColumns) {
+          const colIndex = headers.indexOf(colName);
+          if (colIndex >= 0) {
+            const value = String(row[colIndex] || "").trim();
+            if (value) {
+              hasAnyData = true;
+              break;
+            }
+          }
+        }
+        
+        // Also check payroll fields if mapped
+        if (!hasAnyData) {
+          const payrollColumns = [
+            columnMapping.legalName,
+            columnMapping.grade,
+            columnMapping.jobNumber2,
+            columnMapping.academicYear,
+            columnMapping.annualGrossSalary,
+            columnMapping.totalPackage2526,
+          ].filter(Boolean);
+          
+          for (const colName of payrollColumns) {
+            const colIndex = headers.indexOf(colName);
+            if (colIndex >= 0) {
+              const value = String(row[colIndex] || "").trim();
+              if (value) {
+                hasAnyData = true;
+                break;
+              }
+            }
+          }
+        }
+        
+        // If no data found in any mapped columns, skip this row silently
+        if (!hasAnyData) {
+          continue;
+        }
+
         const firstName = columnMapping.firstName ? String(row[headers.indexOf(columnMapping.firstName)] || "").trim() : "";
         const lastName = columnMapping.lastName ? String(row[headers.indexOf(columnMapping.lastName)] || "").trim() : "";
 
-        if (!firstName || !lastName) {
-          errors.push({ row: rowIndex, error: "First name and last name are required" });
+        // For staff import, we need at least firstName, lastName, email, phone, or employeeId
+        if (!firstName && !lastName && 
+            !(columnMapping.email && String(row[headers.indexOf(columnMapping.email)] || "").trim()) &&
+            !(columnMapping.phone && String(row[headers.indexOf(columnMapping.phone)] || "").trim()) &&
+            !(columnMapping.employeeId && String(row[headers.indexOf(columnMapping.employeeId)] || "").trim())) {
+          // Skip rows without any identifiable information
           continue;
         }
 
@@ -707,7 +764,10 @@ export const importStaff = async (req, res) => {
         if (columnMapping.ccDeduction) payrollData.ccDeduction = parseNumericField("ccDeduction");
         if (columnMapping.insuranceDeduction) payrollData.insuranceDeduction = parseNumericField("insuranceDeduction");
         if (columnMapping.annualAdjustment) payrollData.annualAdjustment = parseNumericField("annualAdjustment");
-        if (columnMapping.paychecksRemaining) payrollData.paychecksRemaining = parseNumericField("paychecksRemaining");
+        if (columnMapping.paychecksRemaining) {
+          const value = parseNumericField("paychecksRemaining");
+          payrollData.paychecksRemaining = value !== null ? Math.round(value) : null;
+        }
         if (columnMapping.perPaycheckAdjustment) payrollData.perPaycheckAdjustment = parseNumericField("perPaycheckAdjustment");
         if (columnMapping.adjustedCheckAmount) payrollData.adjustedCheckAmount = parseNumericField("adjustedCheckAmount");
         if (columnMapping.ptoDays) payrollData.ptoDays = parseNumericField("ptoDays");
@@ -739,6 +799,28 @@ export const importStaff = async (req, res) => {
         if (_payrollData && Object.keys(_payrollData).length > 0) {
           try {
             await payrollService.create(staffId, _payrollData);
+            
+            // If totalPackage2526 exists, create a salary record from it
+            if (_payrollData.totalPackage2526) {
+              try {
+                const effectiveDate = staffData.hireDate || staffData.hire_date || new Date().toISOString().split('T')[0];
+                await staffSalaryService.create({
+                  staffId,
+                  salaryAmount: _payrollData.totalPackage2526,
+                  salaryType: 'annual',
+                  effectiveDate,
+                  payFrequency: 'monthly',
+                  notes: 'Imported from payroll total package',
+                });
+              } catch (salaryError) {
+                console.error(`Error creating salary for staff ${staffId}:`, salaryError);
+                // Don't fail the whole import if salary creation fails
+                errors.push({ 
+                  row: `Staff: ${staffData.firstName} ${staffData.lastName}`, 
+                  error: `Payroll created but salary creation failed: ${salaryError.message}` 
+                });
+              }
+            }
           } catch (payrollError) {
             console.error(`Error creating payroll for staff ${staffId}:`, payrollError);
             // Don't fail the whole import if payroll creation fails
