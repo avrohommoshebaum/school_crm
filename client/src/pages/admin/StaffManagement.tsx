@@ -48,6 +48,7 @@ import {
   AccordionDetails,
   Checkbox,
   FormControlLabel,
+  Avatar,
 } from "@mui/material";
 
 import SearchIcon from "@mui/icons-material/Search";
@@ -64,6 +65,11 @@ import CloseIcon from "@mui/icons-material/Close";
 import AddIcon from "@mui/icons-material/Add";
 import DownloadIcon from "@mui/icons-material/Download";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import PhotoCameraIcon from "@mui/icons-material/PhotoCamera";
+
+import ReactCrop, { centerCrop, makeAspectCrop } from "react-image-crop";
+import type { Crop, PixelCrop } from "react-image-crop";
+import "react-image-crop/dist/ReactCrop.css";
 
 import api from "../../utils/api";
 import { useAuth } from "../../context/AuthContext";
@@ -156,6 +162,8 @@ type Benefit = {
   benefitType: string;
   benefitName?: string;
   provider?: string;
+  providerName?: string;
+  providerEinOrSsn?: string;
   coverageAmount?: number;
   employeeContribution: number;
   employerContribution: number;
@@ -216,6 +224,16 @@ export default function StaffManagement() {
   const [payrollDialog, setPayrollDialog] = useState(false);
   const [selectedSalary, setSelectedSalary] = useState<Salary | null>(null);
   const [selectedBenefit, setSelectedBenefit] = useState<Benefit | null>(null);
+  const [photoDialog, setPhotoDialog] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [crop, setCrop] = useState<Crop>();
+  const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
+  const imgRef = useRef<HTMLImageElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [staffPhotoUrls, setStaffPhotoUrls] = useState<Record<string, string>>({});
 
   // Forms
   const [staffForm, setStaffForm] = useState({
@@ -297,6 +315,8 @@ export default function StaffManagement() {
     benefitType: "",
     benefitName: "",
     provider: "",
+    providerName: "",
+    providerEinOrSsn: "",
     coverageAmount: "",
     employeeContribution: "",
     employerContribution: "",
@@ -390,9 +410,31 @@ export default function StaffManagement() {
           api.get("/positions"),
         ]);
 
-        setStaff(staffRes.data.staff || []);
+        const staffData = staffRes.data.staff || [];
+        setStaff(staffData);
         setGrades(gradesRes.data.grades || []);
         setPositions(positionsRes.data.positions || []);
+        
+        // Fetch photo URLs for staff members with photos
+        const photoUrlPromises = staffData
+          .filter((s: Staff) => s.photoUrl)
+          .map(async (s: Staff) => {
+            try {
+              const photoRes = await api.get(`/staff/${s.id}/photo`);
+              return { id: s.id, url: photoRes.data.url };
+            } catch {
+              return null;
+            }
+          });
+        
+        const photoResults = await Promise.all(photoUrlPromises);
+        const photoUrlMap: Record<string, string> = {};
+        photoResults.forEach((result) => {
+          if (result) {
+            photoUrlMap[result.id] = result.url;
+          }
+        });
+        setStaffPhotoUrls((prev) => ({ ...prev, ...photoUrlMap }));
       } catch (err: any) {
         console.error("Error loading data:", err);
         showSnackbar(err?.response?.data?.message || "Failed to load data", "error");
@@ -864,6 +906,8 @@ export default function StaffManagement() {
         benefitType: benefit.benefitType,
         benefitName: benefit.benefitName || "",
         provider: benefit.provider || "",
+        providerName: benefit.providerName || "",
+        providerEinOrSsn: benefit.providerEinOrSsn || "",
         coverageAmount: benefit.coverageAmount?.toString() || "",
         employeeContribution: benefit.employeeContribution.toString(),
         employerContribution: benefit.employerContribution.toString(),
@@ -876,6 +920,8 @@ export default function StaffManagement() {
         benefitType: "",
         benefitName: "",
         provider: "",
+        providerName: "",
+        providerEinOrSsn: "",
         coverageAmount: "",
         employeeContribution: "",
         employerContribution: "",
@@ -895,6 +941,8 @@ export default function StaffManagement() {
         benefitType: benefitForm.benefitType,
         benefitName: benefitForm.benefitName || null,
         provider: benefitForm.provider || null,
+        providerName: benefitForm.providerName || null,
+        providerEinOrSsn: benefitForm.providerEinOrSsn || null,
         coverageAmount: benefitForm.coverageAmount ? parseFloat(benefitForm.coverageAmount) : null,
         employeeContribution: parseFloat(benefitForm.employeeContribution || "0"),
         employerContribution: parseFloat(benefitForm.employerContribution || "0"),
@@ -924,6 +972,171 @@ export default function StaffManagement() {
     } catch (err: any) {
       showSnackbar(err?.response?.data?.message || "Failed to save benefit", "error");
     }
+  };
+
+  // Photo management
+  const handlePhotoFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      showSnackbar("Please select an image file", "error");
+      return;
+    }
+
+    // Validate file size (10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      showSnackbar("Image size must be less than 10MB", "error");
+      return;
+    }
+
+    setPhotoFile(file);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setPhotoPreview(event.target?.result as string);
+      setPhotoDialog(true);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const onImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const { width, height } = e.currentTarget;
+    const crop = makeAspectCrop(
+      {
+        unit: '%',
+        width: 90,
+      },
+      1, // aspect ratio (square)
+      width,
+      height
+    );
+    const centeredCrop = centerCrop(crop, width, height);
+    setCrop(centeredCrop);
+  };
+
+  const getCroppedImg = (image: HTMLImageElement, crop: PixelCrop): Promise<Blob> => {
+    const canvas = document.createElement('canvas');
+    const scaleX = image.naturalWidth / image.width;
+    const scaleY = image.naturalHeight / image.height;
+    const ctx = canvas.getContext('2d');
+
+    if (!ctx) {
+      throw new Error('No 2d context');
+    }
+
+    const pixelRatio = window.devicePixelRatio;
+    canvas.width = crop.width * scaleX * pixelRatio;
+    canvas.height = crop.height * scaleY * pixelRatio;
+
+    ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    ctx.imageSmoothingQuality = 'high';
+
+    const cropX = crop.x * scaleX;
+    const cropY = crop.y * scaleY;
+
+    ctx.drawImage(
+      image,
+      cropX,
+      cropY,
+      crop.width * scaleX,
+      crop.height * scaleY,
+      0,
+      0,
+      crop.width * scaleX,
+      crop.height * scaleY
+    );
+
+    return new Promise((resolve) => {
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          throw new Error('Failed to create blob');
+        }
+        resolve(blob);
+      }, 'image/jpeg', 0.9);
+    });
+  };
+
+  const handleSavePhoto = async () => {
+    if (!selectedStaff || !completedCrop || !imgRef.current) {
+      showSnackbar("Please crop the image before saving", "error");
+      return;
+    }
+
+    try {
+      setUploadingPhoto(true);
+      
+      // Get cropped image blob
+      const croppedBlob = await getCroppedImg(imgRef.current, completedCrop);
+      
+      // Create FormData
+      const formData = new FormData();
+      formData.append('photo', croppedBlob, 'photo.jpg');
+
+      // Upload photo
+      const { data } = await api.post(`/staff/${selectedStaff.id}/photo`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      showSnackbar("Photo uploaded successfully", "success");
+      setPhotoDialog(false);
+      setPhotoPreview(null);
+      setPhotoFile(null);
+      setCrop(undefined);
+      setCompletedCrop(undefined);
+      
+      // Reload staff data
+      hasLoadedRef.current = false;
+      const staffData = await api.get(`/staff/${selectedStaff.id}`);
+      const updatedStaffMember = staffData.data.staff;
+      const updatedStaff = staff.map((s) => (s.id === selectedStaff.id ? updatedStaffMember : s));
+      setStaff(updatedStaff);
+      setSelectedStaff(updatedStaffMember);
+      
+      // Fetch updated photo URL if photo exists
+      if (updatedStaffMember.photoUrl) {
+        try {
+          const photoRes = await api.get(`/staff/${selectedStaff.id}/photo`);
+          setStaffPhotoUrls((prev) => ({
+            ...prev,
+            [selectedStaff.id]: photoRes.data.url,
+          }));
+        } catch {
+          // Photo fetch failed, remove from map
+          setStaffPhotoUrls((prev) => {
+            const updated = { ...prev };
+            delete updated[selectedStaff.id];
+            return updated;
+          });
+        }
+      } else {
+        // No photo, remove from map
+        setStaffPhotoUrls((prev) => {
+          const updated = { ...prev };
+          delete updated[selectedStaff.id];
+          return updated;
+        });
+      }
+    } catch (err: any) {
+      showSnackbar(err?.response?.data?.message || "Failed to upload photo", "error");
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handleOpenPhotoDialog = (staffMember: Staff) => {
+    setSelectedStaff(staffMember);
+    // Fetch current photo URL if exists
+    if (staffMember.photoUrl) {
+      api.get(`/staff/${staffMember.id}/photo`)
+        .then((res) => setPhotoUrl(res.data.url))
+        .catch(() => setPhotoUrl(null));
+    } else {
+      setPhotoUrl(null);
+    }
+    setPhotoDialog(true);
   };
 
   // Document management
@@ -1213,6 +1426,18 @@ export default function StaffManagement() {
       setDetailTab(0);
       setDetailDialog(true);
       handleStaffMenuClose();
+      
+      // Fetch photo URL if photo exists
+      if (data.staff.photoUrl) {
+        try {
+          const photoRes = await api.get(`/staff/${staffMember.id}/photo`);
+          setPhotoUrl(photoRes.data.url);
+        } catch {
+          setPhotoUrl(null);
+        }
+      } else {
+        setPhotoUrl(null);
+      }
     } catch (err: any) {
       showSnackbar("Failed to load staff details", "error");
     }
@@ -1614,9 +1839,30 @@ export default function StaffManagement() {
               {filteredStaff.map((staffMember) => (
                 <TableRow key={staffMember.id} hover>
                   <TableCell>
-                    <Typography variant="body2" fontWeight={500}>
-                      {staffMember.firstName} {staffMember.lastName}
-                    </Typography>
+                    <Stack direction="row" spacing={1.5} alignItems="center">
+                      <Avatar
+                        src={staffPhotoUrls[staffMember.id] || undefined}
+                        sx={{
+                          width: 32,
+                          height: 32,
+                          bgcolor: 'primary.main',
+                          fontSize: '0.875rem',
+                        }}
+                        onError={() => {
+                          // Remove failed photo URL so it shows initials
+                          setStaffPhotoUrls(prev => {
+                            const updated = { ...prev };
+                            delete updated[staffMember.id];
+                            return updated;
+                          });
+                        }}
+                      >
+                        {staffMember.firstName?.[0]}{staffMember.lastName?.[0]}
+                      </Avatar>
+                      <Typography variant="body2" fontWeight={500}>
+                        {staffMember.firstName} {staffMember.lastName}
+                      </Typography>
+                    </Stack>
                   </TableCell>
                   <TableCell>{staffMember.employeeId || "-"}</TableCell>
                   <TableCell>{staffMember.email || "-"}</TableCell>
@@ -2935,6 +3181,7 @@ export default function StaffManagement() {
                 <MenuItem value="disability">Disability</MenuItem>
                 <MenuItem value="tuition_reimbursement">Tuition Reimbursement</MenuItem>
                 <MenuItem value="parsonage">Parsonage</MenuItem>
+                <MenuItem value="dcap">DCAP (Childcare)</MenuItem>
                 <MenuItem value="other">Other</MenuItem>
               </Select>
             </FormControl>
@@ -2950,6 +3197,22 @@ export default function StaffManagement() {
               value={benefitForm.provider}
               onChange={(e) => setBenefitForm({ ...benefitForm, provider: e.target.value })}
             />
+            {benefitForm.benefitType === "dcap" && (
+              <>
+                <TextField
+                  fullWidth
+                  label="Childcare Provider Name"
+                  value={benefitForm.providerName}
+                  onChange={(e) => setBenefitForm({ ...benefitForm, providerName: e.target.value })}
+                />
+                <TextField
+                  fullWidth
+                  label="Provider EIN or SSN"
+                  value={benefitForm.providerEinOrSsn}
+                  onChange={(e) => setBenefitForm({ ...benefitForm, providerEinOrSsn: e.target.value })}
+                />
+              </>
+            )}
             <TextField
               fullWidth
               label="Coverage Amount (optional)"
@@ -4066,71 +4329,109 @@ export default function StaffManagement() {
                     {/* Personal Information Section */}
                     <Card variant="outlined">
                       <CardContent>
-                        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
-                          <PersonAddIcon color="primary" />
-                          <Typography variant="h6">Personal Information</Typography>
+                        <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            <PersonAddIcon color="primary" />
+                            <Typography variant="h6">Personal Information</Typography>
+                          </Stack>
+                          <Button
+                            size="small"
+                            startIcon={<PhotoCameraIcon />}
+                            onClick={() => handleOpenPhotoDialog(selectedStaff)}
+                          >
+                            {selectedStaff.photoUrl ? "Change Photo" : "Add Photo"}
+                          </Button>
                         </Stack>
                         <Divider sx={{ mb: 2 }} />
                         <Grid container spacing={3}>
-                          <Grid item xs={12} sm={6}>
-                            <Stack spacing={0.5}>
-                              <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                                Full Name
-                              </Typography>
-                              <Typography variant="body1">
-                                {selectedStaff.firstName} {selectedStaff.lastName}
-                              </Typography>
+                          <Grid item xs={12} sm={4} md={3}>
+                            <Stack spacing={2} alignItems="center">
+                              {(selectedStaff.photoUrl && photoUrl) ? (
+                                <Avatar
+                                  src={photoUrl}
+                                  alt={`${selectedStaff.firstName} ${selectedStaff.lastName}`}
+                                  sx={{ width: 150, height: 150 }}
+                                />
+                              ) : (
+                                <Avatar sx={{ width: 150, height: 150, bgcolor: 'primary.main' }}>
+                                  <Typography variant="h4">
+                                    {selectedStaff.firstName?.[0]}{selectedStaff.lastName?.[0]}
+                                  </Typography>
+                                </Avatar>
+                              )}
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                startIcon={<PhotoCameraIcon />}
+                                onClick={() => handleOpenPhotoDialog(selectedStaff)}
+                              >
+                                {selectedStaff.photoUrl ? "Change" : "Add Photo"}
+                              </Button>
                             </Stack>
                           </Grid>
-                          <Grid item xs={12} sm={6}>
-                            <Stack spacing={0.5}>
-                              <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                                Title
-                              </Typography>
-                              <Typography variant="body1">
-                                {selectedStaff.title ? `${selectedStaff.title} ` : ""}
-                              </Typography>
-                            </Stack>
-                          </Grid>
-                          <Grid item xs={12} sm={6}>
-                            <Stack spacing={0.5}>
-                              <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                                Employee ID
-                              </Typography>
-                              <Typography variant="body1">{selectedStaff.employeeId || "-"}</Typography>
-                            </Stack>
-                          </Grid>
-                          <Grid item xs={12} sm={6}>
-                            <Stack spacing={0.5}>
-                              <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                                Email
-                              </Typography>
-                              <Typography variant="body1">
-                                {selectedStaff.email ? (
-                                  <a href={`mailto:${selectedStaff.email}`} style={{ color: "inherit", textDecoration: "none" }}>
-                                    {selectedStaff.email}
-                                  </a>
-                                ) : (
-                                  "-"
-                                )}
-                              </Typography>
-                            </Stack>
-                          </Grid>
-                          <Grid item xs={12} sm={6}>
-                            <Stack spacing={0.5}>
-                              <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                                Phone
-                              </Typography>
-                              <Typography variant="body1">
-                                {selectedStaff.phone ? (
-                                  <a href={`tel:${selectedStaff.phone}`} style={{ color: "inherit", textDecoration: "none" }}>
-                                    {selectedStaff.phone}
-                                  </a>
-                                ) : (
-                                  "-"
-                                )}
-                              </Typography>
-                            </Stack>
+                          <Grid item xs={12} sm={8} md={9}>
+                            <Grid container spacing={3} component="div">
+                              <Grid item xs={12} sm={6} component="div">
+                                <Stack spacing={0.5}>
+                                  <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                    Full Name
+                                  </Typography>
+                                  <Typography variant="body1">
+                                    {selectedStaff.firstName} {selectedStaff.lastName}
+                                  </Typography>
+                                </Stack>
+                              </Grid>
+                              <Grid item xs={12} sm={6} component="div">
+                                <Stack spacing={0.5}>
+                                  <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                    Title
+                                  </Typography>
+                                  <Typography variant="body1">
+                                    {selectedStaff.title ? `${selectedStaff.title} ` : ""}
+                                  </Typography>
+                                </Stack>
+                              </Grid>
+                              <Grid item xs={12} sm={6} component="div">
+                                <Stack spacing={0.5}>
+                                  <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                    Employee ID
+                                  </Typography>
+                                  <Typography variant="body1">{selectedStaff.employeeId || "-"}</Typography>
+                                </Stack>
+                              </Grid>
+                              <Grid item xs={12} sm={6} component="div">
+                                <Stack spacing={0.5}>
+                                  <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                    Email
+                                  </Typography>
+                                  <Typography variant="body1">
+                                    {selectedStaff.email ? (
+                                      <a href={`mailto:${selectedStaff.email}`} style={{ color: "inherit", textDecoration: "none" }}>
+                                        {selectedStaff.email}
+                                      </a>
+                                    ) : (
+                                      "-"
+                                    )}
+                                  </Typography>
+                                </Stack>
+                              </Grid>
+                              <Grid item xs={12} sm={6} component="div">
+                                <Stack spacing={0.5}>
+                                  <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                    Phone
+                                  </Typography>
+                                  <Typography variant="body1">
+                                    {selectedStaff.phone ? (
+                                      <a href={`tel:${selectedStaff.phone}`} style={{ color: "inherit", textDecoration: "none" }}>
+                                        {selectedStaff.phone}
+                                      </a>
+                                    ) : (
+                                      "-"
+                                    )}
+                                  </Typography>
+                                </Stack>
+                              </Grid>
+                            </Grid>
                           </Grid>
                         </Grid>
                       </CardContent>
@@ -5881,6 +6182,105 @@ export default function StaffManagement() {
           <Button variant="contained" color="error" onClick={handleDeleteStaff}>
             Delete
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Photo Upload/Crop Dialog */}
+      <Dialog open={photoDialog} onClose={() => !uploadingPhoto && setPhotoDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle>
+          <Stack direction="row" justifyContent="space-between" alignItems="center">
+            <Typography variant="h6">Upload Photo</Typography>
+            <IconButton 
+              onClick={() => !uploadingPhoto && setPhotoDialog(false)} 
+              size="small"
+              disabled={uploadingPhoto}
+            >
+              <CloseIcon />
+            </IconButton>
+          </Stack>
+        </DialogTitle>
+        <DialogContent>
+          {!photoPreview ? (
+            <Stack spacing={2} sx={{ mt: 2, textAlign: 'center' }}>
+              <input
+                accept="image/*"
+                style={{ display: 'none' }}
+                id="photo-upload-input"
+                type="file"
+                onChange={handlePhotoFileSelect}
+              />
+              <label htmlFor="photo-upload-input">
+                <Button
+                  variant="contained"
+                  component="span"
+                  startIcon={<PhotoCameraIcon />}
+                  size="large"
+                >
+                  Select Photo
+                </Button>
+              </label>
+              <Typography variant="body2" color="text.secondary">
+                Supported formats: JPEG, PNG, WebP (max 10MB)
+              </Typography>
+              {photoUrl && (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>Current Photo:</Typography>
+                  <Avatar
+                    src={photoUrl}
+                    alt="Current photo"
+                    sx={{ width: 150, height: 150, mx: 'auto' }}
+                  />
+                </Box>
+              )}
+            </Stack>
+          ) : (
+            <Stack spacing={2} sx={{ mt: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                Drag the crop area to adjust, then click Save
+              </Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'center', position: 'relative', minHeight: 300 }}>
+                <ReactCrop
+                  crop={crop}
+                  onChange={(_, percentCrop: Crop) => setCrop(percentCrop)}
+                  onComplete={(c: PixelCrop) => setCompletedCrop(c)}
+                  aspect={1}
+                  minWidth={100}
+                >
+                  <img
+                    ref={imgRef}
+                    alt="Crop preview"
+                    src={photoPreview}
+                    style={{ maxWidth: '100%', maxHeight: '400px' }}
+                    onLoad={onImageLoad}
+                  />
+                </ReactCrop>
+              </Box>
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => {
+              setPhotoDialog(false);
+              setPhotoPreview(null);
+              setPhotoFile(null);
+              setCrop(undefined);
+              setCompletedCrop(undefined);
+            }}
+            disabled={uploadingPhoto}
+          >
+            Cancel
+          </Button>
+          {photoPreview && (
+            <Button
+              variant="contained"
+              onClick={handleSavePhoto}
+              disabled={!completedCrop || uploadingPhoto}
+              startIcon={uploadingPhoto ? <CircularProgress size={16} /> : <PhotoCameraIcon />}
+            >
+              {uploadingPhoto ? "Uploading..." : "Save Photo"}
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
 

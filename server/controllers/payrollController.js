@@ -42,8 +42,8 @@ async function syncBenefitsFromPayroll(staffId, payrollData) {
       },
       {
         payrollField: 'ccAnnualAmount',
-        type: 'other',
-        name: fullPayrollData.ccName || 'CC Benefit',
+        type: 'dcap',
+        name: fullPayrollData.ccName || 'Childcare',
         value: fullPayrollData.ccAnnualAmount,
       },
       {

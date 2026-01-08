@@ -28,6 +28,8 @@ import {
   getDocumentDownloadUrl,
   updateDocument,
   deleteDocument,
+  uploadPhoto,
+  getPhotoUrl,
 } from "../controllers/staffController.js";
 
 const router = express.Router();
@@ -36,7 +38,7 @@ const router = express.Router();
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB limit for documents
+    fileSize: 10 * 1024 * 1024, // 10MB limit for photos (documents can be larger)
   },
 });
 
@@ -72,6 +74,10 @@ router.post("/:staffId/documents", upload.single("file"), createDocument);
 router.get("/documents/:id/download", getDocumentDownloadUrl);
 router.put("/documents/:id", updateDocument);
 router.delete("/documents/:id", deleteDocument);
+
+// Photos
+router.post("/:staffId/photo", upload.single("photo"), uploadPhoto);
+router.get("/:staffId/photo", getPhotoUrl);
 
 export default router;
 

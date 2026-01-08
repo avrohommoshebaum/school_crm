@@ -31,6 +31,7 @@
     "passport-local": "^1.0.0",
     "pg": "^8.13.1",
     "qrcode": "^1.5.4",
+    "react-image-crop": "^11.0.10",
     "speakeasy": "^2.0.0",
     "twilio": "^5.11.1",
     "uuid": "^11.0.3",

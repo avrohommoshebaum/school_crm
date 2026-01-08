@@ -315,6 +315,25 @@ export const userService = {
       throw new Error("Invalid user id");
     }
 
+    // Update related records to set foreign keys to NULL before deleting the user
+    // This allows historical records to be preserved while removing the user reference
+    // Note: These columns must be nullable for this to work (see migration fix_user_delete_foreign_keys.sql)
+    // Execute each UPDATE separately since PostgreSQL doesn't support multiple statements in one query call
+    try {
+      await query("UPDATE sms_messages SET sent_by = NULL WHERE sent_by = $1", [id]);
+      await query("UPDATE email_messages SET sent_by = NULL WHERE sent_by = $1", [id]);
+      await query("UPDATE robocall_messages SET sent_by = NULL WHERE sent_by = $1", [id]);
+      await query("UPDATE scheduled_sms SET created_by = NULL WHERE created_by = $1", [id]);
+      await query("UPDATE scheduled_emails SET created_by = NULL WHERE created_by = $1", [id]);
+      await query("UPDATE scheduled_robocalls SET created_by = NULL WHERE created_by = $1", [id]);
+      await query("UPDATE saved_audio_recordings SET created_by = NULL WHERE created_by = $1", [id]);
+    } catch (err) {
+      // If UPDATE fails (due to NOT NULL constraint still in place), 
+      // the migration script needs to be run first
+      throw new Error(`Cannot delete user: related records prevent deletion. Please run migration fix_user_delete_foreign_keys.sql first. Original error: ${err.message}`);
+    }
+
+    // Now delete the user (ON DELETE SET NULL will handle any remaining foreign keys)
     const result = await query("DELETE FROM users WHERE id = $1 RETURNING id", [id]);
     return result.rows.length > 0;
   },

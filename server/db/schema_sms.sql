@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS sms_messages (
     twilio_message_sid VARCHAR(255), -- Twilio message SID for tracking
     twilio_status VARCHAR(50), -- sent, delivered, failed, etc.
     segments INTEGER DEFAULT 1, -- Number of SMS segments
-    sent_by UUID NOT NULL REFERENCES users(id) ON DELETE SET NULL,
+    sent_by UUID REFERENCES users(id) ON DELETE SET NULL,
     sent_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS scheduled_sms (
     status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'sent', 'failed', 'cancelled')),
     sent_at TIMESTAMP WITH TIME ZONE, -- When it was actually sent
     sms_message_id UUID REFERENCES sms_messages(id) ON DELETE SET NULL, -- Link to actual SMS message if sent
-    created_by UUID NOT NULL REFERENCES users(id) ON DELETE SET NULL,
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     error_message TEXT -- Error message if sending failed

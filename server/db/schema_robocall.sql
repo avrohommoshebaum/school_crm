@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS robocall_messages (
     total_recipients INTEGER DEFAULT 0,
     success_count INTEGER DEFAULT 0,
     fail_count INTEGER DEFAULT 0,
-    sent_by UUID NOT NULL REFERENCES users(id) ON DELETE SET NULL,
+    sent_by UUID REFERENCES users(id) ON DELETE SET NULL,
     sent_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS scheduled_robocalls (
     status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'sent', 'failed', 'cancelled')),
     sent_at TIMESTAMP WITH TIME ZONE, -- When it was actually sent
     robocall_message_id UUID REFERENCES robocall_messages(id) ON DELETE SET NULL, -- Link to actual robocall message if sent
-    created_by UUID NOT NULL REFERENCES users(id) ON DELETE SET NULL,
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     error_message TEXT -- Error message if sending failed
@@ -86,7 +86,7 @@ CREATE TABLE IF NOT EXISTS saved_audio_recordings (
     duration_seconds INTEGER, -- Duration in seconds (if available)
     file_size_bytes BIGINT, -- File size in bytes
     recording_method VARCHAR(20) NOT NULL CHECK (recording_method IN ('call-to-record', 'device-record', 'upload')),
-    created_by UUID NOT NULL REFERENCES users(id) ON DELETE SET NULL,
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

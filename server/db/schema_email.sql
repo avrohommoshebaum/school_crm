@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS email_messages (
     disable_reply_to BOOLEAN DEFAULT FALSE,
     sendgrid_message_id VARCHAR(255), -- SendGrid message ID for tracking
     status VARCHAR(50) DEFAULT 'sent', -- sent, failed, etc.
-    sent_by UUID NOT NULL REFERENCES users(id) ON DELETE SET NULL,
+    sent_by UUID REFERENCES users(id) ON DELETE SET NULL,
     sent_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS scheduled_emails (
     status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'sent', 'failed', 'cancelled')),
     sent_at TIMESTAMP WITH TIME ZONE, -- When it was actually sent
     email_message_id UUID REFERENCES email_messages(id) ON DELETE SET NULL, -- Link to actual email message if sent
-    created_by UUID NOT NULL REFERENCES users(id) ON DELETE SET NULL,
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     error_message TEXT -- Error message if sending failed

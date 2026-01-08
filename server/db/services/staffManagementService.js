@@ -136,6 +136,8 @@ const rowToBenefit = (row) => {
     benefitType: row.benefit_type,
     benefitName: row.benefit_name,
     provider: row.provider,
+    providerName: row.provider_name,
+    providerEinOrSsn: row.provider_ein_or_ssn,
     coverageAmount: row.coverage_amount ? parseFloat(row.coverage_amount) : null,
     employeeContribution: parseFloat(row.employee_contribution || 0),
     employerContribution: parseFloat(row.employer_contribution || 0),
@@ -175,15 +177,17 @@ export const staffBenefitService = {
   async create(benefitData) {
     const result = await query(
       `INSERT INTO staff_benefits (
-        staff_id, benefit_type, benefit_name, provider, coverage_amount,
+        staff_id, benefit_type, benefit_name, provider, provider_name, provider_ein_or_ssn, coverage_amount,
         employee_contribution, employer_contribution, effective_date, end_date, notes, created_by
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       RETURNING *`,
       [
         benefitData.staffId,
         benefitData.benefitType,
         benefitData.benefitName || null,
         benefitData.provider || null,
+        benefitData.providerName || null,
+        benefitData.providerEinOrSsn || null,
         benefitData.coverageAmount || null,
         benefitData.employeeContribution || 0,
         benefitData.employerContribution || 0,
@@ -205,6 +209,8 @@ export const staffBenefitService = {
       benefitType: 'benefit_type',
       benefitName: 'benefit_name',
       provider: 'provider',
+      providerName: 'provider_name',
+      providerEinOrSsn: 'provider_ein_or_ssn',
       coverageAmount: 'coverage_amount',
       employeeContribution: 'employee_contribution',
       employerContribution: 'employer_contribution',

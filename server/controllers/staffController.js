@@ -40,15 +40,18 @@ async function syncBenefitsToPayroll(staffId, benefitData) {
       updates.retirement403b = benefitData.employerContribution || 0;
     } else if (benefitData.benefitType === 'parsonage') {
       updates.parsonage = benefitData.employerContribution || 0;
+    } else if (benefitData.benefitType === 'dcap' || benefitData.benefitType === 'childcare') {
+      // DCAP/Childcare benefits sync to payroll ccAnnualAmount and ccName
+      updates.ccAnnualAmount = benefitData.employerContribution || 0;
+      if (benefitData.providerName) {
+        updates.ccName = benefitData.providerName;
+      } else if (benefitData.benefitName) {
+        updates.ccName = benefitData.benefitName;
+      }
     } else if (benefitData.benefitType === 'other') {
       // For other benefits, check the benefit name to map to correct field
       const name = (benefitData.benefitName || '').toLowerCase();
-      if (name.includes('cc') || name.includes('child care')) {
-        updates.ccAnnualAmount = benefitData.employerContribution || 0;
-        if (benefitData.benefitName && benefitData.benefitName !== 'CC Benefit') {
-          updates.ccName = benefitData.benefitName;
-        }
-      } else if (name.includes('nachlas')) {
+      if (name.includes('nachlas')) {
         updates.nachlas = benefitData.employerContribution || 0;
       } else if (name.includes('travel')) {
         updates.travel = benefitData.employerContribution || 0;
@@ -299,8 +302,8 @@ export const createBenefit = async (req, res) => {
 
     // Sync to payroll if benefit is from payroll (marked in notes) or is a known payroll benefit type
     if (req.body.notes?.includes('payroll') || 
-        ['health_insurance', 'retirement', 'parsonage'].includes(benefit.benefitType) ||
-        (benefit.benefitType === 'other' && ['CC', 'Nachlas', 'Travel', 'Other Benefit'].some(name => 
+        ['health_insurance', 'retirement', 'parsonage', 'dcap', 'childcare'].includes(benefit.benefitType) ||
+        (benefit.benefitType === 'other' && ['Nachlas', 'Travel', 'Other Benefit'].some(name => 
           benefit.benefitName?.includes(name)))) {
       await syncBenefitsToPayroll(staffId, benefit);
     }
@@ -339,8 +342,8 @@ export const updateBenefit = async (req, res) => {
     // Check if notes indicate it's from payroll or if it matches payroll benefit patterns
     const isPayrollBenefit = oldBenefit.notes?.includes('payroll') || oldBenefit.notes?.includes('Synced') ||
       oldBenefit.notes?.includes('payroll') ||
-      ['health_insurance', 'retirement', 'parsonage'].includes(benefitToSync.benefitType) ||
-      (benefitToSync.benefitType === 'other' && ['CC', 'Nachlas', 'Travel', 'Other Benefit'].some(name => 
+      ['health_insurance', 'retirement', 'parsonage', 'dcap', 'childcare'].includes(benefitToSync.benefitType) ||
+      (benefitToSync.benefitType === 'other' && ['Nachlas', 'Travel', 'Other Benefit'].some(name => 
         (benefitToSync.benefitName || oldBenefit.benefit_name || '').includes(name)));
 
     if (isPayrollBenefit && staffId) {
@@ -468,6 +471,86 @@ export const getDocumentDownloadUrl = async (req, res) => {
   } catch (error) {
     console.error("Error generating download URL:", error);
     res.status(500).json({ message: "Error generating download URL", error: error.message });
+  }
+};
+
+export const uploadPhoto = async (req, res) => {
+  try {
+    const { staffId } = req.params;
+    
+    if (!req.file) {
+      return res.status(400).json({ message: "Photo file is required" });
+    }
+
+    // Validate image type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(req.file.mimetype)) {
+      return res.status(400).json({ message: "Invalid file type. Only JPEG, PNG, and WebP images are allowed." });
+    }
+
+    // Upload photo to GCS
+    const { uploadFile } = await import("../utils/storage/gcsStorage.js");
+    const fileExtension = req.file.originalname.split('.').pop() || 'jpg';
+    const fileName = `staff-photos/${staffId}/${Date.now()}-photo.${fileExtension}`;
+    
+    const uploadResult = await uploadFile(
+      req.file.buffer,
+      fileName,
+      req.file.mimetype,
+      'staff-photos', // pathPrefix
+      365 // expiresInDays - 1 year
+    );
+
+    // Get existing staff to check for old photo
+    const existingStaff = await staffService.findById(staffId);
+    if (existingStaff?.photoUrl) {
+      try {
+        // Delete old photo from GCS
+        const { deleteFile } = await import("../utils/storage/gcsStorage.js");
+        await deleteFile(existingStaff.photoUrl);
+      } catch (err) {
+        console.warn("Warning: Could not delete old photo:", err.message);
+        // Continue even if old photo deletion fails
+      }
+    }
+
+    // Update staff record with new photo URL
+    const updatedStaff = await staffService.update(staffId, {
+      photoUrl: uploadResult.gcsPath,
+    });
+
+    // Generate signed URL for immediate use
+    const { getSignedUrl } = await import("../utils/storage/gcsStorage.js");
+    const photoUrl = await getSignedUrl(uploadResult.gcsPath, 8760); // 1 year expiry
+
+    res.status(200).json({ 
+      message: "Photo uploaded successfully", 
+      photoUrl,
+      gcsPath: uploadResult.gcsPath,
+    });
+  } catch (error) {
+    console.error("Error uploading photo:", error);
+    res.status(500).json({ message: "Error uploading photo", error: error.message });
+  }
+};
+
+export const getPhotoUrl = async (req, res) => {
+  try {
+    const { staffId } = req.params;
+    const staff = await staffService.findById(staffId);
+    
+    if (!staff || !staff.photoUrl) {
+      return res.status(404).json({ message: "Photo not found" });
+    }
+
+    // Generate signed URL for display
+    const { getSignedUrl } = await import("../utils/storage/gcsStorage.js");
+    const signedUrl = await getSignedUrl(staff.photoUrl, 8760); // 1 year expiry
+
+    res.json({ url: signedUrl });
+  } catch (error) {
+    console.error("Error getting photo URL:", error);
+    res.status(500).json({ message: "Error getting photo URL", error: error.message });
   }
 };
 
