@@ -18,11 +18,13 @@ import {
 import PhoneIcon from "@mui/icons-material/Phone";
 import SmsIcon from "@mui/icons-material/Sms";
 import api from "../../utils/api";
+import { useAuth } from "../../context/AuthContext";
 import nachlasLogo from "../../assets/nachlasLogo.png";
 
 export default function Verify2FA() {
   const theme = useTheme();
   const navigate = useNavigate();
+  const { refreshUser } = useAuth();
 
   const [verificationCode, setVerificationCode] = useState("");
   const [loading, setLoading] = useState(false);
@@ -105,7 +107,8 @@ export default function Verify2FA() {
         return;
       }
       
-      // AuthContext will refresh user automatically on mount
+      // Explicitly refresh user to ensure AuthContext has the user before navigating
+      await refreshUser();
       navigate("/", { replace: true });
     } catch (err: any) {
       setError(err?.response?.data?.message || (useBackupCode ? "Invalid backup code" : "Invalid verification code"));

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useSearchParams, Link as RouterLink } from "react-router-dom";
 import api from "../utils/api"
+import { useAuth } from "../context/AuthContext";
 
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
@@ -27,6 +28,7 @@ import nachlasLogo from "../assets/nachlasLogo.png";
 export default function Login() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
+  const { refreshUser } = useAuth();
 
 
   const [email, setEmail] = useState("");
@@ -106,7 +108,9 @@ const handleSubmit = async (e: React.FormEvent) => {
         require2FA: res.data.require2FA,
       }));
     }
-    // AuthContext will refresh user automatically on mount
+    
+    // Explicitly refresh user to ensure AuthContext has the user before navigating
+    await refreshUser();
     setLoading(false);
     navigate("/", { replace: true });
   } catch (err: any) {
