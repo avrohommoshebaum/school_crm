@@ -1,7 +1,7 @@
 /**
  * Staff Controller
  * CRUD operations for staff (teachers, principals, etc.)
- * Includes salaries, benefits, and documents management
+ * Includes Total Compensation Package (previously called salaries), benefits, and documents management
  */
 
 import { staffService } from "../db/services/staffService.js";
@@ -222,7 +222,7 @@ export const deletePosition = async (req, res) => {
 };
 
 // ============================================
-// SALARIES
+// TOTAL COMPENSATION PACKAGE (previously called salaries)
 // ============================================
 
 export const getStaffSalaries = async (req, res) => {
@@ -231,23 +231,45 @@ export const getStaffSalaries = async (req, res) => {
     const salaries = await staffSalaryService.findByStaffId(staffId);
     res.json({ salaries });
   } catch (error) {
-    console.error("Error getting salaries:", error);
-    res.status(500).json({ message: "Error fetching salaries", error: error.message });
+    console.error("Error getting total compensation package:", error);
+    res.status(500).json({ message: "Error fetching total compensation package", error: error.message });
   }
 };
 
 export const createSalary = async (req, res) => {
   try {
     const { staffId } = req.params;
+    
+    // Delete any existing salaries first (only one total compensation package per employee)
+    const existingSalaries = await staffSalaryService.findByStaffId(staffId);
+    for (const existing of existingSalaries) {
+      await staffSalaryService.delete(existing.id);
+    }
+    
     const salary = await staffSalaryService.create({
       ...req.body,
       staffId,
       createdBy: req.user._id || req.user.id,
     });
-    res.status(201).json({ message: "Salary created successfully", salary });
+    
+    // Sync with payroll totalPackage2526
+    const { payrollService } = await import("../db/services/payrollService.js");
+    try {
+      const payroll = await payrollService.findByStaffId(staffId);
+      if (payroll) {
+        await payrollService.update(payroll.id, {
+          totalPackage2526: req.body.salaryAmount,
+        });
+      }
+    } catch (payrollErr) {
+      console.warn("Failed to sync total compensation package with payroll:", payrollErr);
+      // Don't fail the operation if payroll sync fails
+    }
+    
+    res.status(201).json({ message: "Total Compensation Package created successfully", salary });
   } catch (error) {
-    console.error("Error creating salary:", error);
-    res.status(500).json({ message: "Error creating salary", error: error.message });
+    console.error("Error creating total compensation package:", error);
+    res.status(500).json({ message: "Error creating total compensation package", error: error.message });
   }
 };
 
@@ -256,23 +278,55 @@ export const updateSalary = async (req, res) => {
     const { id } = req.params;
     const salary = await staffSalaryService.update(id, req.body);
     if (!salary) {
-      return res.status(404).json({ message: "Salary not found" });
+      return res.status(404).json({ message: "Total Compensation Package not found" });
     }
-    res.json({ message: "Salary updated successfully", salary });
+    
+    // Sync with payroll totalPackage2526
+    const { payrollService } = await import("../db/services/payrollService.js");
+    try {
+      const payroll = await payrollService.findByStaffId(salary.staffId);
+      if (payroll) {
+        await payrollService.update(payroll.id, {
+          totalPackage2526: salary.salaryAmount,
+        });
+      }
+    } catch (payrollErr) {
+      console.warn("Failed to sync total compensation package with payroll:", payrollErr);
+      // Don't fail the operation if payroll sync fails
+    }
+    
+    res.json({ message: "Total Compensation Package updated successfully", salary });
   } catch (error) {
-    console.error("Error updating salary:", error);
-    res.status(500).json({ message: "Error updating salary", error: error.message });
+    console.error("Error updating total compensation package:", error);
+    res.status(500).json({ message: "Error updating total compensation package", error: error.message });
   }
 };
 
 export const deleteSalary = async (req, res) => {
   try {
     const { id } = req.params;
+    const salary = await staffSalaryService.findById(id);
     await staffSalaryService.delete(id);
-    res.json({ message: "Salary deleted successfully" });
+    
+    // Clear payroll totalPackage2526 when salary is deleted
+    if (salary && salary.staffId) {
+      const { payrollService } = await import("../db/services/payrollService.js");
+      try {
+        const payroll = await payrollService.findByStaffId(salary.staffId);
+        if (payroll) {
+          await payrollService.update(payroll.id, {
+            totalPackage2526: null,
+          });
+        }
+      } catch (payrollErr) {
+        console.warn("Failed to clear payroll totalPackage2526:", payrollErr);
+      }
+    }
+    
+    res.json({ message: "Total Compensation Package deleted successfully" });
   } catch (error) {
-    console.error("Error deleting salary:", error);
-    res.status(500).json({ message: "Error deleting salary", error: error.message });
+    console.error("Error deleting total compensation package:", error);
+    res.status(500).json({ message: "Error deleting total compensation package", error: error.message });
   }
 };
 

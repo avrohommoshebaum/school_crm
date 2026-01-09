@@ -1,6 +1,6 @@
 /**
  * Staff Management Page
- * Comprehensive staff management with positions, salaries, benefits, documents, and Excel import
+ * Comprehensive staff management with positions, Total Compensation Package, benefits, documents, and Excel import
  */
 
 import { useState, useEffect, useRef } from "react";
@@ -634,14 +634,28 @@ export default function StaffManagement() {
           });
         }
 
-        // Add initial salary if provided
+        // Add initial Total Compensation Package if provided
         if (initialSalary) {
           await api.post(`/staff/${newStaffId}/salaries`, {
             salaryAmount: parseFloat(parseCurrency(initialSalary)),
             salaryType,
             payFrequency,
             effectiveDate: staffData.hireDate || new Date().toISOString().split('T')[0],
+            notes: "Initial total compensation package",
           });
+          
+          // Sync with payroll if payroll exists
+          try {
+            const payrollRes = await api.get(`/payroll/staff/${newStaffId}`);
+            if (payrollRes.data.payroll) {
+              await api.put(`/payroll/staff/${newStaffId}`, {
+                totalPackage2526: parseFloat(parseCurrency(initialSalary)),
+              });
+            }
+          } catch (payrollErr) {
+            // Payroll might not exist yet, that's okay
+            console.warn("Could not sync with payroll:", payrollErr);
+          }
         }
 
         // Add payroll if any payroll field is provided
@@ -815,6 +829,12 @@ export default function StaffManagement() {
   // Salary management
   const handleOpenSalaryDialog = (staffMember: Staff, salary?: Salary) => {
     setSelectedStaff(staffMember);
+    
+    // If no salary provided but staff member has one, use the existing one
+    if (!salary && staffMember.salaries && staffMember.salaries.length > 0) {
+      salary = staffMember.salaries.find((s) => !s.endDate || new Date(s.endDate) >= new Date()) || staffMember.salaries[0];
+    }
+    
     setSelectedSalary(salary || null);
     if (salary) {
       // Format dates for display (convert from YYYY-MM-DD to mm/dd/yy)
@@ -874,14 +894,55 @@ export default function StaffManagement() {
         notes: salaryForm.notes || null,
       };
 
+      // Prevent creating new package if one already exists (safety check)
+      if (!selectedSalary && selectedStaff.salaries && selectedStaff.salaries.length > 0) {
+        showSnackbar("This staff member already has a Total Compensation Package. Please edit the existing one.", "error");
+        return;
+      }
+      
       if (selectedSalary) {
-        // Update existing salary
+        // Update existing total compensation package
         await api.put(`/staff/salaries/${selectedSalary.id}`, salaryData);
-        showSnackbar("Salary updated successfully", "success");
+        
+        // Sync with payroll totalPackage2526
+        if (selectedStaff.payroll) {
+          try {
+            await api.put(`/payroll/staff/${selectedStaff.id}`, {
+              totalPackage2526: salaryData.salaryAmount,
+            });
+          } catch (payrollErr) {
+            console.warn("Failed to sync with payroll:", payrollErr);
+          }
+        }
+        
+        showSnackbar("Total Compensation Package updated successfully", "success");
       } else {
-        // Create new salary
+        // Delete any existing salaries first (only one total compensation package per employee)
+        if (selectedStaff.salaries && selectedStaff.salaries.length > 0) {
+          for (const existingSalary of selectedStaff.salaries) {
+            try {
+              await api.delete(`/staff/salaries/${existingSalary.id}`);
+            } catch (err) {
+              console.warn("Failed to delete existing salary:", err);
+            }
+          }
+        }
+        
+        // Create new total compensation package
         await api.post(`/staff/${selectedStaff.id}/salaries`, salaryData);
-        showSnackbar("Salary added successfully", "success");
+        
+        // Sync with payroll totalPackage2526
+        if (selectedStaff.payroll) {
+          try {
+            await api.put(`/payroll/staff/${selectedStaff.id}`, {
+              totalPackage2526: salaryData.salaryAmount,
+            });
+          } catch (payrollErr) {
+            console.warn("Failed to sync with payroll:", payrollErr);
+          }
+        }
+        
+        showSnackbar("Total Compensation Package added successfully", "success");
       }
       
       setSalaryDialog(false);
@@ -893,7 +954,7 @@ export default function StaffManagement() {
       setStaff(updatedStaff);
       setSelectedStaff(data.staff); // Update selected staff in detail dialog
     } catch (err: any) {
-      showSnackbar(err?.response?.data?.message || "Failed to save salary", "error");
+      showSnackbar(err?.response?.data?.message || "Failed to save Total Compensation Package", "error");
     }
   };
 
@@ -1933,11 +1994,18 @@ export default function StaffManagement() {
           </ListItemIcon>
           <ListItemText>Add Position</ListItemText>
         </MenuItem>
-        <MenuItem onClick={() => staffMenuStaff && handleOpenSalaryDialog(staffMenuStaff)}>
+        <MenuItem 
+          onClick={() => staffMenuStaff && handleOpenSalaryDialog(staffMenuStaff)}
+          disabled={staffMenuStaff?.salaries && staffMenuStaff.salaries.length > 0}
+        >
           <ListItemIcon>
             <AttachMoneyIcon fontSize="small" />
           </ListItemIcon>
-          <ListItemText>Add Salary</ListItemText>
+          <ListItemText>
+            {staffMenuStaff?.salaries && staffMenuStaff.salaries.length > 0 
+              ? "Edit Compensation Package" 
+              : "Add Compensation Package"}
+          </ListItemText>
         </MenuItem>
         <MenuItem onClick={() => staffMenuStaff && handleOpenBenefitDialog(staffMenuStaff)}>
           <ListItemIcon>
@@ -2152,7 +2220,7 @@ export default function StaffManagement() {
                     <Grid item xs={12} sm={6}>
                       <TextField
                         fullWidth
-                        label="Initial Salary"
+                        label="Initial Total Compensation Package (Optional)"
                         value={staffForm.initialSalary}
                         onChange={(e) => {
                           // Allow free typing - only remove invalid characters
@@ -3053,12 +3121,12 @@ export default function StaffManagement() {
         setSalaryDialog(false);
         setSelectedSalary(null);
       }} maxWidth="sm" fullWidth>
-        <DialogTitle>{selectedSalary ? "Edit Salary" : "Add Salary"}</DialogTitle>
+        <DialogTitle>{selectedSalary ? "Edit Total Compensation Package" : "Add Total Compensation Package"}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField
               fullWidth
-              label="Salary Amount"
+              label="Total Compensation Package Amount"
               required
               value={salaryForm.salaryAmount}
               onChange={(e) => {
@@ -3089,10 +3157,10 @@ export default function StaffManagement() {
               placeholder="0.00"
             />
             <FormControl fullWidth>
-              <InputLabel>Salary Type</InputLabel>
+              <InputLabel>Compensation Type</InputLabel>
               <Select
                 value={salaryForm.salaryType}
-                label="Salary Type"
+                label="Compensation Type"
                 onChange={(e) => setSalaryForm({ ...salaryForm, salaryType: e.target.value })}
               >
                 <MenuItem value="annual">Annual</MenuItem>
@@ -3156,7 +3224,7 @@ export default function StaffManagement() {
             onClick={handleSaveSalary}
             disabled={!salaryForm.salaryAmount || !salaryForm.effectiveDate}
           >
-            {selectedSalary ? "Update Salary" : "Add Salary"}
+            {selectedSalary ? "Update Package" : "Add Package"}
           </Button>
         </DialogActions>
       </Dialog>
@@ -4253,7 +4321,6 @@ export default function StaffManagement() {
               <Tabs value={detailTab} onChange={(_, v) => setDetailTab(v)}>
                 <Tab label="Overview" />
                 <Tab label="Positions" />
-                <Tab label="Salaries" />
                 <Tab label="Benefits" />
                 <Tab label="Documents" />
                 <Tab label="Payroll" />
@@ -4285,10 +4352,12 @@ export default function StaffManagement() {
                             <AttachMoneyIcon color="primary" />
                             <Box>
                               <Typography variant="caption" color="text.secondary">
-                                Salary Records
+                                Total Compensation Package
                               </Typography>
                               <Typography variant="h6">
-                                {selectedStaff.salaries?.length || 0}
+                                {selectedStaff.salaries && selectedStaff.salaries.length > 0 
+                                  ? "$" + selectedStaff.salaries[0].salaryAmount.toLocaleString()
+                                  : "Not Set"}
                               </Typography>
                             </Box>
                           </Stack>
@@ -4528,16 +4597,31 @@ export default function StaffManagement() {
                       </CardContent>
                     </Card>
 
-                    {/* Current Salary Summary */}
-                    {selectedStaff.salaries && selectedStaff.salaries.length > 0 && (
-                      <Card variant="outlined">
-                        <CardContent>
-                          <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+                    {/* Total Compensation Package */}
+                    <Card variant="outlined">
+                      <CardContent>
+                        <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+                          <Stack direction="row" spacing={1} alignItems="center">
                             <AttachMoneyIcon color="primary" />
-                            <Typography variant="h6">Current Salary</Typography>
+                            <Typography variant="h6">Total Compensation Package</Typography>
                           </Stack>
-                          <Divider sx={{ mb: 2 }} />
-                          {(() => {
+                          <Button
+                            size="small"
+                            startIcon={selectedStaff.salaries && selectedStaff.salaries.length > 0 ? <EditIcon /> : <AddIcon />}
+                            onClick={() => {
+                              // Open salary dialog with current salary or create new
+                              const currentSalary = selectedStaff.salaries && selectedStaff.salaries.length > 0
+                                ? selectedStaff.salaries.find((s) => !s.endDate || new Date(s.endDate) >= new Date()) || selectedStaff.salaries[0]
+                                : null;
+                              handleOpenSalaryDialog(selectedStaff, currentSalary || undefined);
+                            }}
+                          >
+                            {selectedStaff.salaries && selectedStaff.salaries.length > 0 ? "Edit Package" : "Add Package"}
+                          </Button>
+                        </Stack>
+                        <Divider sx={{ mb: 2 }} />
+                        {selectedStaff.salaries && selectedStaff.salaries.length > 0 ? (
+                          (() => {
                             const currentSalary = selectedStaff.salaries.find(
                               (s) => !s.endDate || new Date(s.endDate) >= new Date()
                             ) || selectedStaff.salaries[0];
@@ -4546,7 +4630,7 @@ export default function StaffManagement() {
                                 <Grid item xs={12} sm={4}>
                                   <Stack spacing={0.5}>
                                     <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                                      Amount
+                                      Total Package
                                     </Typography>
                                     <Typography variant="h6" color="primary">
                                       ${currentSalary.salaryAmount.toLocaleString()}
@@ -4573,12 +4657,42 @@ export default function StaffManagement() {
                                     </Typography>
                                   </Stack>
                                 </Grid>
+                                <Grid item xs={12} sm={6}>
+                                  <Stack spacing={0.5}>
+                                    <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                      Effective Date
+                                    </Typography>
+                                    <Typography variant="body1">
+                                      {currentSalary.effectiveDate
+                                        ? new Date(currentSalary.effectiveDate).toLocaleDateString("en-US", {
+                                            month: "short",
+                                            day: "numeric",
+                                            year: "numeric",
+                                          })
+                                        : "-"}
+                                    </Typography>
+                                  </Stack>
+                                </Grid>
+                                <Grid item xs={12} sm={6}>
+                                  <Stack spacing={0.5}>
+                                    <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                      Notes
+                                    </Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                      {currentSalary.notes || "-"}
+                                    </Typography>
+                                  </Stack>
+                                </Grid>
                               </Grid>
                             ) : null;
-                          })()}
-                        </CardContent>
-                      </Card>
-                    )}
+                          })()
+                        ) : (
+                          <Alert severity="info">
+                            No total compensation package set. Click "Add" to create one.
+                          </Alert>
+                        )}
+                      </CardContent>
+                    </Card>
 
                     {/* Bio Section */}
                     {selectedStaff.bio && (
@@ -4640,16 +4754,32 @@ export default function StaffManagement() {
                           >
                             Add Position
                           </Button>
-                          <Button
-                            variant="outlined"
-                            size="small"
-                            startIcon={<AttachMoneyIcon />}
-                            onClick={() => {
-                              handleOpenSalaryDialog(selectedStaff);
-                            }}
-                          >
-                            Add Salary
-                          </Button>
+                          {(selectedStaff.salaries && selectedStaff.salaries.length > 0) ? (
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              startIcon={<EditIcon />}
+                              onClick={() => {
+                                const currentSalary = selectedStaff.salaries?.find(
+                                  (s) => !s.endDate || new Date(s.endDate) >= new Date()
+                                ) || selectedStaff.salaries?.[0];
+                                handleOpenSalaryDialog(selectedStaff, currentSalary);
+                              }}
+                            >
+                              Edit Compensation Package
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              startIcon={<AttachMoneyIcon />}
+                              onClick={() => {
+                                handleOpenSalaryDialog(selectedStaff);
+                              }}
+                            >
+                              Add Compensation Package
+                            </Button>
+                          )}
                           <Button
                             variant="outlined"
                             size="small"
@@ -4756,82 +4886,8 @@ export default function StaffManagement() {
                   </Stack>
                 )}
 
-                {detailTab === 2 && (
-                  <Stack spacing={2}>
-                    <Stack direction="row" justifyContent="space-between" alignItems="center">
-                      <Typography variant="h6">Salaries</Typography>
-                      <Button
-                        size="small"
-                        startIcon={<AddIcon />}
-                        onClick={() => {
-                          handleOpenSalaryDialog(selectedStaff);
-                        }}
-                      >
-                        Add Salary
-                      </Button>
-                    </Stack>
-                    {selectedStaff.salaries && selectedStaff.salaries.length > 0 ? (
-                      <TableContainer>
-                        <Table size="small">
-                          <TableHead>
-                            <TableRow>
-                              <TableCell>Amount</TableCell>
-                              <TableCell>Type</TableCell>
-                              <TableCell>Frequency</TableCell>
-                              <TableCell>Effective Date</TableCell>
-                              <TableCell>End Date</TableCell>
-                              <TableCell align="right">Actions</TableCell>
-                            </TableRow>
-                          </TableHead>
-                          <TableBody>
-                            {selectedStaff.salaries.map((sal) => {
-                              // Format date as mm/dd/yy
-                              const formatDate = (dateStr: string | null | undefined) => {
-                                if (!dateStr) return "Current";
-                                try {
-                                  const date = new Date(dateStr);
-                                  if (isNaN(date.getTime())) return dateStr;
-                                  const month = String(date.getMonth() + 1).padStart(2, "0");
-                                  const day = String(date.getDate()).padStart(2, "0");
-                                  const year = String(date.getFullYear()).slice(-2);
-                                  return `${month}/${day}/${year}`;
-                                } catch {
-                                  return dateStr;
-                                }
-                              };
-                              
-                              return (
-                                <TableRow key={sal.id}>
-                                  <TableCell>${sal.salaryAmount.toLocaleString()}</TableCell>
-                                  <TableCell>{sal.salaryType}</TableCell>
-                                  <TableCell>{sal.payFrequency}</TableCell>
-                                  <TableCell>{formatDate(sal.effectiveDate)}</TableCell>
-                                  <TableCell>{formatDate(sal.endDate)}</TableCell>
-                                  <TableCell align="right">
-                                    <Tooltip title="Edit">
-                                      <IconButton
-                                        size="small"
-                                        onClick={() => {
-                                          handleOpenSalaryDialog(selectedStaff, sal);
-                                        }}
-                                      >
-                                        <EditIcon fontSize="small" />
-                                      </IconButton>
-                                    </Tooltip>
-                                  </TableCell>
-                                </TableRow>
-                              );
-                            })}
-                          </TableBody>
-                        </Table>
-                      </TableContainer>
-                    ) : (
-                      <Alert severity="info">No salary records.</Alert>
-                    )}
-                  </Stack>
-                )}
 
-                {detailTab === 3 && (
+                {detailTab === 2 && (
                   <Stack spacing={2}>
                     <Stack direction="row" justifyContent="space-between" alignItems="center">
                       <Typography variant="h6">Benefits</Typography>
@@ -4910,7 +4966,7 @@ export default function StaffManagement() {
                   </Stack>
                 )}
 
-                {detailTab === 4 && (
+                {detailTab === 3 && (
                   <Stack spacing={2}>
                     <Stack direction="row" justifyContent="space-between" alignItems="center">
                       <Typography variant="h6">Documents</Typography>
@@ -4983,7 +5039,7 @@ export default function StaffManagement() {
                   </Stack>
                 )}
 
-                {detailTab === 5 && (
+                {detailTab === 4 && (
                   <Stack spacing={3}>
                     <Stack direction="row" justifyContent="space-between" alignItems="center">
                       <Stack direction="row" spacing={1} alignItems="center">

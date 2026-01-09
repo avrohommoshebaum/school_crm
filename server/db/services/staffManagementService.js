@@ -118,6 +118,12 @@ export const staffSalaryService = {
     return result.rows.length > 0 ? rowToSalary(result.rows[0]) : null;
   },
 
+  async findById(id) {
+    if (!id) return null;
+    const result = await query("SELECT * FROM staff_salaries WHERE id = $1", [id]);
+    return result.rows.length > 0 ? rowToSalary(result.rows[0]) : null;
+  },
+
   async delete(id) {
     await query("DELETE FROM staff_salaries WHERE id = $1", [id]);
     return true;

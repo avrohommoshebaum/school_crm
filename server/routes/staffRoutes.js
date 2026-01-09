@@ -56,7 +56,7 @@ router.get("/:staffId/positions", getStaffPositions);
 router.post("/:staffId/positions", createPosition);
 router.delete("/positions/:id", deletePosition);
 
-// Salaries
+// Total Compensation Package (previously called salaries)
 router.get("/:staffId/salaries", getStaffSalaries);
 router.post("/:staffId/salaries", createSalary);
 router.put("/salaries/:id", updateSalary);

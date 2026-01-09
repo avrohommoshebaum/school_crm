@@ -4,7 +4,7 @@
  */
 
 import { payrollService, payrollHistoryService } from "../db/services/payrollService.js";
-import { staffBenefitService } from "../db/services/staffManagementService.js";
+import { staffBenefitService, staffSalaryService } from "../db/services/staffManagementService.js";
 import { query } from "../db/postgresConnect.js";
 
 /**
@@ -160,6 +160,34 @@ export const createPayroll = async (req, res) => {
     if (payroll && payroll.id) {
       await syncBenefitsFromPayroll(staffId, req.body);
     }
+    
+    // Sync totalPackage2526 to Total Compensation Package (salaries) if provided
+    if (req.body.totalPackage2526 && req.body.totalPackage2526 > 0) {
+      try {
+        const existingSalaries = await staffSalaryService.findByStaffId(staffId);
+        
+        // Delete any existing salaries first (only one total compensation package per employee)
+        for (const existing of existingSalaries) {
+          await staffSalaryService.delete(existing.id);
+        }
+        
+        // Create new total compensation package
+        await staffSalaryService.create({
+          staffId,
+          salaryAmount: parseFloat(req.body.totalPackage2526),
+          salaryType: 'annual',
+          payFrequency: 'monthly',
+          effectiveDate: payroll.createdAt 
+            ? new Date(payroll.createdAt).toISOString().split('T')[0]
+            : new Date().toISOString().split('T')[0],
+          notes: 'Synced from payroll total package',
+          createdBy: null, // System sync
+        });
+      } catch (salaryErr) {
+        console.warn("Failed to sync payroll totalPackage2526 to total compensation package:", salaryErr);
+        // Don't fail the operation if salary sync fails
+      }
+    }
 
     res.status(201).json({ message: "Payroll record created successfully", payroll });
   } catch (error) {
@@ -180,6 +208,42 @@ export const updatePayroll = async (req, res) => {
     const payrollRecord = await payrollService.findById(id);
     if (payrollRecord && payrollRecord.staffId) {
       await syncBenefitsFromPayroll(payrollRecord.staffId, req.body);
+    }
+    
+    // Sync totalPackage2526 to Total Compensation Package (salaries)
+    if (req.body.totalPackage2526 !== undefined && payrollRecord && payrollRecord.staffId) {
+      try {
+        const existingSalaries = await staffSalaryService.findByStaffId(payrollRecord.staffId);
+        
+        if (req.body.totalPackage2526 && req.body.totalPackage2526 > 0) {
+          // Update or create total compensation package
+          if (existingSalaries.length > 0) {
+            // Update the first (and only) salary record
+            await staffSalaryService.update(existingSalaries[0].id, {
+              salaryAmount: parseFloat(req.body.totalPackage2526),
+            });
+          } else {
+            // Create new total compensation package
+            await staffSalaryService.create({
+              staffId: payrollRecord.staffId,
+              salaryAmount: parseFloat(req.body.totalPackage2526),
+              salaryType: 'annual',
+              payFrequency: 'monthly',
+              effectiveDate: payrollRecord.createdAt 
+                ? new Date(payrollRecord.createdAt).toISOString().split('T')[0]
+                : new Date().toISOString().split('T')[0],
+              notes: 'Synced from payroll total package',
+              createdBy: null, // System sync
+            });
+          }
+        } else if (existingSalaries.length > 0) {
+          // If totalPackage2526 is cleared, delete the salary record
+          await staffSalaryService.delete(existingSalaries[0].id);
+        }
+      } catch (salaryErr) {
+        console.warn("Failed to sync payroll totalPackage2526 to total compensation package:", salaryErr);
+        // Don't fail the operation if salary sync fails
+      }
     }
 
     res.json({ message: "Payroll record updated successfully", payroll });
