@@ -13,6 +13,7 @@ const Login = lazy(() => import("../pages/Login"));
 const AcceptInvite = lazy(() => import("../pages/invite/AcceptInvite"));
 const InviteSuccess = lazy(() => import("../pages/invite/InviteSuccess"));
 const AdminDashboard = lazy(() => import("../pages/admin/AdminDashboard"));
+const Dashboard = lazy(() => import("../pages/dashboard/Dashboard"));
 const UserManagement = lazy(() => import("../pages/admin/UserManagement"));
 const StaffManagement = lazy(() => import("../pages/admin/StaffManagement"));
 const RoleManagement = lazy(() => import("../pages/admin/RoleManagement"));
@@ -145,7 +146,7 @@ const router = createBrowserRouter([
         children: [
           {
             index: true,
-            element: <LazyRoute Component={AdminDashboard} />,
+            element: <LazyRoute Component={Dashboard} />,
           },
           {
             path: "force-password-change",
