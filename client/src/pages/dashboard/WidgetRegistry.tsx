@@ -1,6 +1,6 @@
 // Widget Registry - Defines all available widgets and their permissions
 
-export interface Widget {
+export type Widget = {
   id: string;
   title: string;
   description: string;
@@ -8,7 +8,7 @@ export interface Widget {
   requiredPermissions: string[];
   defaultSize: 'small' | 'medium' | 'large';
   component: string; // Component name to render
-}
+};
 
 export const WIDGET_REGISTRY: Widget[] = [
   // Stats Widgets
@@ -98,40 +98,13 @@ export const WIDGET_REGISTRY: Widget[] = [
 
   // Quick Actions
   {
-    id: 'quick-actions-teacher',
+    id: 'quick-actions',
     title: 'Quick Actions',
-    description: 'Common teacher actions',
+    description: 'Customizable quick action buttons',
     category: 'quick-actions',
-    requiredPermissions: ['classes.view'],
+    requiredPermissions: [],
     defaultSize: 'medium',
-    component: 'QuickActionsTeacherWidget',
-  },
-  {
-    id: 'quick-actions-principal',
-    title: 'Quick Actions',
-    description: 'Common principal actions',
-    category: 'quick-actions',
-    requiredPermissions: ['students.view'],
-    defaultSize: 'medium',
-    component: 'QuickActionsPrincipalWidget',
-  },
-  {
-    id: 'quick-actions-business',
-    title: 'Quick Actions',
-    description: 'Common business office actions',
-    category: 'quick-actions',
-    requiredPermissions: ['financial.view'],
-    defaultSize: 'medium',
-    component: 'QuickActionsBusinessWidget',
-  },
-  {
-    id: 'quick-actions-admin',
-    title: 'Quick Actions',
-    description: 'Common admin actions',
-    category: 'quick-actions',
-    requiredPermissions: ['users.view'],
-    defaultSize: 'medium',
-    component: 'QuickActionsAdminWidget',
+    component: 'QuickActionsWidget',
   },
 
   // Lists
@@ -192,7 +165,7 @@ export const DEFAULT_DASHBOARDS: Record<string, string[]> = {
     'pending-applications',
     'outstanding-tuition',
     'recent-activity',
-    'quick-actions-admin',
+    'quick-actions',
     'attendance-chart',
   ],
   principal: [
@@ -201,14 +174,14 @@ export const DEFAULT_DASHBOARDS: Record<string, string[]> = {
     'pending-applications',
     'flagged-students',
     'recent-activity',
-    'quick-actions-principal',
+    'quick-actions',
     'absent-students',
   ],
   teacher: [
     'my-classes',
     'todays-attendance',
     'recent-activity',
-    'quick-actions-teacher',
+    'quick-actions',
     'absent-students',
     'report-cards-due',
   ],
@@ -216,7 +189,7 @@ export const DEFAULT_DASHBOARDS: Record<string, string[]> = {
     'outstanding-tuition',
     'recent-donations',
     'pending-applications',
-    'quick-actions-business',
+    'quick-actions',
     'financial-overview',
   ],
   parent: [

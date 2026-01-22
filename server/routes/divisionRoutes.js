@@ -1,17 +1,17 @@
 /**
- * Grade Routes
- * CRUD operations for grades (admin and head principal)
+ * Division Routes
+ * CRUD operations for divisions (admin and head principal)
  */
 
 import express from "express";
 import { requireAuth } from "../middleware/auth.js";
 import {
-  getAllGrades,
-  getGradeById,
-  createGrade,
-  updateGrade,
-  deleteGrade,
-} from "../controllers/gradeController.js";
+  getAllDivisions,
+  getDivisionById,
+  createDivision,
+  updateDivision,
+  deleteDivision,
+} from "../controllers/divisionController.js";
 
 const router = express.Router();
 
@@ -19,7 +19,7 @@ const router = express.Router();
 router.use(requireAuth);
 
 // Permission check for create/update/delete (admin or head principal)
-const requireGradeManagement = (req, res, next) => {
+const requireDivisionManagement = (req, res, next) => {
   const roles = req.user?.roles || [];
   const isAdmin = roles.some((r) => r.name === "admin");
   const hasHeadPrincipal = roles.some(
@@ -33,11 +33,10 @@ const requireGradeManagement = (req, res, next) => {
   return res.status(403).json({ message: "Insufficient permissions. Head Principal or Admin access required." });
 };
 
-router.get("/", getAllGrades);
-router.get("/:id", getGradeById);
-router.post("/", requireGradeManagement, createGrade);
-router.put("/:id", requireGradeManagement, updateGrade);
-router.delete("/:id", requireGradeManagement, deleteGrade);
+router.get("/", getAllDivisions);
+router.get("/:id", getDivisionById);
+router.post("/", requireDivisionManagement, createDivision);
+router.put("/:id", requireDivisionManagement, updateDivision);
+router.delete("/:id", requireDivisionManagement, deleteDivision);
 
 export default router;
-

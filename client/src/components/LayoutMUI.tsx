@@ -57,6 +57,10 @@ import WarningIcon from "@mui/icons-material/Warning";
 import SupervisorAccountIcon from "@mui/icons-material/SupervisorAccount";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import SecurityIcon from "@mui/icons-material/Security";
+import TrendingUpIcon from "@mui/icons-material/TrendingUp";
+import ViewListIcon from "@mui/icons-material/ViewList";
+import ManageAccountsIcon from "@mui/icons-material/ManageAccounts";
+import WorkspacePremiumIcon from "@mui/icons-material/WorkspacePremium";
 
 import { Outlet, useNavigate, useLocation, Link as RouterLink } from "react-router-dom";
 import type { OverridableComponent } from "@mui/material/OverridableComponent";
@@ -126,12 +130,29 @@ const navigationItems: NavItem[] = [
     permission: { module: "principalCenter", action: "view" },
     children: [
       { name: "Overview", path: "/principal", icon: DashboardIcon },
-      { name: "Head Principal", path: "/principal/head-principal", icon: AdminPanelSettingsIcon, permission: { module: "headPrincipal", action: "view" } },
       { name: "Student Logs", path: "/principal/student-logs", icon: AssignmentIcon },
       { name: "Flagged Students", path: "/principal/flagged-students", icon: FlagIcon },
       { name: "Parent Meetings", path: "/principal/parent-meetings", icon: EventIcon },
       { name: "Behavior Tracking", path: "/principal/behavior-tracking", icon: WarningIcon },
       { name: "Academic Concerns", path: "/principal/academic-concerns", icon: AssessmentIcon },
+    ],
+  },
+  {
+    name: "Head Principal",
+    path: "/principal/head-principal",
+    icon: WorkspacePremiumIcon,
+    permission: { module: "headPrincipal", action: "view" },
+    children: [
+      { name: "Dashboard", path: "/principal/head-principal", icon: DashboardIcon },
+      { name: "Division Overview", path: "/principal/head-principal/division-overview", icon: ViewListIcon },
+      { name: "All Classes", path: "/principal/head-principal/all-classes", icon: ClassIcon },
+      { name: "All Students", path: "/principal/head-principal/all-students", icon: PeopleIcon },
+      { name: "Grade Management", path: "/principal/head-principal/grade-management", icon: SchoolIcon },
+      { name: "Division Management", path: "/principal/head-principal/division-management", icon: ViewListIcon },
+      { name: "Grade Assignments", path: "/principal/head-principal/grade-assignments", icon: AssignmentIcon },
+      { name: "Progress Tracking", path: "/principal/head-principal/progress-tracking", icon: TrendingUpIcon },
+      { name: "Principal Management", path: "/principal/head-principal/principal-management", icon: ManageAccountsIcon },
+      { name: "Management", path: "/principal/head-principal/management", icon: AdminPanelSettingsIcon },
     ],
   },
   {

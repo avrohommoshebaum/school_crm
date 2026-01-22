@@ -49,7 +49,18 @@ const Applications = lazy(() => import("../pages/Applications"));
 const ApplicationForm = lazy(() => import("../pages/ApplicationForm"));
 const ReportCards = lazy(() => import("../pages/ReportCards"));
 const PrincipalCenter = lazy(() => import("../pages/principal/PrincipalCenter"));
-const HeadPrincipal = lazy(() => import("../pages/principal/HeadPrincipal"));
+const HeadPrincipal = lazy(() => import("../pages/headprincipal/HeadPrincipal"));
+const HeadPrincipalCenter = lazy(() => import("../pages/headprincipal/HeadPrincipalCenter"));
+const DivisionOverview = lazy(() => import("../pages/headprincipal/AllGradesView"));
+const DivisionDetail = lazy(() => import("../pages/headprincipal/DivisionDetail"));
+const GradeAssignments = lazy(() => import("../pages/headprincipal/GradeAssignments"));
+const ProgressTracking = lazy(() => import("../pages/headprincipal/ProgressTracking"));
+const PrincipalManagement = lazy(() => import("../pages/headprincipal/PrincipalManagement"));
+const AllClassesView = lazy(() => import("../pages/headprincipal/AllClassesView"));
+const AllStudentsView = lazy(() => import("../pages/headprincipal/AllStudentsView"));
+const GradeManagement = lazy(() => import("../pages/headprincipal/GradeManagement"));
+const DivisionManagement = lazy(() => import("../pages/headprincipal/DivisionManagement"));
+const GradeDetail = lazy(() => import("../pages/headprincipal/GradeDetail"));
 const GradeView = lazy(() => import("../pages/principal/GradeView"));
 const ClassView = lazy(() => import("../pages/principal/ClassView"));
 const StudentView = lazy(() => import("../pages/principal/StudentView"));
@@ -257,7 +268,55 @@ const router = createBrowserRouter([
                 children: [
                   {
                     index: true,
+                    element: <LazyRoute Component={HeadPrincipalCenter} />,
+                  },
+                  {
+                    path: "management",
                     element: <LazyRoute Component={HeadPrincipal} />,
+                  },
+                  {
+                    path: "division-overview",
+                    element: <LazyRoute Component={DivisionOverview} />,
+                  },
+                  {
+                    path: "division/:id",
+                    element: <LazyRoute Component={DivisionDetail} />,
+                  },
+                  {
+                    path: "grade-assignments",
+                    element: <LazyRoute Component={GradeAssignments} />,
+                  },
+                  {
+                    path: "progress-tracking",
+                    element: <LazyRoute Component={ProgressTracking} />,
+                  },
+                  {
+                    path: "principal-management",
+                    element: <LazyRoute Component={PrincipalManagement} />,
+                  },
+                  {
+                    path: "grade-management",
+                    element: <LazyRoute Component={GradeManagement} />,
+                  },
+                  {
+                    path: "division-management",
+                    element: <LazyRoute Component={DivisionManagement} />,
+                  },
+                  {
+                    path: "all-classes",
+                    element: <LazyRoute Component={AllClassesView} />,
+                  },
+                  {
+                    path: "all-students",
+                    element: <LazyRoute Component={AllStudentsView} />,
+                  },
+                  {
+                    path: "grade/:id",
+                    element: <LazyRoute Component={GradeDetail} />,
+                  },
+                  {
+                    path: "class/:id",
+                    element: <LazyRoute Component={ClassView} />,
                   },
                 ],
               },

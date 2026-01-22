@@ -3,9 +3,10 @@
  * Admin-only: Assign principals to grades
  */
 
-import { principalGradeAssignmentService } from "../db/services/principalCenterService.js";
+import { principalGradeAssignmentService, principalDivisionAssignmentService } from "../db/services/principalCenterService.js";
 import { staffService } from "../db/services/staffService.js";
 import { gradeService } from "../db/services/gradeService.js";
+import { divisionService } from "../db/services/divisionService.js";
 import { query } from "../db/postgresConnect.js";
 
 export const getAllAssignments = async (req, res) => {
@@ -128,3 +129,93 @@ export const deleteAssignment = async (req, res) => {
   }
 };
 
+// ============================================
+// DIVISION ASSIGNMENTS
+// ============================================
+
+export const getAllDivisionAssignments = async (req, res) => {
+  try {
+    const { principalId, divisionId } = req.query;
+    
+    if (principalId) {
+      const assignments = await principalDivisionAssignmentService.findByPrincipalId(principalId);
+      return res.json({ assignments });
+    }
+    
+    if (divisionId) {
+      const assignments = await principalDivisionAssignmentService.findByDivisionId(divisionId);
+      return res.json({ assignments });
+    }
+    
+    const assignments = await principalDivisionAssignmentService.findAll();
+    res.json({ assignments });
+  } catch (error) {
+    console.error("Error getting division assignments:", error);
+    res.status(500).json({ message: "Error fetching division assignments", error: error.message });
+  }
+};
+
+export const createDivisionAssignment = async (req, res) => {
+  try {
+    const { principalId, divisionId, notes } = req.body;
+
+    if (!principalId || !divisionId) {
+      return res.status(400).json({ message: "Principal ID and Division ID are required" });
+    }
+
+    const staff = await staffService.findById(principalId);
+    if (!staff) {
+      return res.status(404).json({ message: "Staff member not found" });
+    }
+
+    const isPrincipal = await staffService.isPrincipal(principalId);
+    if (!isPrincipal) {
+      return res.status(400).json({ message: "Staff member is not a principal" });
+    }
+
+    const division = await divisionService.findById(divisionId);
+    if (!division) {
+      return res.status(404).json({ message: "Division not found" });
+    }
+
+    const assignment = await principalDivisionAssignmentService.create({
+      principalId,
+      divisionId,
+      assignedBy: req.user._id || req.user.id,
+      notes,
+    });
+
+    res.status(201).json({ message: "Division assignment created successfully", assignment });
+  } catch (error) {
+    console.error("Error creating division assignment:", error);
+    res.status(500).json({ message: "Error creating division assignment", error: error.message });
+  }
+};
+
+export const updateDivisionAssignment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+
+    const assignment = await principalDivisionAssignmentService.update(id, updates);
+    if (!assignment) {
+      return res.status(404).json({ message: "Division assignment not found" });
+    }
+
+    res.json({ message: "Division assignment updated successfully", assignment });
+  } catch (error) {
+    console.error("Error updating division assignment:", error);
+    res.status(500).json({ message: "Error updating division assignment", error: error.message });
+  }
+};
+
+export const deleteDivisionAssignment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await principalDivisionAssignmentService.delete(id);
+    res.json({ message: "Division assignment deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting division assignment:", error);
+    res.status(500).json({ message: "Error deleting division assignment", error: error.message });
+  }
+};

@@ -23,6 +23,7 @@ import { initializePostgres } from "./db/postgresConnect.js";
 import configureSession from "./config/session.js";
 import configurePassport from "./config/passport.js";
 import sessionTimout from "./middleware/sessionTimeout.js"
+import { generateNonce } from "./middleware/cspNonce.js"
 
 // Routes
 import userRoutes from "./routes/userRoutes.js";
@@ -43,88 +44,12 @@ async function initialize() {
     await initializePostgres();
     
     // Initialize schemas (silently handle if already exist)
-    const setupSMSSchema = (await import("./db/scripts/setupSMSSchema.js")).default;
+    const setupDivisionsSchema = (await import("./db/scripts/setupDivisionsSchema.js")).default;
     try {
-      await setupSMSSchema();
+      await setupDivisionsSchema();
     } catch (error) {
       // Schema already exists or minor issues - continue
-    }
-
-    const setupEmailSchema = (await import("./db/scripts/setupEmailSchema.js")).default;
-    try {
-      await setupEmailSchema();
-    } catch (error) {
-      // Schema already exists or minor issues - continue
-    }
-
-    const setupUserSchema = (await import("./db/scripts/setupUserSchema.js")).default;
-    try {
-      await setupUserSchema();
-    } catch (error) {
-      // Schema already exists or minor issues - continue
-    }
-
-    const add2FASchema = (await import("./db/scripts/add2FASchema.js")).default;
-    try {
-      await add2FASchema();
-    } catch (error) {
-      // Schema already exists or minor issues - continue
-    }
-
-    const addBackupCodesSchema = (await import("./db/scripts/addBackupCodesSchema.js")).default;
-    try {
-      await addBackupCodesSchema();
-    } catch (error) {
-      // Schema already exists or minor issues - continue
-    }
-
-    const addSystemSettingsSchema = (await import("./db/scripts/addSystemSettingsSchema.js")).default;
-    try {
-      await addSystemSettingsSchema();
-    } catch (error) {
-      // Schema already exists or minor issues - continue
-    }
-
-    const setupRobocallSchema = (await import("./db/scripts/setupRobocallSchema.js")).default;
-    try {
-      await setupRobocallSchema();
-    } catch (error) {
-      // Schema already exists or minor issues - continue
-    }
-
-    const setupExtendedSchema = (await import("./db/scripts/setupExtendedSchema.js")).default;
-    try {
-      await setupExtendedSchema();
-    } catch (error) {
-      // Schema already exists or minor issues - continue
-    }
-
-    const setupPrincipalCenterSchema = (await import("./db/scripts/setupPrincipalCenterSchema.js")).default;
-    try {
-      await setupPrincipalCenterSchema();
-    } catch (error) {
-      // Schema already exists or minor issues - continue
-    }
-
-    const setupStaffManagementSchema = (await import("./db/scripts/setupStaffManagementSchema.js")).default;
-    try {
-      await setupStaffManagementSchema();
-    } catch (error) {
-      // Schema already exists or minor issues - continue
-    }
-
-    const setupPositionsSchema = (await import("./db/scripts/setupPositionsSchema.js")).default;
-    try {
-      await setupPositionsSchema();
-    } catch (error) {
-      // Schema already exists or minor issues - continue
-    }
-
-    const setupPayrollSchema = (await import("./db/scripts/setupPayrollSchema.js")).default;
-    try {
-      await setupPayrollSchema();
-    } catch (error) {
-      // Schema already exists or minor issues - continue
+      console.warn("⚠️  Warning: Could not setup divisions schema:", error.message);
     }
     
     // Ensure admin role has all permissions (including newly added ones)
@@ -199,6 +124,10 @@ async function initialize() {
     const principalAssignmentRoutes = (await import("./routes/principalAssignmentRoutes.js")).default;
     app.use("/api/principal-assignments", principalAssignmentRoutes);
     
+    // Division routes
+    const divisionRoutes = (await import("./routes/divisionRoutes.js")).default;
+    app.use("/api/divisions", divisionRoutes);
+    
     // Import routes
     const importRoutes = (await import("./routes/importRoutes.js")).default;
     app.use("/api/import", importRoutes);
@@ -229,7 +158,12 @@ async function initialize() {
 app.set("trust proxy", 1);
 
 // ------------------------------
-// 1. SECURITY HEADERS (HELMET)
+// 1. CSP NONCE GENERATION (must be before helmet CSP)
+// ------------------------------
+app.use(generateNonce);
+
+// ------------------------------
+// 2. SECURITY HEADERS (HELMET)
 // ------------------------------
 app.use(
   helmet({
@@ -237,8 +171,32 @@ app.use(
   })
 );
 
-// Content Security Policy
-app.use(
+// Content Security Policy with nonces
+app.use((req, res, next) => {
+  const nonce = req.nonce || "";
+  const isProduction = process.env.NODE_ENV === "production";
+  
+  // Build connect-src based on environment
+  const connectSrc = ["'self'"];
+  
+  // In development, always allow localhost connections for local dev server
+  if (!isProduction) {
+    connectSrc.push(
+      "http://localhost:8080",
+      "http://127.0.0.1:8080",
+      "ws://localhost:5173",
+      "ws://localhost:5174",
+      "ws://127.0.0.1:5173",
+      "ws://127.0.0.1:5174"
+    );
+  }
+  
+  // If CLIENT_URL is set and different from current origin, allow it
+  const clientUrl = process.env.CLIENT_URL?.replace(/\/$/, "");
+  if (clientUrl && !connectSrc.includes(clientUrl)) {
+    connectSrc.push(clientUrl);
+  }
+  
   helmet.contentSecurityPolicy({
     directives: {
       defaultSrc: ["'self'"],
@@ -249,15 +207,26 @@ app.use(
         "https://storage.cloud.google.com"
       ],
       mediaSrc: ["'self'", "blob:"], // Allow blob URLs for audio/video playback
-      scriptSrc: ["'self'", "'unsafe-inline'"],
+      // Remove 'unsafe-inline' from script-src, use nonce instead
+      scriptSrc: [
+        "'self'",
+        nonce ? `'nonce-${nonce}'` : null,
+      ].filter(Boolean),
+      // Keep 'unsafe-inline' for style-src for now (MUI uses inline styles)
+      // TODO: Consider moving to nonces for styles in the future
       styleSrc: ["'self'", "'unsafe-inline'"],
+      // Allow API connections (fetch, XMLHttpRequest, WebSocket, etc.)
+      connectSrc: connectSrc,
     },
-  })
-);
+    // Don't set CSP header on API responses - only on HTML pages
+    // This prevents CSP from blocking API calls
+    setAllHeaders: false,
+  })(req, res, next);
+});
 
 
 // ------------------------------
-// 2. CORS (STRICT)
+// 3. CORS (STRICT) - Selective for API routes only
 // ------------------------------
 const allowedOrigins = [
   process.env.CLIENT_URL?.replace(/\/$/, ""),
@@ -266,24 +235,40 @@ const allowedOrigins = [
   "http://localhost:5174",
 ];
 
+// CORS for API routes (with credentials)
+app.use(
+  "/api",
+  cors({
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true); // mobile apps, curl, etc.
 
+      const cleanOrigin = origin.split("?")[0];
+
+      if (allowedOrigins.includes(cleanOrigin)) {
+        return callback(null, true);
+      }
+
+      console.error("❌ BLOCKED ORIGIN:", origin);
+      return callback(new Error("CORS Not Allowed"));
+    },
+    credentials: true, // ✅ Only for API routes where cookies are needed
+  })
+);
+
+// CORS for static assets (no credentials needed)
 app.use(
   cors({
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true); // mobile apps, curl, etc.
-
-    const cleanOrigin = origin.split("?")[0];
-
-    if (allowedOrigins.includes(cleanOrigin)) {
-      return callback(null, true);
-    }
-
-    console.error("❌ BLOCKED ORIGIN:", origin);
-    return callback(new Error("CORS Not Allowed"));
-  },
-  credentials: true,
-})
-)
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
+      const cleanOrigin = origin.split("?")[0];
+      if (allowedOrigins.includes(cleanOrigin)) {
+        return callback(null, true);
+      }
+      return callback(new Error("CORS Not Allowed"));
+    },
+    credentials: false, // ✅ No credentials for static assets
+  })
+);
 
 // ------------------------------
 // 3. REQUEST BODY PARSING
@@ -316,9 +301,11 @@ const __dirname = path.resolve();
 const publicPath = path.join(__dirname, "public");
 
 // Only serve static files if public folder exists
-try {
-  const fs = await import("fs");
-  if (fs.existsSync(publicPath)) {
+// Note: This runs at module load time, so we use dynamic import
+const setupStaticFiles = async () => {
+  try {
+    const fs = await import("fs");
+    if (fs.existsSync(publicPath)) {
     app.use(
       express.static(publicPath, {
         maxAge: "1y",
@@ -332,9 +319,54 @@ try {
       })
     );
 
-    // React Router fallback
-    app.get(/^\/(?!api).*/, (req, res) => {
-      res.sendFile(path.join(publicPath, "index.html"));
+    // React Router fallback - inject nonce into HTML and set CSP header
+    app.get(/^\/(?!api).*/, async (req, res) => {
+      const indexPath = path.join(publicPath, "index.html");
+      
+      try {
+        const fsSync = await import("fs");
+        let html = fsSync.readFileSync(indexPath, "utf8");
+        const nonce = req.nonce || "";
+        const isProduction = process.env.NODE_ENV === "production";
+        
+        // Build CSP header for HTML response
+        const connectSrc = ["'self'"];
+        if (!isProduction) {
+          connectSrc.push(
+            "http://localhost:8080",
+            "http://127.0.0.1:8080",
+            "ws://localhost:5173",
+            "ws://localhost:5174"
+          );
+        }
+        
+        const cspHeader = [
+          "default-src 'self'",
+          `script-src 'self' 'nonce-${nonce}'`,
+          "style-src 'self' 'unsafe-inline'",
+          `connect-src ${connectSrc.join(" ")}`,
+          "img-src 'self' data: https://storage.googleapis.com https://storage.cloud.google.com",
+          "media-src 'self' blob:",
+        ].join("; ");
+        
+        // Set CSP header on HTML response
+        res.setHeader("Content-Security-Policy", cspHeader);
+        
+        // Inject nonce into all script tags
+        html = html.replace(
+          /<script\s+([^>]*)>/gi,
+          (match, attrs) => {
+            if (attrs.includes('nonce=')) return match;
+            return `<script nonce="${nonce}" ${attrs}>`;
+          }
+        );
+        
+        res.setHeader("Content-Type", "text/html");
+        res.send(html);
+      } catch (error) {
+        console.error("Error reading index.html:", error);
+        res.status(404).json({ message: "Frontend not built. Please build React app." });
+      }
     });
   } else {
     console.warn("⚠️ Public folder not found. Static files will not be served.");
@@ -343,12 +375,13 @@ try {
       res.status(404).json({ message: "Frontend not built. Please build React app." });
     });
   }
-} catch (error) {
-  console.error("Error setting up static file serving:", error);
-}
+  } catch (error) {
+    console.error("Error setting up static file serving:", error);
+  }
+};
 
-
-
+// Call setup function immediately (runs at module load)
+setupStaticFiles();
 
 // ------------------------------
 // 9. GLOBAL ERROR HANDLER

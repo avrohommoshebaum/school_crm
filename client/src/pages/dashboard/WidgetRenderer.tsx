@@ -9,17 +9,14 @@ import FlaggedStudentsWidget from './widgets/FlaggedStudentsWidget';
 import RecentActivityWidget from './widgets/RecentActivityWidget';
 import RecentMessagesWidget from './widgets/RecentMessagesWidget';
 import UpcomingEventsWidget from './widgets/UpcomingEventsWidget';
-import QuickActionsTeacherWidget from './widgets/QuickActionsTeacherWidget';
-import QuickActionsPrincipalWidget from './widgets/QuickActionsPrincipalWidget';
-import QuickActionsBusinessWidget from './widgets/QuickActionsBusinessWidget';
-import QuickActionsAdminWidget from './widgets/QuickActionsAdminWidget';
+import QuickActionsWidget from './widgets/QuickActionsWidget';
 import AbsentStudentsWidget from './widgets/AbsentStudentsWidget';
 import ReportCardsDueWidget from './widgets/ReportCardsDueWidget';
 import RecentDonationsWidget from './widgets/RecentDonationsWidget';
 import AttendanceChartWidget from './widgets/AttendanceChartWidget';
 import FinancialOverviewWidget from './widgets/FinancialOverviewWidget';
 
-const WIDGET_COMPONENTS: Record<string, React.ComponentType> = {
+const WIDGET_COMPONENTS: Record<string, React.ComponentType<any>> = {
   TotalStudentsWidget,
   TodaysAttendanceWidget,
   PendingApplicationsWidget,
@@ -29,10 +26,7 @@ const WIDGET_COMPONENTS: Record<string, React.ComponentType> = {
   RecentActivityWidget,
   RecentMessagesWidget,
   UpcomingEventsWidget,
-  QuickActionsTeacherWidget,
-  QuickActionsPrincipalWidget,
-  QuickActionsBusinessWidget,
-  QuickActionsAdminWidget,
+  QuickActionsWidget,
   AbsentStudentsWidget,
   ReportCardsDueWidget,
   RecentDonationsWidget,
@@ -42,9 +36,10 @@ const WIDGET_COMPONENTS: Record<string, React.ComponentType> = {
 
 interface WidgetRendererProps {
   componentName: string;
+  config?: Record<string, any>;
 }
 
-export default function WidgetRenderer({ componentName }: WidgetRendererProps) {
+export default function WidgetRenderer({ componentName, config }: WidgetRendererProps) {
   const Component = WIDGET_COMPONENTS[componentName];
   
   if (!Component) {
@@ -55,5 +50,5 @@ export default function WidgetRenderer({ componentName }: WidgetRendererProps) {
     );
   }
   
-  return <Component />;
+  return <Component {...(config || {})} />;
 }

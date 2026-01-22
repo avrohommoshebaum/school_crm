@@ -679,3 +679,151 @@ export const gradeOverviewService = {
   },
 };
 
+// ============================================
+// PRINCIPAL DIVISION ASSIGNMENTS
+// ============================================
+
+const rowToDivisionAssignment = (row) => {
+  if (!row) return null;
+  return {
+    _id: row.id,
+    id: row.id,
+    principalId: row.principal_id,
+    principal_id: row.principal_id,
+    divisionId: row.division_id,
+    division_id: row.division_id,
+    assignedBy: row.assigned_by,
+    assigned_by: row.assigned_by,
+    assignedAt: row.assigned_at,
+    assigned_at: row.assigned_at,
+    isActive: row.is_active,
+    is_active: row.is_active,
+    notes: row.notes,
+    createdAt: row.created_at,
+    created_at: row.created_at,
+    updatedAt: row.updated_at,
+    updated_at: row.updated_at,
+  };
+};
+
+export const principalDivisionAssignmentService = {
+  async findByPrincipalId(principalId) {
+    if (!principalId) return [];
+    const result = await query(
+      `SELECT pda.*, d.name as division_name
+       FROM principal_division_assignments pda
+       INNER JOIN divisions d ON pda.division_id = d.id
+       WHERE pda.principal_id = $1 AND pda.is_active = true
+       ORDER BY d.name`,
+      [principalId]
+    );
+    return result.rows.map(row => ({
+      ...rowToDivisionAssignment(row),
+      divisionName: row.division_name,
+    }));
+  },
+
+  async findByDivisionId(divisionId) {
+    if (!divisionId) return [];
+    const result = await query(
+      `SELECT pda.*, s.first_name, s.last_name, s.email
+       FROM principal_division_assignments pda
+       INNER JOIN staff s ON pda.principal_id = s.id
+       WHERE pda.division_id = $1 AND pda.is_active = true
+       ORDER BY s.last_name, s.first_name`,
+      [divisionId]
+    );
+    return result.rows.map(row => ({
+      ...rowToDivisionAssignment(row),
+      principalName: `${row.first_name} ${row.last_name}`,
+      principalEmail: row.email,
+    }));
+  },
+
+  async findAll() {
+    const result = await query(
+      `SELECT pda.*, 
+              s.first_name, s.last_name, s.email,
+              d.name as division_name
+       FROM principal_division_assignments pda
+       INNER JOIN staff s ON pda.principal_id = s.id
+       INNER JOIN divisions d ON pda.division_id = d.id
+       WHERE pda.is_active = true
+       ORDER BY d.name, s.last_name, s.first_name`
+    );
+    return result.rows.map(row => ({
+      ...rowToDivisionAssignment(row),
+      principalName: `${row.first_name} ${row.last_name}`,
+      principalEmail: row.email,
+      divisionName: row.division_name,
+    }));
+  },
+
+  async create(assignmentData) {
+    const now = new Date();
+    const result = await query(
+      `INSERT INTO principal_division_assignments (
+        principal_id, division_id, assigned_by, assigned_at, is_active, notes,
+        created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING *`,
+      [
+        assignmentData.principalId || assignmentData.principal_id,
+        assignmentData.divisionId || assignmentData.division_id,
+        assignmentData.assignedBy || assignmentData.assigned_by || null,
+        assignmentData.assignedAt || assignmentData.assigned_at || now,
+        assignmentData.isActive !== undefined ? assignmentData.isActive : (assignmentData.is_active !== undefined ? assignmentData.is_active : true),
+        assignmentData.notes || null,
+        now,
+        now,
+      ]
+    );
+    return rowToDivisionAssignment(result.rows[0]);
+  },
+
+  async update(id, updates) {
+    if (!id) throw new Error("Invalid assignment id");
+    const fields = [];
+    const values = [];
+    let paramCount = 1;
+
+    if (updates.isActive !== undefined) {
+      fields.push(`is_active = $${paramCount++}`);
+      values.push(updates.isActive);
+    }
+    if (updates.notes !== undefined) {
+      fields.push(`notes = $${paramCount++}`);
+      values.push(updates.notes);
+    }
+
+    if (fields.length === 0) {
+      return await this.findById(id);
+    }
+
+    fields.push(`updated_at = $${paramCount++}`);
+    values.push(new Date());
+    values.push(id);
+
+    const result = await query(
+      `UPDATE principal_division_assignments SET ${fields.join(", ")} WHERE id = $${paramCount} RETURNING *`,
+      values
+    );
+
+    return result.rows.length > 0 ? rowToDivisionAssignment(result.rows[0]) : null;
+  },
+
+  async findById(id) {
+    if (!id) return null;
+    const result = await query(
+      "SELECT * FROM principal_division_assignments WHERE id = $1",
+      [id]
+    );
+    return result.rows.length > 0 ? rowToDivisionAssignment(result.rows[0]) : null;
+  },
+
+  async delete(id) {
+    if (!id) throw new Error("Invalid assignment id");
+    await query("DELETE FROM principal_division_assignments WHERE id = $1", [id]);
+    return true;
+  },
+};

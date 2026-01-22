@@ -290,11 +290,27 @@ export const staffService = {
     if (!staffId || (!positionId && !positionName)) {
       throw new Error("Staff ID and either Position ID or Position Name are required");
     }
+    
+    // If positionId is provided but positionName is not, fetch the position name
+    let finalPositionName = positionName;
+    if (positionId && !positionName) {
+      const positionResult = await query("SELECT name FROM positions WHERE id = $1", [positionId]);
+      if (positionResult.rows.length === 0) {
+        throw new Error("Position not found");
+      }
+      finalPositionName = positionResult.rows[0].name;
+    }
+    
+    // Ensure positionName is set (required by database constraint)
+    if (!finalPositionName) {
+      throw new Error("Position name is required");
+    }
+    
     const result = await query(
       `INSERT INTO staff_positions (staff_id, position_id, position_name, grade_id, start_date, end_date)
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
-      [staffId, positionId, positionName, gradeId, startDate, endDate]
+      [staffId, positionId, finalPositionName, gradeId, startDate, endDate]
     );
     return result.rows[0];
   },

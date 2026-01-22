@@ -11,6 +11,10 @@ import {
   createAssignment,
   updateAssignment,
   deleteAssignment,
+  getAllDivisionAssignments,
+  createDivisionAssignment,
+  updateDivisionAssignment,
+  deleteDivisionAssignment,
 } from "../controllers/principalAssignmentController.js";
 
 const router = express.Router();
@@ -32,11 +36,18 @@ router.use((req, res, next) => {
   return res.status(403).json({ message: "Insufficient permissions. Head Principal or Admin access required." });
 });
 
+// Grade assignments
 router.get("/", getAllAssignments);
 router.get("/principals", getAllPrincipals);
 router.post("/", createAssignment);
 router.put("/:id", updateAssignment);
 router.delete("/:id", deleteAssignment);
+
+// Division assignments
+router.get("/divisions", getAllDivisionAssignments);
+router.post("/divisions", createDivisionAssignment);
+router.put("/divisions/:id", updateDivisionAssignment);
+router.delete("/divisions/:id", deleteDivisionAssignment);
 
 export default router;
 
