@@ -174,7 +174,7 @@ export default function TeacherAttendance({ teacherId }: TeacherAttendanceProps)
       {/* Controls */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} sm={4}>
+          <Grid xs={12} sm={4}>
             <FormControl fullWidth>
               <InputLabel>Select Class</InputLabel>
               <Select
@@ -190,7 +190,7 @@ export default function TeacherAttendance({ teacherId }: TeacherAttendanceProps)
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} sm={4}>
+          <Grid xs={12} sm={4}>
             <TextField
               fullWidth
               type="date"
@@ -203,7 +203,7 @@ export default function TeacherAttendance({ teacherId }: TeacherAttendanceProps)
               }}
             />
           </Grid>
-          <Grid item xs={12} sm={4}>
+          <Grid xs={12} sm={4}>
             <Button
               fullWidth
               variant="contained"
@@ -336,3 +336,4 @@ export default function TeacherAttendance({ teacherId }: TeacherAttendanceProps)
 
 // Missing Grid import - add this
 import Grid from '@mui/material/Grid';
+

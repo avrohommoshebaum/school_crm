@@ -50,3 +50,4 @@ export default function WidgetRenderer({ componentName }: WidgetRendererProps) {
   
   return <Component />;
 }
+

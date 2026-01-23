@@ -172,3 +172,4 @@ export default function AcademicConcerns(): JSX.Element {
     </Box>
   );
 }
+

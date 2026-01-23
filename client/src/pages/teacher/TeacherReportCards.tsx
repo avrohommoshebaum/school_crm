@@ -495,3 +495,4 @@ function SubjectSettingsDialog({ open, subjects, gradingSystems, onClose, onSave
     </Dialog>
   );
 }
+

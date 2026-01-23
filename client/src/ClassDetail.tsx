@@ -285,7 +285,7 @@ export default function ClassDetail() {
         {/* Overview Tab */}
         <TabPanel value={activeTab} index={0}>
           <Grid container spacing={2}>
-            <Grid item xs={12} md={4}>
+            <Grid xs={12} md={4}>
               <Paper sx={{ p: 2.5, height: '100%' }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2, color: 'text.secondary' }}>
                   CLASS INFO
@@ -328,7 +328,7 @@ export default function ClassDetail() {
               </Paper>
             </Grid>
 
-            <Grid item xs={12} md={4}>
+            <Grid xs={12} md={4}>
               <Paper sx={{ p: 2.5, mb: 2 }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2, color: 'text.secondary' }}>
                   STAFF
@@ -356,7 +356,7 @@ export default function ClassDetail() {
               </Paper>
             </Grid>
 
-            <Grid item xs={12} md={4}>
+            <Grid xs={12} md={4}>
               <Paper sx={{ p: 2.5, height: '100%' }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2, color: 'text.secondary' }}>
                   QUICK ACTIONS
@@ -378,7 +378,7 @@ export default function ClassDetail() {
               </Paper>
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <Paper sx={{ p: 2.5 }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2, color: 'text.secondary' }}>
                   RECENT ACTIVITY
@@ -551,7 +551,7 @@ export default function ClassDetail() {
           </Typography>
           <Grid container spacing={2}>
             {mockRecentAssignments.map((assignment) => (
-              <Grid item xs={12} sm={6} md={3} key={assignment.id}>
+              <Grid xs={12} sm={6} md={3} key={assignment.id}>
                 <Paper sx={{ p: 2 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 1 }}>
                     <Typography variant="body2" sx={{ fontWeight: 600, flex: 1, pr: 1 }}>
@@ -725,7 +725,7 @@ export default function ClassDetail() {
         <DialogTitle>Add Class Note</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={6}>
+            <Grid xs={6}>
               <TextField fullWidth select label="Note Type" defaultValue="General" size="small">
                 <MenuItem value="General">General</MenuItem>
                 <MenuItem value="Academic">Academic</MenuItem>
@@ -733,7 +733,7 @@ export default function ClassDetail() {
                 <MenuItem value="Announcement">Announcement</MenuItem>
               </TextField>
             </Grid>
-            <Grid item xs={6}>
+            <Grid xs={6}>
               <TextField
                 fullWidth
                 size="small"
@@ -743,13 +743,13 @@ export default function ClassDetail() {
                 InputLabelProps={{ shrink: true }}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <TextField fullWidth size="small" label="Subject" placeholder="Brief subject line..." />
             </Grid>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <TextField fullWidth size="small" label="Note" multiline rows={4} placeholder="Enter your note here..." />
             </Grid>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <FormControlLabel control={<Checkbox />} label="Notify teacher via email" />
             </Grid>
           </Grid>
@@ -762,3 +762,4 @@ export default function ClassDetail() {
     </Box>
   );
 }
+

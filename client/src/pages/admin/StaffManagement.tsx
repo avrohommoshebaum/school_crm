@@ -2057,7 +2057,7 @@ export default function StaffManagement() {
                 </Typography>
               </Stack>
               <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
+                <Grid xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="First Name"
@@ -2067,7 +2067,7 @@ export default function StaffManagement() {
                     placeholder="Enter first name"
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="Last Name"
@@ -2077,7 +2077,7 @@ export default function StaffManagement() {
                     placeholder="Enter last name"
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="Title (Mr., Mrs., etc.)"
@@ -2086,7 +2086,7 @@ export default function StaffManagement() {
                     placeholder="e.g., Mr., Mrs., Dr."
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="Employee ID"
@@ -2109,7 +2109,7 @@ export default function StaffManagement() {
                 </Typography>
               </Stack>
               <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
+                <Grid xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="Email Address"
@@ -2120,7 +2120,7 @@ export default function StaffManagement() {
                     helperText="Optional email address"
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="Phone Number"
@@ -2143,7 +2143,7 @@ export default function StaffManagement() {
                 </Typography>
               </Stack>
               <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
+                <Grid xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="Hire Date"
@@ -2153,7 +2153,7 @@ export default function StaffManagement() {
                     onChange={(e) => setStaffForm({ ...staffForm, hireDate: e.target.value })}
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="End Date (optional)"
@@ -2164,7 +2164,7 @@ export default function StaffManagement() {
                     helperText="Leave blank if currently employed"
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid xs={12} sm={6}>
                   <FormControl fullWidth>
                     <InputLabel>Employment Status</InputLabel>
                     <Select
@@ -2178,7 +2178,7 @@ export default function StaffManagement() {
                     </Select>
                   </FormControl>
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid xs={12} sm={6}>
                   <FormControl fullWidth>
                     <InputLabel>Position</InputLabel>
                     <Select
@@ -2217,7 +2217,7 @@ export default function StaffManagement() {
                     You can set an initial salary here, or add it later in the staff member's details.
                   </Alert>
                   <Grid container spacing={2}>
-                    <Grid item xs={12} sm={6}>
+                    <Grid xs={12} sm={6}>
                       <TextField
                         fullWidth
                         label="Initial Total Compensation Package (Optional)"
@@ -2250,7 +2250,7 @@ export default function StaffManagement() {
                         }}
                       />
                     </Grid>
-                    <Grid item xs={12} sm={6}>
+                    <Grid xs={12} sm={6}>
                       <FormControl fullWidth>
                         <InputLabel>Salary Type</InputLabel>
                         <Select
@@ -2265,7 +2265,7 @@ export default function StaffManagement() {
                         </Select>
                       </FormControl>
                     </Grid>
-                    <Grid item xs={12} sm={6}>
+                    <Grid xs={12} sm={6}>
                       <FormControl fullWidth>
                         <InputLabel>Pay Frequency</InputLabel>
                         <Select
@@ -2303,7 +2303,7 @@ export default function StaffManagement() {
                       You can add payroll information here, or add it later in the staff member's details.
                     </Alert>
                     <Grid container spacing={2}>
-                      <Grid item xs={12} sm={6}>
+                      <Grid xs={12} sm={6}>
                         <TextField
                           fullWidth
                           label="Legal Name"
@@ -2311,7 +2311,7 @@ export default function StaffManagement() {
                           onChange={(e) => setStaffForm({ ...staffForm, legalName: e.target.value })}
                         />
                       </Grid>
-                      <Grid item xs={12} sm={6}>
+                      <Grid xs={12} sm={6}>
                         <TextField
                           fullWidth
                           label="Grade"
@@ -2319,7 +2319,7 @@ export default function StaffManagement() {
                           onChange={(e) => setStaffForm({ ...staffForm, grade: e.target.value })}
                         />
                       </Grid>
-                      <Grid item xs={12} sm={6}>
+                      <Grid xs={12} sm={6}>
                         <TextField
                           fullWidth
                           label="Academic Year"
@@ -2328,7 +2328,7 @@ export default function StaffManagement() {
                           placeholder="e.g., 2025-2026"
                         />
                       </Grid>
-                      <Grid item xs={12} sm={6}>
+                      <Grid xs={12} sm={6}>
                         <TextField
                           fullWidth
                           label="Job #2"
@@ -2336,7 +2336,7 @@ export default function StaffManagement() {
                           onChange={(e) => setStaffForm({ ...staffForm, jobNumber2: e.target.value })}
                         />
                       </Grid>
-                      <Grid item xs={12} sm={6}>
+                      <Grid xs={12} sm={6}>
                         <FormControlLabel
                           control={
                             <Checkbox
@@ -2347,7 +2347,7 @@ export default function StaffManagement() {
                           label="Free Daycare"
                         />
                       </Grid>
-                      <Grid item xs={12} sm={6}>
+                      <Grid xs={12} sm={6}>
                         <TextField
                           fullWidth
                           label="Annual Gross Salary"
@@ -2375,7 +2375,7 @@ export default function StaffManagement() {
                           }}
                         />
                       </Grid>
-                      <Grid item xs={12} sm={6}>
+                      <Grid xs={12} sm={6}>
                         <TextField
                           fullWidth
                           label="Total Package (25-26)"
@@ -2403,7 +2403,7 @@ export default function StaffManagement() {
                           }}
                         />
                       </Grid>
-                      <Grid item xs={12} sm={6}>
+                      <Grid xs={12} sm={6}>
                         <TextField
                           fullWidth
                           label="Max Quarter"
@@ -2431,7 +2431,7 @@ export default function StaffManagement() {
                           }}
                         />
                       </Grid>
-                      <Grid item xs={12} sm={6}>
+                      <Grid xs={12} sm={6}>
                         <TextField
                           fullWidth
                           label="Tuition"
@@ -2459,7 +2459,7 @@ export default function StaffManagement() {
                           }}
                         />
                       </Grid>
-                      <Grid item xs={12} sm={6}>
+                      <Grid xs={12} sm={6}>
                         <TextField
                           fullWidth
                           label="Actual Quarter"
@@ -2487,7 +2487,7 @@ export default function StaffManagement() {
                           }}
                         />
                       </Grid>
-                      <Grid item xs={12} sm={6}>
+                      <Grid xs={12} sm={6}>
                         <TextField
                           fullWidth
                           label="Nachlas"
@@ -2515,7 +2515,7 @@ export default function StaffManagement() {
                           }}
                         />
                       </Grid>
-                      <Grid item xs={12} sm={6}>
+                      <Grid xs={12} sm={6}>
                         <TextField
                           fullWidth
                           label="Other Benefit"
@@ -2543,7 +2543,7 @@ export default function StaffManagement() {
                           }}
                         />
                       </Grid>
-                      <Grid item xs={12} sm={6}>
+                      <Grid xs={12} sm={6}>
                         <TextField
                           fullWidth
                           label="Parsonage"
@@ -2571,7 +2571,7 @@ export default function StaffManagement() {
                           }}
                         />
                       </Grid>
-                      <Grid item xs={12} sm={6}>
+                      <Grid xs={12} sm={6}>
                         <TextField
                           fullWidth
                           label="Parsonage Allocation"
@@ -2599,7 +2599,7 @@ export default function StaffManagement() {
                           }}
                         />
                       </Grid>
-                      <Grid item xs={12} sm={6}>
+                      <Grid xs={12} sm={6}>
                         <TextField
                           fullWidth
                           label="Travel"
@@ -2627,7 +2627,7 @@ export default function StaffManagement() {
                           }}
                         />
                       </Grid>
-                      <Grid item xs={12} sm={6}>
+                      <Grid xs={12} sm={6}>
                         <TextField
                           fullWidth
                           label="Insurance"
@@ -2655,7 +2655,7 @@ export default function StaffManagement() {
                           }}
                         />
                       </Grid>
-                      <Grid item xs={12} sm={6}>
+                      <Grid xs={12} sm={6}>
                         <TextField
                           fullWidth
                           label="CC Name"
@@ -2663,7 +2663,7 @@ export default function StaffManagement() {
                           onChange={(e) => setStaffForm({ ...staffForm, ccName: e.target.value })}
                         />
                       </Grid>
-                      <Grid item xs={12} sm={6}>
+                      <Grid xs={12} sm={6}>
                         <TextField
                           fullWidth
                           label="CC Annual Amount"
@@ -2691,7 +2691,7 @@ export default function StaffManagement() {
                           }}
                         />
                       </Grid>
-                      <Grid item xs={12} sm={6}>
+                      <Grid xs={12} sm={6}>
                         <TextField
                           fullWidth
                           label="Retirement 403b"
@@ -2719,7 +2719,7 @@ export default function StaffManagement() {
                           }}
                         />
                       </Grid>
-                      <Grid item xs={12} sm={6}>
+                      <Grid xs={12} sm={6}>
                         <TextField
                           fullWidth
                           label="Paycheck Amount"
@@ -2747,7 +2747,7 @@ export default function StaffManagement() {
                           }}
                         />
                       </Grid>
-                      <Grid item xs={12} sm={6}>
+                      <Grid xs={12} sm={6}>
                         <TextField
                           fullWidth
                           label="Monthly Parsonage"
@@ -2775,7 +2775,7 @@ export default function StaffManagement() {
                           }}
                         />
                       </Grid>
-                      <Grid item xs={12} sm={6}>
+                      <Grid xs={12} sm={6}>
                         <TextField
                           fullWidth
                           label="Travel Stipend"
@@ -2803,7 +2803,7 @@ export default function StaffManagement() {
                           }}
                         />
                       </Grid>
-                      <Grid item xs={12} sm={6}>
+                      <Grid xs={12} sm={6}>
                         <TextField
                           fullWidth
                           label="CC Deduction"
@@ -2831,7 +2831,7 @@ export default function StaffManagement() {
                           }}
                         />
                       </Grid>
-                      <Grid item xs={12} sm={6}>
+                      <Grid xs={12} sm={6}>
                         <TextField
                           fullWidth
                           label="Insurance Deduction"
@@ -2859,7 +2859,7 @@ export default function StaffManagement() {
                           }}
                         />
                       </Grid>
-                      <Grid item xs={12} sm={6}>
+                      <Grid xs={12} sm={6}>
                         <TextField
                           fullWidth
                           label="Annual Adjustment"
@@ -2887,7 +2887,7 @@ export default function StaffManagement() {
                           }}
                         />
                       </Grid>
-                      <Grid item xs={12} sm={6}>
+                      <Grid xs={12} sm={6}>
                         <TextField
                           fullWidth
                           label="Paychecks Remaining"
@@ -2896,7 +2896,7 @@ export default function StaffManagement() {
                           onChange={(e) => setStaffForm({ ...staffForm, paychecksRemaining: e.target.value })}
                         />
                       </Grid>
-                      <Grid item xs={12} sm={6}>
+                      <Grid xs={12} sm={6}>
                         <TextField
                           fullWidth
                           label="Per Paycheck Adjustment"
@@ -2924,7 +2924,7 @@ export default function StaffManagement() {
                           }}
                         />
                       </Grid>
-                      <Grid item xs={12} sm={6}>
+                      <Grid xs={12} sm={6}>
                         <TextField
                           fullWidth
                           label="Adjusted Check Amount"
@@ -2952,7 +2952,7 @@ export default function StaffManagement() {
                           }}
                         />
                       </Grid>
-                      <Grid item xs={12} sm={6}>
+                      <Grid xs={12} sm={6}>
                         <TextField
                           fullWidth
                           label="PTO Days"
@@ -2961,7 +2961,7 @@ export default function StaffManagement() {
                           onChange={(e) => setStaffForm({ ...staffForm, ptoDays: e.target.value })}
                         />
                       </Grid>
-                      <Grid item xs={12} sm={6}>
+                      <Grid xs={12} sm={6}>
                         <TextField
                           fullWidth
                           label="Misc 2"
@@ -2969,7 +2969,7 @@ export default function StaffManagement() {
                           onChange={(e) => setStaffForm({ ...staffForm, misc2: e.target.value })}
                         />
                       </Grid>
-                      <Grid item xs={12} sm={6}>
+                      <Grid xs={12} sm={6}>
                         <TextField
                           fullWidth
                           label="Misc 3"
@@ -2993,7 +2993,7 @@ export default function StaffManagement() {
                 </Typography>
               </Stack>
               <Grid container spacing={2}>
-                <Grid item xs={12}>
+                <Grid xs={12}>
                   <TextField
                     fullWidth
                     label="Bio"
@@ -3005,7 +3005,7 @@ export default function StaffManagement() {
                     helperText="Optional biographical information"
                   />
                 </Grid>
-                <Grid item xs={12}>
+                <Grid xs={12}>
                   <TextField
                     fullWidth
                     label="Notes"
@@ -4331,7 +4331,7 @@ export default function StaffManagement() {
                   <Stack spacing={3}>
                     {/* Quick Stats Cards */}
                     <Grid container spacing={2}>
-                      <Grid item xs={12} sm={6} md={3}>
+                      <Grid xs={12} sm={6} md={3}>
                         <Card variant="outlined" sx={{ p: 2, height: "100%" }}>
                           <Stack direction="row" spacing={1} alignItems="center">
                             <WorkIcon color="primary" />
@@ -4346,7 +4346,7 @@ export default function StaffManagement() {
                           </Stack>
                         </Card>
                       </Grid>
-                      <Grid item xs={12} sm={6} md={3}>
+                      <Grid xs={12} sm={6} md={3}>
                         <Card variant="outlined" sx={{ p: 2, height: "100%" }}>
                           <Stack direction="row" spacing={1} alignItems="center">
                             <AttachMoneyIcon color="primary" />
@@ -4363,7 +4363,7 @@ export default function StaffManagement() {
                           </Stack>
                         </Card>
                       </Grid>
-                      <Grid item xs={12} sm={6} md={3}>
+                      <Grid xs={12} sm={6} md={3}>
                         <Card variant="outlined" sx={{ p: 2, height: "100%" }}>
                           <Stack direction="row" spacing={1} alignItems="center">
                             <HealthAndSafetyIcon color="primary" />
@@ -4378,7 +4378,7 @@ export default function StaffManagement() {
                           </Stack>
                         </Card>
                       </Grid>
-                      <Grid item xs={12} sm={6} md={3}>
+                      <Grid xs={12} sm={6} md={3}>
                         <Card variant="outlined" sx={{ p: 2, height: "100%" }}>
                           <Stack direction="row" spacing={1} alignItems="center">
                             <DescriptionIcon color="primary" />
@@ -4413,7 +4413,7 @@ export default function StaffManagement() {
                         </Stack>
                         <Divider sx={{ mb: 2 }} />
                         <Grid container spacing={3}>
-                          <Grid item xs={12} sm={4} md={3}>
+                          <Grid xs={12} sm={4} md={3}>
                             <Stack spacing={2} alignItems="center">
                               {(selectedStaff.photoUrl && photoUrl) ? (
                                 <Avatar
@@ -4438,9 +4438,9 @@ export default function StaffManagement() {
                               </Button>
                             </Stack>
                           </Grid>
-                          <Grid item xs={12} sm={8} md={9}>
+                          <Grid xs={12} sm={8} md={9}>
                             <Grid container spacing={3} component="div">
-                              <Grid item xs={12} sm={6} component="div">
+                              <Grid xs={12} sm={6} component="div">
                                 <Stack spacing={0.5}>
                                   <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                     Full Name
@@ -4450,7 +4450,7 @@ export default function StaffManagement() {
                                   </Typography>
                                 </Stack>
                               </Grid>
-                              <Grid item xs={12} sm={6} component="div">
+                              <Grid xs={12} sm={6} component="div">
                                 <Stack spacing={0.5}>
                                   <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                     Title
@@ -4460,7 +4460,7 @@ export default function StaffManagement() {
                                   </Typography>
                                 </Stack>
                               </Grid>
-                              <Grid item xs={12} sm={6} component="div">
+                              <Grid xs={12} sm={6} component="div">
                                 <Stack spacing={0.5}>
                                   <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                     Employee ID
@@ -4468,7 +4468,7 @@ export default function StaffManagement() {
                                   <Typography variant="body1">{selectedStaff.employeeId || "-"}</Typography>
                                 </Stack>
                               </Grid>
-                              <Grid item xs={12} sm={6} component="div">
+                              <Grid xs={12} sm={6} component="div">
                                 <Stack spacing={0.5}>
                                   <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                     Email
@@ -4484,7 +4484,7 @@ export default function StaffManagement() {
                                   </Typography>
                                 </Stack>
                               </Grid>
-                              <Grid item xs={12} sm={6} component="div">
+                              <Grid xs={12} sm={6} component="div">
                                 <Stack spacing={0.5}>
                                   <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                     Phone
@@ -4515,7 +4515,7 @@ export default function StaffManagement() {
                         </Stack>
                         <Divider sx={{ mb: 2 }} />
                         <Grid container spacing={3}>
-                          <Grid item xs={12} sm={6}>
+                          <Grid xs={12} sm={6}>
                             <Stack spacing={0.5}>
                               <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                 Employment Status
@@ -4534,7 +4534,7 @@ export default function StaffManagement() {
                               />
                             </Stack>
                           </Grid>
-                          <Grid item xs={12} sm={6}>
+                          <Grid xs={12} sm={6}>
                             <Stack spacing={0.5}>
                               <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                 Hire Date
@@ -4551,7 +4551,7 @@ export default function StaffManagement() {
                             </Stack>
                           </Grid>
                           {selectedStaff.terminationDate && (
-                            <Grid item xs={12} sm={6}>
+                            <Grid xs={12} sm={6}>
                               <Stack spacing={0.5}>
                                 <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                   Termination Date
@@ -4567,7 +4567,7 @@ export default function StaffManagement() {
                             </Grid>
                           )}
                           {selectedStaff.positions && selectedStaff.positions.length > 0 && (
-                            <Grid item xs={12}>
+                            <Grid xs={12}>
                               <Stack spacing={0.5}>
                                 <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                   Current Positions
@@ -4627,7 +4627,7 @@ export default function StaffManagement() {
                             ) || selectedStaff.salaries[0];
                             return currentSalary ? (
                               <Grid container spacing={3}>
-                                <Grid item xs={12} sm={4}>
+                                <Grid xs={12} sm={4}>
                                   <Stack spacing={0.5}>
                                     <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                       Total Package
@@ -4637,7 +4637,7 @@ export default function StaffManagement() {
                                     </Typography>
                                   </Stack>
                                 </Grid>
-                                <Grid item xs={12} sm={4}>
+                                <Grid xs={12} sm={4}>
                                   <Stack spacing={0.5}>
                                     <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                       Type
@@ -4647,7 +4647,7 @@ export default function StaffManagement() {
                                     </Typography>
                                   </Stack>
                                 </Grid>
-                                <Grid item xs={12} sm={4}>
+                                <Grid xs={12} sm={4}>
                                   <Stack spacing={0.5}>
                                     <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                       Frequency
@@ -4657,7 +4657,7 @@ export default function StaffManagement() {
                                     </Typography>
                                   </Stack>
                                 </Grid>
-                                <Grid item xs={12} sm={6}>
+                                <Grid xs={12} sm={6}>
                                   <Stack spacing={0.5}>
                                     <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                       Effective Date
@@ -4673,7 +4673,7 @@ export default function StaffManagement() {
                                     </Typography>
                                   </Stack>
                                 </Grid>
-                                <Grid item xs={12} sm={6}>
+                                <Grid xs={12} sm={6}>
                                   <Stack spacing={0.5}>
                                     <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                       Notes
@@ -5062,7 +5062,7 @@ export default function StaffManagement() {
                       <>
                         {/* Quick Summary Cards */}
                         <Grid container spacing={2}>
-                          <Grid item xs={12} sm={6} md={3}>
+                          <Grid xs={12} sm={6} md={3}>
                             <Card variant="outlined" sx={{ p: 2, height: "100%", bgcolor: "primary.50" }}>
                               <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
                                 <AttachMoneyIcon color="primary" fontSize="small" />
@@ -5082,7 +5082,7 @@ export default function StaffManagement() {
                               )}
                             </Card>
                           </Grid>
-                          <Grid item xs={12} sm={6} md={3}>
+                          <Grid xs={12} sm={6} md={3}>
                             <Card variant="outlined" sx={{ p: 2, height: "100%" }}>
                               <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
                                 <AttachMoneyIcon color="success" fontSize="small" />
@@ -5097,7 +5097,7 @@ export default function StaffManagement() {
                               </Typography>
                             </Card>
                           </Grid>
-                          <Grid item xs={12} sm={6} md={3}>
+                          <Grid xs={12} sm={6} md={3}>
                             <Card variant="outlined" sx={{ p: 2, height: "100%" }}>
                               <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
                                 <AttachMoneyIcon color="info" fontSize="small" />
@@ -5112,7 +5112,7 @@ export default function StaffManagement() {
                               </Typography>
                             </Card>
                           </Grid>
-                          <Grid item xs={12} sm={6} md={3}>
+                          <Grid xs={12} sm={6} md={3}>
                             <Card variant="outlined" sx={{ p: 2, height: "100%" }}>
                               <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
                                 <WorkIcon color="warning" fontSize="small" />
@@ -5140,7 +5140,7 @@ export default function StaffManagement() {
                             </Stack>
                             <Divider sx={{ mb: 2 }} />
                             <Grid container spacing={3}>
-                              <Grid item xs={12} sm={6} md={4}>
+                              <Grid xs={12} sm={6} md={4}>
                                 <Stack spacing={0.5}>
                                   <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                     Legal Name
@@ -5150,7 +5150,7 @@ export default function StaffManagement() {
                                   </Typography>
                                 </Stack>
                               </Grid>
-                              <Grid item xs={12} sm={6} md={4}>
+                              <Grid xs={12} sm={6} md={4}>
                                 <Stack spacing={0.5}>
                                   <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                     Grade
@@ -5160,7 +5160,7 @@ export default function StaffManagement() {
                                   </Typography>
                                 </Stack>
                               </Grid>
-                              <Grid item xs={12} sm={6} md={4}>
+                              <Grid xs={12} sm={6} md={4}>
                                 <Stack spacing={0.5}>
                                   <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                     Academic Year
@@ -5170,7 +5170,7 @@ export default function StaffManagement() {
                                   </Typography>
                                 </Stack>
                               </Grid>
-                              <Grid item xs={12} sm={6} md={4}>
+                              <Grid xs={12} sm={6} md={4}>
                                 <Stack spacing={0.5}>
                                   <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                     Job #2
@@ -5180,7 +5180,7 @@ export default function StaffManagement() {
                                   </Typography>
                                 </Stack>
                               </Grid>
-                              <Grid item xs={12} sm={6} md={4}>
+                              <Grid xs={12} sm={6} md={4}>
                                 <Stack spacing={0.5}>
                                   <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                     Free Daycare
@@ -5194,7 +5194,7 @@ export default function StaffManagement() {
                                 </Stack>
                               </Grid>
                               {selectedStaff.payroll.misc2 && (
-                                <Grid item xs={12} sm={6} md={4}>
+                                <Grid xs={12} sm={6} md={4}>
                                   <Stack spacing={0.5}>
                                     <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                       Misc 2
@@ -5206,7 +5206,7 @@ export default function StaffManagement() {
                                 </Grid>
                               )}
                               {selectedStaff.payroll.misc3 && (
-                                <Grid item xs={12} sm={6} md={4}>
+                                <Grid xs={12} sm={6} md={4}>
                                   <Stack spacing={0.5}>
                                     <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                       Misc 3
@@ -5232,7 +5232,7 @@ export default function StaffManagement() {
                             </Stack>
                             <Divider sx={{ mb: 2 }} />
                             <Grid container spacing={3}>
-                              <Grid item xs={12} sm={6} md={4}>
+                              <Grid xs={12} sm={6} md={4}>
                                 <Stack spacing={0.5}>
                                   <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                     Total Package (25-26)
@@ -5244,7 +5244,7 @@ export default function StaffManagement() {
                                   </Typography>
                                 </Stack>
                               </Grid>
-                              <Grid item xs={12} sm={6} md={4}>
+                              <Grid xs={12} sm={6} md={4}>
                                 <Stack spacing={0.5}>
                                   <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                     Annual Gross Salary
@@ -5256,7 +5256,7 @@ export default function StaffManagement() {
                                   </Typography>
                                 </Stack>
                               </Grid>
-                              <Grid item xs={12} sm={6} md={4}>
+                              <Grid xs={12} sm={6} md={4}>
                                 <Stack spacing={0.5}>
                                   <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                     Max Quarter
@@ -5268,7 +5268,7 @@ export default function StaffManagement() {
                                   </Typography>
                                 </Stack>
                               </Grid>
-                              <Grid item xs={12} sm={6} md={4}>
+                              <Grid xs={12} sm={6} md={4}>
                                 <Stack spacing={0.5}>
                                   <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                     Tuition
@@ -5280,7 +5280,7 @@ export default function StaffManagement() {
                                   </Typography>
                                 </Stack>
                               </Grid>
-                              <Grid item xs={12} sm={6} md={4}>
+                              <Grid xs={12} sm={6} md={4}>
                                 <Stack spacing={0.5}>
                                   <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                     Actual Quarter
@@ -5311,7 +5311,7 @@ export default function StaffManagement() {
                               <Divider sx={{ mb: 2 }} />
                               <Grid container spacing={3}>
                                 {selectedStaff.payroll.nachlas && (
-                                  <Grid item xs={12} sm={6} md={4}>
+                                  <Grid xs={12} sm={6} md={4}>
                                     <Stack spacing={0.5}>
                                       <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                         Nachlas
@@ -5323,7 +5323,7 @@ export default function StaffManagement() {
                                   </Grid>
                                 )}
                                 {selectedStaff.payroll.otherBenefit && (
-                                  <Grid item xs={12} sm={6} md={4}>
+                                  <Grid xs={12} sm={6} md={4}>
                                     <Stack spacing={0.5}>
                                       <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                         Other Benefit
@@ -5335,7 +5335,7 @@ export default function StaffManagement() {
                                   </Grid>
                                 )}
                                 {selectedStaff.payroll.parsonage && (
-                                  <Grid item xs={12} sm={6} md={4}>
+                                  <Grid xs={12} sm={6} md={4}>
                                     <Stack spacing={0.5}>
                                       <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                         Parsonage
@@ -5347,7 +5347,7 @@ export default function StaffManagement() {
                                   </Grid>
                                 )}
                                 {selectedStaff.payroll.parsonageAllocation && (
-                                  <Grid item xs={12} sm={6} md={4}>
+                                  <Grid xs={12} sm={6} md={4}>
                                     <Stack spacing={0.5}>
                                       <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                         Parsonage Allocation
@@ -5359,7 +5359,7 @@ export default function StaffManagement() {
                                   </Grid>
                                 )}
                                 {selectedStaff.payroll.travel && (
-                                  <Grid item xs={12} sm={6} md={4}>
+                                  <Grid xs={12} sm={6} md={4}>
                                     <Stack spacing={0.5}>
                                       <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                         Travel
@@ -5371,7 +5371,7 @@ export default function StaffManagement() {
                                   </Grid>
                                 )}
                                 {selectedStaff.payroll.insurance && (
-                                  <Grid item xs={12} sm={6} md={4}>
+                                  <Grid xs={12} sm={6} md={4}>
                                     <Stack spacing={0.5}>
                                       <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                         Insurance
@@ -5383,7 +5383,7 @@ export default function StaffManagement() {
                                   </Grid>
                                 )}
                                 {selectedStaff.payroll.ccName && (
-                                  <Grid item xs={12} sm={6} md={4}>
+                                  <Grid xs={12} sm={6} md={4}>
                                     <Stack spacing={0.5}>
                                       <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                         CC Name
@@ -5395,7 +5395,7 @@ export default function StaffManagement() {
                                   </Grid>
                                 )}
                                 {selectedStaff.payroll.ccAnnualAmount && (
-                                  <Grid item xs={12} sm={6} md={4}>
+                                  <Grid xs={12} sm={6} md={4}>
                                     <Stack spacing={0.5}>
                                       <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                         CC Annual Amount
@@ -5407,7 +5407,7 @@ export default function StaffManagement() {
                                   </Grid>
                                 )}
                                 {selectedStaff.payroll.retirement403b && (
-                                  <Grid item xs={12} sm={6} md={4}>
+                                  <Grid xs={12} sm={6} md={4}>
                                     <Stack spacing={0.5}>
                                       <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                         403B (Retirement)
@@ -5438,7 +5438,7 @@ export default function StaffManagement() {
                               <Divider sx={{ mb: 2 }} />
                               <Grid container spacing={3}>
                                 {selectedStaff.payroll.paycheckAmount && (
-                                  <Grid item xs={12} sm={6} md={4}>
+                                  <Grid xs={12} sm={6} md={4}>
                                     <Stack spacing={0.5}>
                                       <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                         Paycheck Amount
@@ -5450,7 +5450,7 @@ export default function StaffManagement() {
                                   </Grid>
                                 )}
                                 {selectedStaff.payroll.monthlyParsonage && (
-                                  <Grid item xs={12} sm={6} md={4}>
+                                  <Grid xs={12} sm={6} md={4}>
                                     <Stack spacing={0.5}>
                                       <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                         Monthly Parsonage
@@ -5462,7 +5462,7 @@ export default function StaffManagement() {
                                   </Grid>
                                 )}
                                 {selectedStaff.payroll.travelStipend && (
-                                  <Grid item xs={12} sm={6} md={4}>
+                                  <Grid xs={12} sm={6} md={4}>
                                     <Stack spacing={0.5}>
                                       <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                         Travel Stipend
@@ -5474,7 +5474,7 @@ export default function StaffManagement() {
                                   </Grid>
                                 )}
                                 {selectedStaff.payroll.ccDeduction && (
-                                  <Grid item xs={12} sm={6} md={4}>
+                                  <Grid xs={12} sm={6} md={4}>
                                     <Stack spacing={0.5}>
                                       <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                         CC Deduction
@@ -5486,7 +5486,7 @@ export default function StaffManagement() {
                                   </Grid>
                                 )}
                                 {selectedStaff.payroll.insuranceDeduction && (
-                                  <Grid item xs={12} sm={6} md={4}>
+                                  <Grid xs={12} sm={6} md={4}>
                                     <Stack spacing={0.5}>
                                       <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                         Insurance Deduction
@@ -5498,7 +5498,7 @@ export default function StaffManagement() {
                                   </Grid>
                                 )}
                                 {selectedStaff.payroll.annualAdjustment && (
-                                  <Grid item xs={12} sm={6} md={4}>
+                                  <Grid xs={12} sm={6} md={4}>
                                     <Stack spacing={0.5}>
                                       <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                         Annual Adjustment
@@ -5511,7 +5511,7 @@ export default function StaffManagement() {
                                   </Grid>
                                 )}
                                 {selectedStaff.payroll.paychecksRemaining !== null && selectedStaff.payroll.paychecksRemaining !== undefined && (
-                                  <Grid item xs={12} sm={6} md={4}>
+                                  <Grid xs={12} sm={6} md={4}>
                                     <Stack spacing={0.5}>
                                       <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                         Paychecks Remaining
@@ -5523,7 +5523,7 @@ export default function StaffManagement() {
                                   </Grid>
                                 )}
                                 {selectedStaff.payroll.perPaycheckAdjustment && (
-                                  <Grid item xs={12} sm={6} md={4}>
+                                  <Grid xs={12} sm={6} md={4}>
                                     <Stack spacing={0.5}>
                                       <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                         Per Paycheck Adjustment
@@ -5536,7 +5536,7 @@ export default function StaffManagement() {
                                   </Grid>
                                 )}
                                 {selectedStaff.payroll.adjustedCheckAmount && (
-                                  <Grid item xs={12} sm={6} md={4}>
+                                  <Grid xs={12} sm={6} md={4}>
                                     <Stack spacing={0.5}>
                                       <Typography variant="caption" color="text.secondary" fontWeight={600}>
                                         Adjusted Check Amount
@@ -5881,7 +5881,7 @@ export default function StaffManagement() {
                 </Typography>
               </Stack>
               <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
+                <Grid xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="Legal Name"
@@ -5889,7 +5889,7 @@ export default function StaffManagement() {
                     onChange={(e) => setPayrollForm({ ...payrollForm, legalName: e.target.value })}
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="Grade"
@@ -5897,7 +5897,7 @@ export default function StaffManagement() {
                     onChange={(e) => setPayrollForm({ ...payrollForm, grade: e.target.value })}
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="Academic Year"
@@ -5906,7 +5906,7 @@ export default function StaffManagement() {
                     placeholder="e.g., 2025-2026"
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="Job #2"
@@ -5914,7 +5914,7 @@ export default function StaffManagement() {
                     onChange={(e) => setPayrollForm({ ...payrollForm, jobNumber2: e.target.value })}
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid xs={12} sm={6}>
                   <FormControl fullWidth>
                     <InputLabel>Free Daycare</InputLabel>
                     <Select
@@ -5927,7 +5927,7 @@ export default function StaffManagement() {
                     </Select>
                   </FormControl>
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="Misc 2"
@@ -5935,7 +5935,7 @@ export default function StaffManagement() {
                     onChange={(e) => setPayrollForm({ ...payrollForm, misc2: e.target.value })}
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="Misc 3"
@@ -5954,7 +5954,7 @@ export default function StaffManagement() {
                 </Typography>
               </Stack>
               <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
+                <Grid xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="Total Package (25-26)"
@@ -5964,7 +5964,7 @@ export default function StaffManagement() {
                     InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="Max Quarter"
@@ -5974,7 +5974,7 @@ export default function StaffManagement() {
                     InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="Tuition"
@@ -5984,7 +5984,7 @@ export default function StaffManagement() {
                     InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="Actual Quarter"
@@ -5994,7 +5994,7 @@ export default function StaffManagement() {
                     InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="Annual Gross Salary"
@@ -6015,7 +6015,7 @@ export default function StaffManagement() {
                 </Typography>
               </Stack>
               <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
+                <Grid xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="Nachlas"
@@ -6025,7 +6025,7 @@ export default function StaffManagement() {
                     InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="Other Benefit"
@@ -6035,7 +6035,7 @@ export default function StaffManagement() {
                     InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="Parsonage"
@@ -6045,7 +6045,7 @@ export default function StaffManagement() {
                     InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="Parsonage Allocation"
@@ -6055,7 +6055,7 @@ export default function StaffManagement() {
                     InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="Travel"
@@ -6065,7 +6065,7 @@ export default function StaffManagement() {
                     InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="Insurance"
@@ -6075,7 +6075,7 @@ export default function StaffManagement() {
                     InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="CC Name"
@@ -6083,7 +6083,7 @@ export default function StaffManagement() {
                     onChange={(e) => setPayrollForm({ ...payrollForm, ccName: e.target.value })}
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="CC Annual Amount"
@@ -6093,7 +6093,7 @@ export default function StaffManagement() {
                     InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="403B+F:V (Retirement)"
@@ -6114,7 +6114,7 @@ export default function StaffManagement() {
                 </Typography>
               </Stack>
               <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
+                <Grid xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="Paycheck Amount"
@@ -6124,7 +6124,7 @@ export default function StaffManagement() {
                     InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="Monthly Parsonage"
@@ -6134,7 +6134,7 @@ export default function StaffManagement() {
                     InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="Travel Stipend"
@@ -6144,7 +6144,7 @@ export default function StaffManagement() {
                     InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="CC Deduction"
@@ -6154,7 +6154,7 @@ export default function StaffManagement() {
                     InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="Insurance Deduction"
@@ -6164,7 +6164,7 @@ export default function StaffManagement() {
                     InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="Annual Adjustment"
@@ -6174,7 +6174,7 @@ export default function StaffManagement() {
                     InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="Paychecks Remaining"
@@ -6183,7 +6183,7 @@ export default function StaffManagement() {
                     onChange={(e) => setPayrollForm({ ...payrollForm, paychecksRemaining: e.target.value })}
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="Per Paycheck Adjustment"
@@ -6193,7 +6193,7 @@ export default function StaffManagement() {
                     InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="Adjusted Check Amount"
@@ -6203,7 +6203,7 @@ export default function StaffManagement() {
                     InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid xs={12} sm={6}>
                   <TextField
                     fullWidth
                     label="PTO Days"
@@ -6354,4 +6354,5 @@ export default function StaffManagement() {
     </Box>
   );
 }
+
 

@@ -192,7 +192,7 @@ export default function DivisionDetail() {
       <TabPanel value={tabValue} index={0}>
         <Grid container spacing={3}>
           {/* Key Metrics */}
-          <Grid item xs={12} md={6} lg={3}>
+          <Grid xs={12} md={6} lg={3}>
             <Card sx={{ background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%)' }}>
               <CardContent>
                 <Typography variant="caption" color="text.secondary">
@@ -207,7 +207,7 @@ export default function DivisionDetail() {
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={12} md={6} lg={3}>
+          <Grid xs={12} md={6} lg={3}>
             <Card sx={{ background: 'linear-gradient(135deg, rgba(67, 233, 123, 0.1) 0%, rgba(102, 126, 234, 0.1) 100%)' }}>
               <CardContent>
                 <Typography variant="caption" color="text.secondary">
@@ -220,7 +220,7 @@ export default function DivisionDetail() {
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={12} md={6} lg={3}>
+          <Grid xs={12} md={6} lg={3}>
             <Card sx={{ background: 'linear-gradient(135deg, rgba(240, 147, 251, 0.1) 0%, rgba(245, 87, 108, 0.1) 100%)' }}>
               <CardContent>
                 <Typography variant="caption" color="text.secondary">
@@ -233,7 +233,7 @@ export default function DivisionDetail() {
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={12} md={6} lg={3}>
+          <Grid xs={12} md={6} lg={3}>
             <Card sx={{ background: 'linear-gradient(135deg, rgba(255, 217, 61, 0.1) 0%, rgba(250, 112, 154, 0.1) 100%)' }}>
               <CardContent>
                 <Typography variant="caption" color="text.secondary">
@@ -248,7 +248,7 @@ export default function DivisionDetail() {
           </Grid>
 
           {/* Performance Chart */}
-          <Grid item xs={12} lg={8}>
+          <Grid xs={12} lg={8}>
             <Paper sx={{ p: 3 }}>
               <Typography variant="h6" sx={{ mb: 2 }}>
                 Division Performance Trends
@@ -269,7 +269,7 @@ export default function DivisionDetail() {
           </Grid>
 
           {/* Division Info */}
-          <Grid item xs={12} lg={4}>
+          <Grid xs={12} lg={4}>
             <Paper sx={{ p: 3 }}>
               <Typography variant="h6" sx={{ mb: 2 }}>
                 Division Information
@@ -383,7 +383,7 @@ export default function DivisionDetail() {
       <TabPanel value={tabValue} index={2}>
         <Grid container spacing={2}>
           {mockProgress.map((item) => (
-            <Grid item xs={12} md={6} key={item.subject}>
+            <Grid xs={12} md={6} key={item.subject}>
               <Card>
                 <CardContent>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
@@ -431,7 +431,7 @@ export default function DivisionDetail() {
       <TabPanel value={tabValue} index={3}>
         <Grid container spacing={2}>
           {mockDivision.grades.map((grade) => (
-            <Grid item xs={12} sm={6} md={4} key={grade}>
+            <Grid xs={12} sm={6} md={4} key={grade}>
               <Card
                 sx={{
                   cursor: 'pointer',
@@ -462,7 +462,7 @@ export default function DivisionDetail() {
         <DialogTitle>Add Division Log</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 0.5 }}>
-            <Grid item xs={12} sm={4}>
+            <Grid xs={12} sm={4}>
               <FormControl fullWidth>
                 <InputLabel>Type</InputLabel>
                 <Select
@@ -476,7 +476,7 @@ export default function DivisionDetail() {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid xs={12} sm={4}>
               <FormControl fullWidth>
                 <InputLabel>Category</InputLabel>
                 <Select
@@ -492,7 +492,7 @@ export default function DivisionDetail() {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid xs={12} sm={4}>
               <FormControl fullWidth>
                 <InputLabel>Priority</InputLabel>
                 <Select
@@ -506,7 +506,7 @@ export default function DivisionDetail() {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <TextField
                 fullWidth
                 multiline
@@ -532,7 +532,7 @@ export default function DivisionDetail() {
         <DialogTitle>Add Progress Entry</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 0.5 }}>
-            <Grid item xs={12} sm={6}>
+            <Grid xs={12} sm={6}>
               <TextField
                 fullWidth
                 label="Subject"
@@ -540,7 +540,7 @@ export default function DivisionDetail() {
                 onChange={(e) => setProgressForm({ ...progressForm, subject: e.target.value })}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid xs={12} sm={6}>
               <TextField
                 fullWidth
                 label="Topic"
@@ -548,7 +548,7 @@ export default function DivisionDetail() {
                 onChange={(e) => setProgressForm({ ...progressForm, topic: e.target.value })}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid xs={12} sm={6}>
               <TextField
                 fullWidth
                 type="number"
@@ -557,7 +557,7 @@ export default function DivisionDetail() {
                 onChange={(e) => setProgressForm({ ...progressForm, target: e.target.value })}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid xs={12} sm={6}>
               <TextField
                 fullWidth
                 type="number"
@@ -566,7 +566,7 @@ export default function DivisionDetail() {
                 onChange={(e) => setProgressForm({ ...progressForm, current: e.target.value })}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <TextField
                 fullWidth
                 multiline
@@ -626,3 +626,4 @@ export default function DivisionDetail() {
     </Box>
   );
 }
+

@@ -161,3 +161,4 @@ export default function ReportCards(): JSX.Element {
     </Box>
   );
 }
+

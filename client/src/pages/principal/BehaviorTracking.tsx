@@ -319,3 +319,4 @@ export default function BehaviorTracking(): JSX.Element {
     </Box>
   );
 }
+

@@ -61,6 +61,9 @@ import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import ViewListIcon from "@mui/icons-material/ViewList";
 import ManageAccountsIcon from "@mui/icons-material/ManageAccounts";
 import WorkspacePremiumIcon from "@mui/icons-material/WorkspacePremium";
+import UploadFileIcon from "@mui/icons-material/UploadFile";
+import FamilyRestroomIcon from "@mui/icons-material/FamilyRestroom";
+import BusinessIcon from "@mui/icons-material/Business";
 
 import { Outlet, useNavigate, useLocation, Link as RouterLink } from "react-router-dom";
 import type { OverridableComponent } from "@mui/material/OverridableComponent";
@@ -93,6 +96,9 @@ interface NavItem {
 // Navigation structure (UNCHANGED)
 const navigationItems: NavItem[] = [
   { name: "Dashboard", path: "/", icon: DashboardIcon },
+  { name: "Students", path: "/students", icon: PeopleIcon },
+  { name: "Families", path: "/families", icon: FamilyRestroomIcon },
+  { name: "Staff", path: "/staff", icon: BusinessIcon },
   {
     name: "Communication Center",
     path: "/communication",
@@ -147,12 +153,10 @@ const navigationItems: NavItem[] = [
       { name: "Division Overview", path: "/principal/head-principal/division-overview", icon: ViewListIcon },
       { name: "All Classes", path: "/principal/head-principal/all-classes", icon: ClassIcon },
       { name: "All Students", path: "/principal/head-principal/all-students", icon: PeopleIcon },
+      { name: "Progress Tracking", path: "/principal/head-principal/progress-tracking", icon: TrendingUpIcon },
+      { name: "Assignments", path: "/principal/head-principal/grade-assignments", icon: AssignmentIcon },
       { name: "Grade Management", path: "/principal/head-principal/grade-management", icon: SchoolIcon },
       { name: "Division Management", path: "/principal/head-principal/division-management", icon: ViewListIcon },
-      { name: "Grade Assignments", path: "/principal/head-principal/grade-assignments", icon: AssignmentIcon },
-      { name: "Progress Tracking", path: "/principal/head-principal/progress-tracking", icon: TrendingUpIcon },
-      { name: "Principal Management", path: "/principal/head-principal/principal-management", icon: ManageAccountsIcon },
-      { name: "Management", path: "/principal/head-principal/management", icon: AdminPanelSettingsIcon },
     ],
   },
   {
@@ -166,6 +170,7 @@ const navigationItems: NavItem[] = [
       { name: "Donations", path: "/business-office/donations", icon: FavoriteIcon },
       { name: "Transportation", path: "/business-office/transportation", icon: DirectionsBusIcon },
       { name: "Financial Reports", path: "/business-office/reports", icon: AssessmentIcon },
+      { name: "Import Families & Students", path: "/business-office/import", icon: UploadFileIcon, permission: { module: "students", action: "create" } },
     ],
   },
   {
@@ -183,6 +188,7 @@ const navigationItems: NavItem[] = [
       { name: "Application Settings", path: "/admin/application-settings", icon: AssignmentTurnedInIcon, permission: { module: "settings", action: "view" } },
       { name: "Academic Year", path: "/admin/academic-year", icon: EventIcon, permission: { module: "settings", action: "view" } },
       { name: "System Settings", path: "/admin/system-settings", icon: SettingsIcon, permission: { module: "settings", action: "view" } },
+      { name: "Import Center", path: "/admin/import-center", icon: UploadFileIcon, permission: { module: "admin", action: "view" } },
     ],
   },
 ];
@@ -530,3 +536,4 @@ export default function LayoutMUI() {
     </Box>
   );
 }
+

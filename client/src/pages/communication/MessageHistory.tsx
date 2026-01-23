@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import DOMPurify from "dompurify";
 import {
   Mail,
   MessageSquare,
@@ -1069,7 +1070,7 @@ export default function MessageHistory() {
                       overflowY: "auto",
                       "& img": { maxWidth: "100%", height: "auto" },
                     }}
-                    dangerouslySetInnerHTML={{ __html: viewingMessage.html_content }}
+                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(viewingMessage.html_content || '') }}
                   />
                 ) : (
                   <Typography variant="body1" sx={{ whiteSpace: "pre-wrap" }}>
@@ -1176,3 +1177,4 @@ export default function MessageHistory() {
     </Box>
   );
 }
+

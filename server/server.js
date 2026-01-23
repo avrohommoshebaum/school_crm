@@ -285,11 +285,38 @@ app.use(express.urlencoded({ extended: true }));
 // 5. RATE LIMITING
 // ------------------------------
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
+  windowMs: 15 * 60 * 1000, // 15 minutes
   max: 40,
   message: "Too many login attempts. Try again later.",
+  standardHeaders: true,
+  legacyHeaders: false,
 });
+
+// Strict rate limiter for sensitive operations
+const strictLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // 5 requests per window
+  message: "Too many requests. Please try again later.",
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// General API rate limiter
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // 100 requests per window
+  message: "Too many requests. Please try again later.",
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Apply rate limiting
 app.use("/api/auth/login", authLimiter);
+app.use("/api/auth/forgot-password", strictLimiter);
+app.use("/api/auth/reset-password", strictLimiter);
+app.use("/api/auth/register", strictLimiter);
+app.use("/api/invite", strictLimiter);
+app.use("/api", generalLimiter); // General API rate limit (applies to all /api routes)
 
 // ------------------------------
 // 6. SESSION CONFIGURATION & PASSPORT INITIALIZATION
@@ -387,8 +414,14 @@ setupStaticFiles();
 // 9. GLOBAL ERROR HANDLER
 // ------------------------------
 app.use((err, req, res, next) => {
+  const isProduction = process.env.NODE_ENV === "production";
   console.error("SERVER ERROR:", err);
-  res.status(500).json({ message: "Server error", error: err.message });
+  
+  // Don't expose error details in production
+  res.status(500).json({ 
+    message: "Server error",
+    ...(isProduction ? {} : { error: err.message, stack: err.stack })
+  });
 });
 
 // ------------------------------

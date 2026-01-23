@@ -115,7 +115,7 @@ export default function ClassDialog({ open, classData, onClose, onSave }: ClassD
       <DialogContent dividers>
         <Grid container spacing={2} sx={{ mt: 0.5 }}>
           {/* Class Name */}
-          <Grid item xs={12} sm={6}>
+          <Grid xs={12} sm={6}>
             <TextField
               fullWidth
               label="Class Name"
@@ -127,7 +127,7 @@ export default function ClassDialog({ open, classData, onClose, onSave }: ClassD
           </Grid>
 
           {/* Grade */}
-          <Grid item xs={12} sm={6}>
+          <Grid xs={12} sm={6}>
             <FormControl fullWidth required>
               <InputLabel>Grade</InputLabel>
               <Select
@@ -145,7 +145,7 @@ export default function ClassDialog({ open, classData, onClose, onSave }: ClassD
           </Grid>
 
           {/* Teacher */}
-          <Grid item xs={12} sm={6}>
+          <Grid xs={12} sm={6}>
             <FormControl fullWidth required>
               <InputLabel>Teacher</InputLabel>
               <Select
@@ -163,7 +163,7 @@ export default function ClassDialog({ open, classData, onClose, onSave }: ClassD
           </Grid>
 
           {/* Room Number */}
-          <Grid item xs={12} sm={6}>
+          <Grid xs={12} sm={6}>
             <TextField
               fullWidth
               label="Room Number"
@@ -175,7 +175,7 @@ export default function ClassDialog({ open, classData, onClose, onSave }: ClassD
           </Grid>
 
           {/* Student Count */}
-          <Grid item xs={12} sm={6}>
+          <Grid xs={12} sm={6}>
             <TextField
               fullWidth
               label="Current Student Count"
@@ -187,7 +187,7 @@ export default function ClassDialog({ open, classData, onClose, onSave }: ClassD
           </Grid>
 
           {/* Max Capacity */}
-          <Grid item xs={12} sm={6}>
+          <Grid xs={12} sm={6}>
             <TextField
               fullWidth
               label="Max Capacity"
@@ -199,7 +199,7 @@ export default function ClassDialog({ open, classData, onClose, onSave }: ClassD
           </Grid>
 
           {/* Schedule */}
-          <Grid item xs={12}>
+          <Grid xs={12}>
             <TextField
               fullWidth
               label="Schedule"
@@ -210,7 +210,7 @@ export default function ClassDialog({ open, classData, onClose, onSave }: ClassD
           </Grid>
 
           {/* Subjects */}
-          <Grid item xs={12}>
+          <Grid xs={12}>
             <FormControl fullWidth>
               <InputLabel>Subjects</InputLabel>
               <Select
@@ -237,7 +237,7 @@ export default function ClassDialog({ open, classData, onClose, onSave }: ClassD
           </Grid>
 
           {/* Status */}
-          <Grid item xs={12} sm={6}>
+          <Grid xs={12} sm={6}>
             <FormControl fullWidth>
               <InputLabel>Status</InputLabel>
               <Select
@@ -255,7 +255,7 @@ export default function ClassDialog({ open, classData, onClose, onSave }: ClassD
           </Grid>
 
           {/* School Year */}
-          <Grid item xs={12} sm={6}>
+          <Grid xs={12} sm={6}>
             <TextField
               fullWidth
               label="School Year"
@@ -266,7 +266,7 @@ export default function ClassDialog({ open, classData, onClose, onSave }: ClassD
           </Grid>
 
           {/* Notes */}
-          <Grid item xs={12}>
+          <Grid xs={12}>
             <TextField
               fullWidth
               label="Notes"
@@ -295,3 +295,4 @@ export default function ClassDialog({ open, classData, onClose, onSave }: ClassD
     </Dialog>
   );
 }
+

@@ -147,14 +147,14 @@ export default function ProgressTracking() {
       ) : (
         <Grid container spacing={3}>
           {grades.map((grade) => (
-            <Grid item xs={12} md={6} key={grade.id}>
+            <Grid xs={12} md={6} key={grade.id}>
               <Card>
                 <CardContent>
                   <Typography variant="h6" sx={{ mb: 2 }}>
                     {grade.name}
                   </Typography>
                   <Grid container spacing={2}>
-                    <Grid item xs={4}>
+                    <Grid xs={4}>
                       <Typography variant="caption" color="text.secondary">
                         Performance
                       </Typography>
@@ -170,7 +170,7 @@ export default function ProgressTracking() {
                         {grade.avgPerformance !== undefined ? grade.avgPerformance : '—'}
                       </Typography>
                     </Grid>
-                    <Grid item xs={4}>
+                    <Grid xs={4}>
                       <Typography variant="caption" color="text.secondary">
                         Behavior
                       </Typography>
@@ -186,7 +186,7 @@ export default function ProgressTracking() {
                         {grade.avgBehavior !== undefined ? grade.avgBehavior : '—'}
                       </Typography>
                     </Grid>
-                    <Grid item xs={4}>
+                    <Grid xs={4}>
                       <Typography variant="caption" color="text.secondary">
                         Attendance
                       </Typography>
@@ -225,3 +225,4 @@ export default function ProgressTracking() {
     </Box>
   );
 }
+

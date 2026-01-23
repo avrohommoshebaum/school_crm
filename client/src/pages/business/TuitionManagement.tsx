@@ -416,3 +416,4 @@ function StatusChip({ status }: { status: TuitionStatus }) {
     />
   );
 }
+

@@ -12,6 +12,10 @@ import { familyService } from "../db/services/familyService.js";
 import { payrollService } from "../db/services/payrollService.js";
 import { staffSalaryService } from "../db/services/staffManagementService.js";
 import { sanitizeString } from "../utils/validation.js";
+import { sanitizeText, sanitizeObject } from "../utils/sanitization.js";
+import { bulkImportFamiliesAndStudents } from "../db/services/familyStudentImportService.js";
+import { validateImportData } from "../db/services/familyStudentImportValidationService.js";
+import { sendErrorResponse } from "../utils/errorHandler.js";
 
 // Auto-detect column mappings based on common field names
 const autoDetectColumns = (headers, type) => {
@@ -217,6 +221,72 @@ const autoDetectColumns = (headers, type) => {
     mapping.email = headers[headerLower.findIndex(h => 
       h.includes("email") || h.includes("e-mail")
     )] || null;
+  } else if (type === "families-students") {
+    // Student fields
+    mapping.studentName = headers[headerLower.findIndex(h => 
+      (h.includes("student") && (h.includes("name") || h.includes("last") || h.includes("first"))) ||
+      (h.includes("last") && h.includes("name") && !h.includes("parent"))
+    )] || null;
+    mapping.studentLastName = headers[headerLower.findIndex(h => 
+      h.includes("student") && (h.includes("last") || h.includes("surname"))
+    )] || null;
+    mapping.studentFirstName = headers[headerLower.findIndex(h => 
+      h.includes("student") && (h.includes("first") || h.includes("given"))
+    )] || null;
+    
+    // Parent fields
+    mapping.parentName = headers[headerLower.findIndex(h => 
+      (h.includes("parent") && (h.includes("name") || h.includes("last") || h.includes("first"))) ||
+      (h.includes("guardian") && h.includes("name"))
+    )] || null;
+    mapping.parentLastName = headers[headerLower.findIndex(h => 
+      h.includes("parent") && (h.includes("last") || h.includes("surname"))
+    )] || null;
+    mapping.parentFirstName = headers[headerLower.findIndex(h => 
+      h.includes("parent") && (h.includes("first") || h.includes("given"))
+    )] || null;
+    
+    // Contact fields
+    mapping.address = headers[headerLower.findIndex(h => 
+      h.includes("address") || h.includes("street") || h.includes("home") && h.includes("address")
+    )] || null;
+    mapping.homePhone = headers[headerLower.findIndex(h => 
+      (h.includes("home") && (h.includes("phone") || h.includes("tel"))) ||
+      (h.includes("phone") && !h.includes("cell") && !h.includes("mobile"))
+    )] || null;
+    mapping.fatherCell = headers[headerLower.findIndex(h => 
+      (h.includes("father") && (h.includes("cell") || h.includes("phone") || h.includes("mobile"))) ||
+      (h.includes("dad") && (h.includes("cell") || h.includes("phone")))
+    )] || null;
+    mapping.motherCell = headers[headerLower.findIndex(h => 
+      (h.includes("mother") && (h.includes("cell") || h.includes("phone") || h.includes("mobile"))) ||
+      (h.includes("mom") && (h.includes("cell") || h.includes("phone")))
+    )] || null;
+    
+    // School fields
+    mapping.grade = headers[headerLower.findIndex(h => 
+      h.includes("grade") && !h.includes("point")
+    )] || null;
+    mapping.class = headers[headerLower.findIndex(h => 
+      h.includes("class") && !h.includes("room")
+    )] || null;
+    mapping.familyId = headers[headerLower.findIndex(h => 
+      h.includes("family") && h.includes("id")
+    )] || null;
+    mapping.busRoute = headers[headerLower.findIndex(h => 
+      h.includes("bus") || h.includes("route") || h.includes("transportation")
+    )] || null;
+    
+    // Financial fields
+    mapping.tuition = headers[headerLower.findIndex(h => 
+      h.includes("tuition")
+    )] || null;
+    mapping.pledges = headers[headerLower.findIndex(h => 
+      h.includes("pledge")
+    )] || null;
+    mapping.paid = headers[headerLower.findIndex(h => 
+      h.includes("paid") || h.includes("payment")
+    )] || null;
   }
   
   // Remove null values
@@ -407,9 +477,22 @@ export const importStudents = async (req, res) => {
     const students = [];
     const errors = [];
 
-    // Get all grades for lookup
+    // Get all grades and classes for lookup
     const allGrades = await gradeService.findAll();
     const gradeMap = new Map(allGrades.map(g => [g.name.toLowerCase(), g.id]));
+    
+    const allClasses = await classService.findAll();
+    // Create a map: "gradeName:className" -> classId
+    const classMap = new Map();
+    for (const cls of allClasses) {
+      const grade = allGrades.find(g => g.id === cls.gradeId || g.id === cls.grade_id);
+      if (grade) {
+        const key = `${grade.name.toLowerCase()}:${cls.name.toLowerCase()}`;
+        classMap.set(key, cls.id);
+      }
+      // Also allow matching by class name alone (case-insensitive)
+      classMap.set(cls.name.toLowerCase(), cls.id);
+    }
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
@@ -436,10 +519,11 @@ export const importStudents = async (req, res) => {
         };
 
         // Map grade if provided
+        let gradeId = null;
         if (columnMapping.grade) {
           const gradeName = String(row[headers.indexOf(columnMapping.grade)] || "").trim();
           if (gradeName) {
-            const gradeId = gradeMap.get(gradeName.toLowerCase());
+            gradeId = gradeMap.get(gradeName.toLowerCase());
             if (gradeId) {
               studentData.gradeId = gradeId;
             } else {
@@ -449,17 +533,68 @@ export const importStudents = async (req, res) => {
           }
         }
 
-        students.push(studentData);
+        // Map class if provided
+        let classId = null;
+        if (columnMapping.class) {
+          const className = String(row[headers.indexOf(columnMapping.class)] || "").trim();
+          if (className) {
+            // Try to match by "gradeName:className" first, then by className alone
+            let matchedClassId = null;
+            if (gradeId) {
+              const grade = allGrades.find(g => g.id === gradeId);
+              if (grade) {
+                const key = `${grade.name.toLowerCase()}:${className.toLowerCase()}`;
+                matchedClassId = classMap.get(key);
+              }
+            }
+            // Fallback to class name alone
+            if (!matchedClassId) {
+              matchedClassId = classMap.get(className.toLowerCase());
+            }
+            
+            if (matchedClassId) {
+              classId = matchedClassId;
+            } else {
+              errors.push({ row: rowIndex, error: `Class "${className}" not found${gradeId ? ` for grade "${allGrades.find(g => g.id === gradeId)?.name}"` : ''}` });
+              // Don't continue - still create student, just without class assignment
+            }
+          }
+        }
+
+        students.push({ ...studentData, classId });
       } catch (error) {
         errors.push({ row: rowIndex, error: error.message });
       }
     }
 
-    // Bulk create students
+    // Bulk create students and assign to classes
     let imported = 0;
+    const { query } = await import("../db/postgresConnect.js");
+    
     for (const studentData of students) {
       try {
-        await studentService.create(studentData);
+        const { classId, ...studentDataWithoutClass } = studentData;
+        const createdStudent = await studentService.create(studentDataWithoutClass);
+        
+        // Assign to class if classId was provided
+        if (classId && createdStudent.id) {
+          try {
+            await query(
+              `INSERT INTO student_classes (student_id, class_id, status, enrollment_date)
+               VALUES ($1, $2, 'active', CURRENT_DATE)
+               ON CONFLICT (student_id, class_id) 
+               DO UPDATE SET status = 'active', enrollment_date = CURRENT_DATE`,
+              [createdStudent.id, classId]
+            );
+          } catch (classError) {
+            // Log but don't fail the student creation
+            errors.push({ 
+              row: `Student: ${studentData.firstName} ${studentData.lastName}`, 
+              error: `Student created but class assignment failed: ${classError.message}` 
+            });
+          }
+        }
+        
         imported++;
       } catch (error) {
         errors.push({ row: `Student: ${studentData.firstName} ${studentData.lastName}`, error: error.message });
@@ -933,7 +1068,172 @@ export const importFamilies = async (req, res) => {
     });
   } catch (error) {
     console.error("Error importing families:", error);
-    res.status(500).json({ message: "Error importing families", error: error.message });
+    sendErrorResponse(res, 500, "Error importing families", error);
+  }
+};
+
+// Comprehensive Family and Student Bulk Import
+// Handles families, parents, students, and relationships in one import
+export const importFamiliesAndStudents = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "Excel file is required" });
+    }
+
+    let columnMapping = req.body.columnMapping;
+    if (typeof columnMapping === "string") {
+      try {
+        columnMapping = JSON.parse(columnMapping);
+      } catch (e) {
+        columnMapping = null;
+      }
+    }
+
+    const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+    const firstSheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[firstSheetName];
+    const data = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+
+    if (data.length === 0) {
+      return res.status(400).json({ message: "Excel file is empty" });
+    }
+
+    const headers = data[0].map((h) => String(h || "").trim());
+    
+    // Auto-detect if not provided
+    if (!columnMapping || Object.keys(columnMapping).length === 0) {
+      columnMapping = autoDetectColumns(headers, "families-students");
+    }
+
+    if (!columnMapping || (!columnMapping.studentName && !columnMapping.studentLastName)) {
+      return res.status(400).json({ 
+        message: "Student name mapping is required. Could not auto-detect columns." 
+      });
+    }
+    
+    const skipFirstRow = req.body.skipFirstRow !== false;
+    const startRow = skipFirstRow ? 1 : 0;
+    const rows = data.slice(startRow);
+
+    const parsedRows = [];
+    const errors = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const rowIndex = startRow + i + 1;
+
+      try {
+        // Skip empty rows
+        const hasData = row.some(cell => String(cell || "").trim());
+        if (!hasData) continue;
+
+        // Extract and sanitize all fields
+        const getValue = (field) => {
+          if (!columnMapping[field]) return null;
+          const colIndex = headers.indexOf(columnMapping[field]);
+          if (colIndex < 0 || colIndex >= row.length) return null;
+          const value = String(row[colIndex] || "").trim();
+          return value ? sanitizeText(value) : null;
+        };
+
+        const rowData = {
+          studentName: getValue("studentName") || 
+            (getValue("studentLastName") && getValue("studentFirstName") 
+              ? `${getValue("studentLastName")}, ${getValue("studentFirstName")}`
+              : null),
+          parentName: getValue("parentName") || 
+            (getValue("parentLastName") && getValue("parentFirstName")
+              ? `${getValue("parentLastName")}, ${getValue("parentFirstName")}`
+              : null),
+          address: getValue("address"),
+          homePhone: getValue("homePhone"),
+          fatherCell: getValue("fatherCell"),
+          motherCell: getValue("motherCell"),
+          grade: getValue("grade"),
+          class: getValue("class"),
+          familyId: getValue("familyId"),
+          busRoute: getValue("busRoute"),
+          tuition: getValue("tuition"),
+          pledges: getValue("pledges"),
+          paid: getValue("paid"),
+        };
+
+        // Validate required fields
+        if (!rowData.studentName) {
+          errors.push({ row: rowIndex, error: "Student name is required" });
+          continue;
+        }
+
+        if (!rowData.parentName) {
+          errors.push({ row: rowIndex, error: "Parent name is required" });
+          continue;
+        }
+
+        parsedRows.push(rowData);
+      } catch (error) {
+        errors.push({ row: rowIndex, error: error.message });
+      }
+    }
+
+    // Comprehensive validation of all rows
+    const validation = await validateImportData(parsedRows);
+    
+    // Check for duplicate actions if provided
+    let duplicateActions = {};
+    if (req.body.duplicateActions) {
+      try {
+        duplicateActions = typeof req.body.duplicateActions === 'string' 
+          ? JSON.parse(req.body.duplicateActions)
+          : req.body.duplicateActions;
+      } catch (e) {
+        console.error("Error parsing duplicateActions:", e);
+      }
+    }
+    
+    // If there are validation errors and user hasn't explicitly requested to proceed, return them for review
+    if (!validation.valid && req.body.reviewErrors !== "true" && req.body.forceImport !== "true") {
+      return res.json({
+        message: "Validation errors found. Please review and fix before importing.",
+        hasErrors: true,
+        valid: false,
+        errors: validation.errors,
+        warnings: validation.warnings,
+        duplicates: validation.duplicates,
+        details: validation.details,
+        parsedRows: parsedRows.length,
+        totalRows: rows.length,
+      });
+    }
+
+    // Filter out rows with errors if proceeding with import
+    // Create a map of row indices to validation results
+    const validationMap = new Map();
+    if (validation.details?.validationResults) {
+      validation.details.validationResults.forEach((result) => {
+        validationMap.set(result.row - 1, result); // row is 1-indexed, array is 0-indexed
+      });
+    }
+    
+    const validRows = validation.valid 
+      ? parsedRows 
+      : parsedRows.filter((row, index) => {
+          const validationResult = validationMap.get(index);
+          return validationResult?.valid !== false;
+        });
+
+    // Proceed with import (only valid rows will be imported)
+    const result = await bulkImportFamiliesAndStudents(validRows);
+
+    res.json({
+      message: "Import completed",
+      imported: result.imported,
+      errors: result.errors,
+      details: result.details,
+    });
+  } catch (error) {
+    console.error("Error importing families and students:", error);
+    console.error("Error stack:", error.stack);
+    sendErrorResponse(res, 500, "Error importing families and students", error);
   }
 };
 

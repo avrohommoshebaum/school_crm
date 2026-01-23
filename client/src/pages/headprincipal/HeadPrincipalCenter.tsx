@@ -16,6 +16,8 @@ import {
   School,
   TrendingUp,
   Warning,
+  Class as ClassIcon,
+  AdminPanelSettings as AdminPanelSettingsIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import api from '../../utils/api';
@@ -245,39 +247,46 @@ export default function HeadPrincipalCenter() {
 
   const quickActions = [
     {
-      title: 'Division Overview',
-      description: 'View school-wide performance metrics and trends',
+      title: 'All Grades',
+      description: 'View all grades and their statistics',
       path: '/principal/head-principal/division-overview',
       color: '#667eea',
-      icon: TrendingUp,
-    },
-    {
-      title: 'Grade Management',
-      description: 'Create and manage grade levels',
-      path: '/principal/head-principal/grade-management',
-      color: '#f093fb',
       icon: School,
     },
     {
-      title: 'Principal Management',
-      description: 'Manage principals and their assignments',
-      path: '/principal/head-principal/management',
-      color: '#f5576c',
-      icon: People,
+      title: 'All Classes',
+      description: 'View all classes across the school',
+      path: '/principal/head-principal/all-classes',
+      color: '#4facfe',
+      icon: ClassIcon,
     },
     {
-      title: 'Grade Assignments',
-      description: 'Assign principals to grade levels',
-      path: '/principal/head-principal/grade-assignments',
-      color: '#4facfe',
-      icon: Assessment,
+      title: 'All Students',
+      description: 'View all students in the school',
+      path: '/principal/head-principal/all-students',
+      color: '#43e97b',
+      icon: People,
     },
     {
       title: 'Progress Tracking',
       description: 'Track division-wide academic progress',
       path: '/principal/head-principal/progress-tracking',
-      color: '#43e97b',
+      color: '#f093fb',
+      icon: TrendingUp,
+    },
+    {
+      title: 'Assignments',
+      description: 'Assign principals to grades and divisions',
+      path: '/principal/head-principal/grade-assignments',
+      color: '#f5576c',
       icon: Assessment,
+    },
+    {
+      title: 'Management',
+      description: 'Manage grades, divisions, and principals',
+      path: '/principal/head-principal/management',
+      color: '#764ba2',
+      icon: AdminPanelSettingsIcon,
     },
   ];
 
@@ -332,7 +341,7 @@ export default function HeadPrincipalCenter() {
         {statCards.map((stat, index) => {
           const Icon = stat.icon;
           return (
-            <Grid item xs={12} sm={6} md={3} key={index}>
+            <Grid xs={12} sm={6} md={3} key={index}>
               <Card
                 sx={{
                   background: stat.gradient,
@@ -378,7 +387,7 @@ export default function HeadPrincipalCenter() {
         {quickActions.map((action, index) => {
           const Icon = action.icon;
           return (
-            <Grid item xs={12} sm={6} md={3} key={index}>
+            <Grid xs={12} sm={6} md={3} key={index}>
               <Card
                 sx={{
                   cursor: 'pointer',
@@ -429,7 +438,7 @@ export default function HeadPrincipalCenter() {
           </Typography>
           <Grid container spacing={2}>
             {alerts.map((alert) => (
-              <Grid item xs={12} key={alert.id}>
+              <Grid xs={12} key={alert.id}>
                 <Card sx={{ bgcolor: '#f8f9fa' }}>
                   <CardContent>
                     <Box
@@ -479,3 +488,4 @@ export default function HeadPrincipalCenter() {
     </Box>
   );
 }
+

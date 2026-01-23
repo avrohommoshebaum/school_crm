@@ -326,7 +326,7 @@ export default function GradeAssignments() {
           <TabPanel value={tabValue} index={0}>
             <Grid container spacing={2}>
               {grades.length === 0 ? (
-                <Grid item xs={12}>
+                <Grid xs={12}>
                   <Alert severity="info">
                     No grades found. Create grades in Grade Management to get started.
                   </Alert>
@@ -339,7 +339,7 @@ export default function GradeAssignments() {
                     : null;
                   
                   return (
-                    <Grid item xs={12} sm={6} md={4} key={grade.id}>
+                    <Grid xs={12} sm={6} md={4} key={grade.id}>
                       <Card
                         sx={{
                           border: assignedPrincipal ? '1px solid #e0e0e0' : '2px dashed #ccc',
@@ -434,7 +434,7 @@ export default function GradeAssignments() {
             </Box>
             <Grid container spacing={2}>
               {divisions.length === 0 ? (
-                <Grid item xs={12}>
+                <Grid xs={12}>
                   <Alert severity="info">
                     No divisions found. Create divisions in Division Management to get started.
                   </Alert>
@@ -447,7 +447,7 @@ export default function GradeAssignments() {
                     : null;
                   
                   return (
-                    <Grid item xs={12} sm={6} md={4} key={division.id}>
+                    <Grid xs={12} sm={6} md={4} key={division.id}>
                       <Card
                         sx={{
                           border: assignedPrincipal ? '1px solid #e0e0e0' : '2px dashed #ccc',
@@ -742,3 +742,4 @@ export default function GradeAssignments() {
     </Box>
   );
 }
+

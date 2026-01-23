@@ -799,7 +799,7 @@ export default function Dashboard() {
             ) : (
               <Grid container spacing={2}>
                 {getAvailableWidgetsForPicker().map((widget) => (
-                  <Grid item xs={12} sm={6} md={4} key={widget.id} {...({} as any)}>
+                  <Grid xs={12} sm={6} md={4} key={widget.id} {...({} as any)}>
                     <Paper
                       sx={{
                         p: 2,
@@ -878,3 +878,4 @@ export default function Dashboard() {
     </Box>
   );
 }
+

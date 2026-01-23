@@ -151,3 +151,4 @@ const InviteSuccess: React.FC = () => {
 };
 
 export default InviteSuccess;
+

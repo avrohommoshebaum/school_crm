@@ -172,3 +172,4 @@ export default function CommunicationCenter() {
   // For sub-routes, render the outlet
   return <Outlet />;
 }
+

@@ -115,3 +115,4 @@ export default function Applications(): JSX.Element {
     </Box>
   );
 }
+

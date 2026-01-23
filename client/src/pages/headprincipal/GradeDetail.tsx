@@ -174,7 +174,7 @@ export default function GradeDetail() {
       <Card sx={{ mb: 3, bgcolor: '#f8f9fa' }}>
         <CardContent sx={{ py: 2 }}>
           <Grid container spacing={2}>
-            <Grid item xs={6} sm={3}>
+            <Grid xs={6} sm={3}>
               <Box sx={{ textAlign: 'center' }}>
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                   Total Students
@@ -184,7 +184,7 @@ export default function GradeDetail() {
                 </Typography>
               </Box>
             </Grid>
-            <Grid item xs={6} sm={3}>
+            <Grid xs={6} sm={3}>
               <Box sx={{ textAlign: 'center' }}>
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                   Total Classes
@@ -194,7 +194,7 @@ export default function GradeDetail() {
                 </Typography>
               </Box>
             </Grid>
-            <Grid item xs={6} sm={3}>
+            <Grid xs={6} sm={3}>
               <Box sx={{ textAlign: 'center' }}>
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                   Avg per Class
@@ -204,7 +204,7 @@ export default function GradeDetail() {
                 </Typography>
               </Box>
             </Grid>
-            <Grid item xs={6} sm={3}>
+            <Grid xs={6} sm={3}>
               <Box sx={{ textAlign: 'center' }}>
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                   Grade Level
@@ -323,3 +323,4 @@ export default function GradeDetail() {
     </Box>
   );
 }
+

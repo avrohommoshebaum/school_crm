@@ -56,7 +56,7 @@ export default function ViewClassDialog({ open, classData, onClose, onEdit }: Vi
       <DialogContent dividers>
         <Grid container spacing={3}>
           {/* Teacher Information */}
-          <Grid item xs={12} sm={6}>
+          <Grid xs={12} sm={6}>
             <Box sx={{ display: 'flex', alignItems: 'start', gap: 1.5 }}>
               <PersonIcon sx={{ color: '#1976d2', mt: 0.5 }} />
               <Box>
@@ -71,7 +71,7 @@ export default function ViewClassDialog({ open, classData, onClose, onEdit }: Vi
           </Grid>
 
           {/* Room Number */}
-          <Grid item xs={12} sm={6}>
+          <Grid xs={12} sm={6}>
             <Box sx={{ display: 'flex', alignItems: 'start', gap: 1.5 }}>
               <RoomIcon sx={{ color: '#1976d2', mt: 0.5 }} />
               <Box>
@@ -86,7 +86,7 @@ export default function ViewClassDialog({ open, classData, onClose, onEdit }: Vi
           </Grid>
 
           {/* Student Count */}
-          <Grid item xs={12} sm={6}>
+          <Grid xs={12} sm={6}>
             <Box sx={{ display: 'flex', alignItems: 'start', gap: 1.5 }}>
               <PeopleIcon sx={{ color: '#1976d2', mt: 0.5 }} />
               <Box>
@@ -109,7 +109,7 @@ export default function ViewClassDialog({ open, classData, onClose, onEdit }: Vi
           </Grid>
 
           {/* School Year */}
-          <Grid item xs={12} sm={6}>
+          <Grid xs={12} sm={6}>
             <Box sx={{ display: 'flex', alignItems: 'start', gap: 1.5 }}>
               <CalendarTodayIcon sx={{ color: '#1976d2', mt: 0.5 }} />
               <Box>
@@ -125,7 +125,7 @@ export default function ViewClassDialog({ open, classData, onClose, onEdit }: Vi
 
           {/* Schedule */}
           {classData.schedule && (
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <Box sx={{ display: 'flex', alignItems: 'start', gap: 1.5 }}>
                 <ScheduleIcon sx={{ color: '#1976d2', mt: 0.5 }} />
                 <Box sx={{ flex: 1 }}>
@@ -142,7 +142,7 @@ export default function ViewClassDialog({ open, classData, onClose, onEdit }: Vi
 
           {/* Subjects */}
           {classData.subjects && classData.subjects.length > 0 && (
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <Box sx={{ display: 'flex', alignItems: 'start', gap: 1.5 }}>
                 <MenuBookIcon sx={{ color: '#1976d2', mt: 0.5 }} />
                 <Box sx={{ flex: 1 }}>
@@ -167,7 +167,7 @@ export default function ViewClassDialog({ open, classData, onClose, onEdit }: Vi
 
           {/* Notes */}
           {classData.notes && (
-            <Grid item xs={12}>
+            <Grid xs={12}>
               <Divider sx={{ my: 1 }} />
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
                 Notes
@@ -179,13 +179,13 @@ export default function ViewClassDialog({ open, classData, onClose, onEdit }: Vi
           )}
 
           {/* Quick Stats */}
-          <Grid item xs={12}>
+          <Grid xs={12}>
             <Divider sx={{ my: 1 }} />
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
               Quick Stats
             </Typography>
             <Grid container spacing={2}>
-              <Grid item xs={6} sm={3}>
+              <Grid xs={6} sm={3}>
                 <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'primary.50', borderRadius: 1 }}>
                   <Typography variant="h6" color="primary.main" sx={{ fontWeight: 'bold' }}>
                     {classData.studentCount}
@@ -195,7 +195,7 @@ export default function ViewClassDialog({ open, classData, onClose, onEdit }: Vi
                   </Typography>
                 </Box>
               </Grid>
-              <Grid item xs={6} sm={3}>
+              <Grid xs={6} sm={3}>
                 <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'success.50', borderRadius: 1 }}>
                   <Typography variant="h6" sx={{ color: 'success.main', fontWeight: 'bold' }}>
                     {classData.maxCapacity - classData.studentCount}
@@ -205,7 +205,7 @@ export default function ViewClassDialog({ open, classData, onClose, onEdit }: Vi
                   </Typography>
                 </Box>
               </Grid>
-              <Grid item xs={6} sm={3}>
+              <Grid xs={6} sm={3}>
                 <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'info.50', borderRadius: 1 }}>
                   <Typography variant="h6" sx={{ color: 'info.main', fontWeight: 'bold' }}>
                     {classData.subjects?.length || 0}
@@ -215,7 +215,7 @@ export default function ViewClassDialog({ open, classData, onClose, onEdit }: Vi
                   </Typography>
                 </Box>
               </Grid>
-              <Grid item xs={6} sm={3}>
+              <Grid xs={6} sm={3}>
                 <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'warning.50', borderRadius: 1 }}>
                   <Typography variant="h6" sx={{ color: 'warning.main', fontWeight: 'bold' }}>
                     {Math.round(capacityPercentage)}%
@@ -240,3 +240,4 @@ export default function ViewClassDialog({ open, classData, onClose, onEdit }: Vi
     </Dialog>
   );
 }
+

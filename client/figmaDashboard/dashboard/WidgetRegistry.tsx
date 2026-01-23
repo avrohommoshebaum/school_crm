@@ -240,3 +240,4 @@ export function getDefaultWidgetsForRole(role: string, userPermissions: string[]
   // Filter default widgets to only include those the user has permission for
   return defaultWidgets.filter((widgetId) => availableWidgetIds.includes(widgetId));
 }
+

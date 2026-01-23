@@ -18,6 +18,7 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import PeopleIcon from '@mui/icons-material/People';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import DescriptionIcon from '@mui/icons-material/Description';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 import type { JSX } from 'react';
 
 import SamplePageOverlay from '../components/samplePageOverlay';
@@ -265,6 +266,7 @@ export default function BusinessOfficeCenter(): JSX.Element {
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
             <ActionBox icon={<CreditCardIcon />} label="Record Payment" onClick={() => navigate('/business-office/tuition')} />
             <ActionBox icon={<FavoriteIcon />} label="Log Donation" onClick={() => navigate('/business-office/donations')} />
+            <ActionBox icon={<UploadFileIcon />} label="Import Families & Students" onClick={() => navigate('/business-office/import')} />
             <ActionBox icon={<PeopleIcon />} label="Send Reminder" onClick={() => navigate('/business-office/tuition')} />
             <ActionBox icon={<DescriptionIcon />} label="Generate Report" onClick={() => navigate('/business-office/reports')} />
           </Stack>
@@ -309,3 +311,4 @@ function ActionBox({
     </Box>
   );
 }
+

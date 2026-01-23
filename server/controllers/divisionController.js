@@ -25,7 +25,8 @@ export const getAllDivisions = async (req, res) => {
     res.json({ divisions: divisionsWithGrades });
   } catch (error) {
     console.error("Error getting divisions:", error);
-    res.status(500).json({ message: "Error fetching divisions", error: error.message });
+    const { sendErrorResponse } = await import("../utils/errorHandler.js");
+    sendErrorResponse(res, 500, "Error fetching divisions", error);
   }
 };
 
@@ -40,7 +41,8 @@ export const getDivisionById = async (req, res) => {
     res.json({ division: { ...division, grades } });
   } catch (error) {
     console.error("Error getting division:", error);
-    res.status(500).json({ message: "Error fetching division", error: error.message });
+    const { sendErrorResponse } = await import("../utils/errorHandler.js");
+    sendErrorResponse(res, 500, "Error fetching division", error);
   }
 };
 
@@ -77,7 +79,8 @@ export const createDivision = async (req, res) => {
     });
   } catch (error) {
     console.error("Error creating division:", error);
-    res.status(500).json({ message: "Error creating division", error: error.message });
+    const { sendErrorResponse } = await import("../utils/errorHandler.js");
+    sendErrorResponse(res, 500, "Error creating division", error);
   }
 };
 
@@ -130,7 +133,8 @@ export const updateDivision = async (req, res) => {
     });
   } catch (error) {
     console.error("Error updating division:", error);
-    res.status(500).json({ message: "Error updating division", error: error.message });
+    const { sendErrorResponse } = await import("../utils/errorHandler.js");
+    sendErrorResponse(res, 500, "Error updating division", error);
   }
 };
 
@@ -141,6 +145,7 @@ export const deleteDivision = async (req, res) => {
     res.json({ message: "Division deleted successfully" });
   } catch (error) {
     console.error("Error deleting division:", error);
-    res.status(500).json({ message: "Error deleting division", error: error.message });
+    const { sendErrorResponse } = await import("../utils/errorHandler.js");
+    sendErrorResponse(res, 500, "Error deleting division", error);
   }
 };

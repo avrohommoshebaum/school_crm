@@ -170,7 +170,7 @@ export default function TeacherReportCards({ teacherId }: TeacherReportCardsProp
       {/* Controls */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} sm={4}>
+          <Grid xs={12} sm={4}>
             <FormControl fullWidth>
               <InputLabel>Select Class</InputLabel>
               <Select
@@ -186,7 +186,7 @@ export default function TeacherReportCards({ teacherId }: TeacherReportCardsProp
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} sm={4}>
+          <Grid xs={12} sm={4}>
             <FormControl fullWidth>
               <InputLabel>Quarter</InputLabel>
               <Select
@@ -201,7 +201,7 @@ export default function TeacherReportCards({ teacherId }: TeacherReportCardsProp
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} sm={4}>
+          <Grid xs={12} sm={4}>
             <Button
               fullWidth
               variant="contained"
@@ -457,3 +457,4 @@ function EditReportCardDialog({ open, student, reportCard, onClose, onSave }: Ed
     </Dialog>
   );
 }
+

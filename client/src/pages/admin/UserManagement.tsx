@@ -2348,3 +2348,4 @@ const handleResetPassword = () => {
     
 
 export default UserManagement;
+

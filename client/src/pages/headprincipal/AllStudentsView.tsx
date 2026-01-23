@@ -184,7 +184,7 @@ export default function AllStudentsView() {
       {/* Filters */}
       <Paper sx={{ p: 2, mb: 3 }}>
         <Grid container spacing={2}>
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid xs={12} sm={6} md={4}>
             <TextField
               fullWidth
               size="small"
@@ -196,7 +196,7 @@ export default function AllStudentsView() {
               }}
             />
           </Grid>
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid xs={12} sm={6} md={4}>
             <FormControl fullWidth size="small">
               <InputLabel>Grade</InputLabel>
               <Select
@@ -216,7 +216,7 @@ export default function AllStudentsView() {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid xs={12} sm={6} md={4}>
             <FormControl fullWidth size="small">
               <InputLabel>Status</InputLabel>
               <Select
@@ -334,3 +334,4 @@ export default function AllStudentsView() {
     </Box>
   );
 }
+

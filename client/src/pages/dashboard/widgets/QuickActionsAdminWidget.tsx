@@ -44,7 +44,7 @@ export default function QuickActionsAdminWidget() {
         {actions.map((action) => {
           const Icon = action.icon;
           return (
-            <Grid item xs={6} key={action.label}>
+            <Grid xs={6} key={action.label}>
               <Button
                 fullWidth
                 variant="outlined"

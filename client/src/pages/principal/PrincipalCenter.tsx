@@ -105,7 +105,7 @@ export default function PrincipalCenter() {
         ) : (
           <Grid container spacing={2}>
             {grades.map((grade) => (
-              <Grid item xs={12} sm={6} md={4} key={grade.id}>
+              <Grid xs={12} sm={6} md={4} key={grade.id}>
                 <Card
                   sx={{
                     cursor: "pointer",
@@ -152,4 +152,5 @@ export default function PrincipalCenter() {
     </Box>
   );
 }
+
 

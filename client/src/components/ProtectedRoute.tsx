@@ -191,3 +191,4 @@ export default function ProtectedRoute({ roles, permission }: ProtectedProps) {
 
   return <Outlet />;
 }
+

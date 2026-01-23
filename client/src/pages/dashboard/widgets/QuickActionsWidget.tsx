@@ -178,7 +178,7 @@ export default function QuickActionsWidget({ selectedActions }: QuickActionsWidg
         {actionsToShow.map((action) => {
           const Icon = action.icon;
           return (
-            <Grid item xs={6} key={action.id}>
+            <Grid xs={6} key={action.id}>
               <Button
                 fullWidth
                 variant="outlined"
@@ -208,3 +208,4 @@ export default function QuickActionsWidget({ selectedActions }: QuickActionsWidg
     </Paper>
   );
 }
+

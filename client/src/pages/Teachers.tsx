@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search, Plus, Mail, Phone, Users, BookOpen } from "lucide-react";
-
+import { useNavigate } from "react-router-dom";
 import {
   Box,
   Card,
@@ -18,251 +18,330 @@ import {
   Avatar,
   MenuItem,
   Divider,
+  CircularProgress,
+  Alert,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TablePagination,
+  Paper,
 } from "@mui/material";
-
-import SamplePageOverlay from "../components/samplePageOverlay";
-
-/* ---------------- Types ---------------- */
+import api from "../utils/api";
 
 type Teacher = {
-  id: number;
-  name: string;
-  hebrewName: string;
-  email: string;
-  phone: string;
-  grade: string;
-  class: string;
-  subject: string;
-  students: number;
-  experience: string;
-  status: string;
+  id: string;
+  firstName: string;
+  lastName: string;
+  email?: string;
+  phone?: string;
+  title?: string;
+  gradeNames?: string[];
+  classNames?: string[];
+  studentCount?: number;
+  employmentStatus?: string;
 };
 
-/* ---------------- Component ---------------- */
-
 export default function Teachers() {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [open, setOpen] = useState(false);
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(25);
 
-  const teachers: Teacher[] = [
-    {
-      id: 1,
-      name: "Mrs. Schwartz",
-      hebrewName: "מרת שוורץ",
-      email: "rschwartz@nachlasby.com",
-      phone: "(732) 555-2468",
-      grade: "3rd Grade",
-      class: "A",
-      subject: "General Studies",
-      students: 24,
-      experience: "12 years",
-      status: "active",
-    },
-    {
-      id: 2,
-      name: "Mrs. Goldberg",
-      hebrewName: "מרת גולדברג",
-      email: "sgoldberg@nachlasby.com",
-      phone: "(732) 555-3579",
-      grade: "4th Grade",
-      class: "B",
-      subject: "Limudei Kodesh",
-      students: 22,
-      experience: "8 years",
-      status: "active",
-    },
-  ];
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const [staffRes, classesRes, studentsRes] = await Promise.all([
+        api.get("/staff"),
+        api.get("/classes"),
+        api.get("/students"),
+      ]);
+
+      const allStaff = staffRes.data.staff || [];
+      const allClasses = classesRes.data.classes || [];
+      const allStudents = studentsRes.data.students || [];
+
+      // Filter for teachers (staff with teacher positions or assigned to classes)
+      const teachersData = allStaff
+        .filter((staff: any) => {
+          // Check if staff has teacher position or is assigned to classes
+          const hasTeacherPosition = staff.positions?.some(
+            (p: any) => p.positionName?.toLowerCase().includes("teacher") || 
+                       p.position_name?.toLowerCase().includes("teacher")
+          );
+          const hasClassAssignment = allClasses.some(
+            (c: any) => c.teacherId === staff.id || c.teacher_id === staff.id
+          );
+          return hasTeacherPosition || hasClassAssignment;
+        })
+        .map((staff: any) => {
+          // Get classes assigned to this teacher
+          const assignedClasses = allClasses.filter(
+            (c: any) => c.teacherId === staff.id || c.teacher_id === staff.id
+          );
+          
+          // Get grades from classes
+          const gradeIds = new Set(
+            assignedClasses
+              .map((c: any) => c.gradeId || c.grade_id)
+              .filter(Boolean)
+          );
+          
+          // Count students in assigned classes
+          const studentCount = allStudents.filter((s: any) =>
+            assignedClasses.some(
+              (c: any) => (s.classId || s.class_id) === (c.id || c._id)
+            )
+          ).length;
+
+          return {
+            id: staff.id || staff._id,
+            firstName: staff.firstName || staff.first_name || "",
+            lastName: staff.lastName || staff.last_name || "",
+            email: staff.email,
+            phone: staff.phone,
+            title: staff.title,
+            gradeNames: Array.from(gradeIds).map((gradeId) => {
+              // You'd need to fetch grades to get names, but for now just show count
+              return `Grade ${gradeId}`;
+            }),
+            classNames: assignedClasses.map((c: any) => c.name),
+            studentCount,
+            employmentStatus: staff.employmentStatus || staff.employment_status || "active",
+          };
+        });
+
+      setTeachers(teachersData);
+    } catch (err: any) {
+      console.error("Error loading teachers:", err);
+      setError(err?.response?.data?.message || "Failed to load teachers");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredTeachers = teachers.filter(
     (t) =>
-      t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.grade.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.subject.toLowerCase().includes(searchQuery.toLowerCase())
+      t.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (t.email && t.email.toLowerCase().includes(searchQuery.toLowerCase()))
   );
+
+  const paginatedTeachers = filteredTeachers.slice(
+    page * rowsPerPage,
+    page * rowsPerPage + rowsPerPage
+  );
+
+  if (loading) {
+    return (
+      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "400px" }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
-    <>
-      <SamplePageOverlay />
+    <Box sx={{ maxWidth: 1300, mx: "auto", p: 2, pb: 8 }}>
+      {/* Header */}
+      <Stack
+        direction="row"
+        justifyContent="space-between"
+        alignItems="center"
+        mb={3}
+      >
+        <Box>
+          <Typography variant="h5" fontWeight={600}>
+            Teachers & Staff
+          </Typography>
+          <Typography color="text.secondary">
+            Manage teaching staff and assignments ({filteredTeachers.length} teachers)
+          </Typography>
+        </Box>
 
-      <Box sx={{ maxWidth: 1300, mx: "auto", p: 2, pb: 8 }}>
-        {/* Header */}
-        <Stack
-          direction="row"
-          justifyContent="space-between"
-          alignItems="center"
-          mb={3}
+        <Button
+          variant="contained"
+          startIcon={<Plus size={16} />}
+          onClick={() => navigate("/admin/staff")}
         >
-          <Box>
-            <Typography variant="h5" fontWeight={600}>
-              Teachers & Staff
-            </Typography>
+          Add Teacher
+        </Button>
+      </Stack>
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
+
+      {/* Stats */}
+      <Stack direction={{ xs: "column", md: "row" }} spacing={2} mb={3}>
+        {[
+          { label: "Total Teachers", value: teachers.length, icon: <Users /> },
+          { label: "Active Teachers", value: teachers.filter(t => t.employmentStatus === "active").length, icon: <BookOpen /> },
+          { label: "Total Students", value: teachers.reduce((sum, t) => sum + (t.studentCount || 0), 0), icon: <Users /> },
+        ].map((stat, idx) => (
+          <Card key={idx} sx={{ flex: 1 }}>
+            <CardContent>
+              <Stack direction="row" justifyContent="space-between">
+                <Box>
+                  <Typography variant="caption" color="text.secondary">
+                    {stat.label}
+                  </Typography>
+                  <Typography variant="h6">{stat.value}</Typography>
+                </Box>
+                <Avatar sx={{ bgcolor: "primary.light" }}>
+                  {stat.icon}
+                </Avatar>
+              </Stack>
+            </CardContent>
+          </Card>
+        ))}
+      </Stack>
+
+      {/* Search */}
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <Search size={16} />
+            <TextField
+              fullWidth
+              placeholder="Search teachers by name or email..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              size="small"
+            />
+          </Stack>
+        </CardContent>
+      </Card>
+
+      {/* Teachers Table */}
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow sx={{ bgcolor: "#f5f5f5" }}>
+              <TableCell sx={{ fontWeight: "bold" }}>Name</TableCell>
+              <TableCell sx={{ fontWeight: "bold" }}>Email</TableCell>
+              <TableCell sx={{ fontWeight: "bold" }}>Phone</TableCell>
+              <TableCell sx={{ fontWeight: "bold" }}>Classes</TableCell>
+              <TableCell sx={{ fontWeight: "bold" }}>Students</TableCell>
+              <TableCell sx={{ fontWeight: "bold" }}>Status</TableCell>
+              <TableCell sx={{ fontWeight: "bold" }} align="right">Actions</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {paginatedTeachers.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                  <Typography color="text.secondary">
+                    {searchQuery ? "No teachers match your search" : "No teachers found"}
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            ) : (
+              paginatedTeachers.map((t) => (
+                <TableRow key={t.id} hover>
+                  <TableCell>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Avatar sx={{ bgcolor: "secondary.main", width: 32, height: 32 }}>
+                        {t.lastName.charAt(0)}
+                      </Avatar>
+                      <Box>
+                        <Typography fontWeight={500}>
+                          {t.title ? `${t.title} ` : ""}{t.firstName} {t.lastName}
+                        </Typography>
+                      </Box>
+                    </Stack>
+                  </TableCell>
+                  <TableCell>{t.email || "—"}</TableCell>
+                  <TableCell>{t.phone || "—"}</TableCell>
+                  <TableCell>
+                    {t.classNames && t.classNames.length > 0 ? (
+                      <Chip label={t.classNames.join(", ")} size="small" />
+                    ) : (
+                      "—"
+                    )}
+                  </TableCell>
+                  <TableCell>{t.studentCount || 0}</TableCell>
+                  <TableCell>
+                    <Chip
+                      label={t.employmentStatus || "active"}
+                      color={t.employmentStatus === "active" ? "success" : "default"}
+                      size="small"
+                      sx={{ textTransform: "capitalize" }}
+                    />
+                  </TableCell>
+                  <TableCell align="right">
+                    <Stack direction="row" spacing={1} justifyContent="flex-end">
+                      {t.email && (
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          startIcon={<Mail size={14} />}
+                          href={`mailto:${t.email}`}
+                        >
+                          Email
+                        </Button>
+                      )}
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        onClick={() => navigate(`/admin/staff/${t.id}`)}
+                      >
+                        View
+                      </Button>
+                    </Stack>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+        <TablePagination
+          component="div"
+          count={filteredTeachers.length}
+          page={page}
+          onPageChange={(_, newPage) => setPage(newPage)}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={(e) => {
+            setRowsPerPage(parseInt(e.target.value, 10));
+            setPage(0);
+          }}
+          rowsPerPageOptions={[10, 25, 50, 100]}
+        />
+      </TableContainer>
+
+      {/* Add Teacher Dialog */}
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Add New Teacher</DialogTitle>
+
+        <DialogContent dividers>
+          <Stack spacing={2}>
             <Typography color="text.secondary">
-              Manage teaching staff and assignments
+              To add a new teacher, please use the Staff Management page.
             </Typography>
-          </Box>
+          </Stack>
+        </DialogContent>
 
-          <Button
-            variant="contained"
-            startIcon={<Plus size={16} />}
-            onClick={() => setOpen(true)}
-          >
-            Add Teacher
+        <DialogActions>
+          <Button onClick={() => setOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={() => navigate("/admin/staff")}>
+            Go to Staff Management
           </Button>
-        </Stack>
-
-        {/* Search */}
-        <Card sx={{ mb: 3 }}>
-          <CardContent>
-            <Stack direction="row" alignItems="center" spacing={1}>
-              <Search size={16} />
-              <TextField
-                fullWidth
-                placeholder="Search teachers by name, grade, or subject..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                size="small"
-              />
-            </Stack>
-          </CardContent>
-        </Card>
-
-        {/* Stats */}
-        <Stack direction={{ xs: "column", md: "row" }} spacing={2} mb={3}>
-          {[
-            { label: "Total Teachers", value: 45, icon: <Users /> },
-            { label: "Classes", value: 28, icon: <BookOpen /> },
-            { label: "Avg Students/Class", value: "23.5", icon: <Users /> },
-            { label: "Substitute Needs", value: 2, icon: <Users /> },
-          ].map((stat, idx) => (
-            <Card key={idx} sx={{ flex: 1 }}>
-              <CardContent>
-                <Stack direction="row" justifyContent="space-between">
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">
-                      {stat.label}
-                    </Typography>
-                    <Typography variant="h6">{stat.value}</Typography>
-                  </Box>
-                  <Avatar sx={{ bgcolor: "primary.light" }}>
-                    {stat.icon}
-                  </Avatar>
-                </Stack>
-              </CardContent>
-            </Card>
-          ))}
-        </Stack>
-
-        {/* Teachers List */}
-        <Stack spacing={3}>
-          {filteredTeachers.map((t) => (
-            <Card key={t.id}>
-              <CardHeader
-                avatar={
-                  <Avatar sx={{ bgcolor: "secondary.main" }}>
-                    {t.name.split(" ")[1][0]}
-                  </Avatar>
-                }
-                title={t.name}
-                subheader={t.hebrewName}
-                action={<Chip label={t.status} color="primary" />}
-              />
-
-              <CardContent>
-                <Stack spacing={2}>
-                  <Stack
-                    direction={{ xs: "column", sm: "row" }}
-                    spacing={2}
-                    justifyContent="space-between"
-                  >
-                    <Box>
-                      <Typography variant="caption">Grade & Class</Typography>
-                      <Typography>
-                        {t.grade} – {t.class}
-                      </Typography>
-                    </Box>
-                    <Box>
-                      <Typography variant="caption">Subject</Typography>
-                      <Typography>{t.subject}</Typography>
-                    </Box>
-                    <Box>
-                      <Typography variant="caption">Students</Typography>
-                      <Typography>{t.students}</Typography>
-                    </Box>
-                    <Box>
-                      <Typography variant="caption">Experience</Typography>
-                      <Typography>{t.experience}</Typography>
-                    </Box>
-                  </Stack>
-
-                  <Divider />
-
-                  <Stack direction="row" spacing={1}>
-                    <Button
-                      fullWidth
-                      variant="outlined"
-                      size="small"
-                      startIcon={<Mail size={14} />}
-                    >
-                      Email
-                    </Button>
-                    <Button
-                      fullWidth
-                      variant="outlined"
-                      size="small"
-                      startIcon={<Phone size={14} />}
-                    >
-                      Call
-                    </Button>
-                    <Button fullWidth variant="outlined" size="small">
-                      View Details
-                    </Button>
-                  </Stack>
-                </Stack>
-              </CardContent>
-            </Card>
-          ))}
-        </Stack>
-
-        {/* Add Teacher Dialog */}
-        <Dialog open={open} onClose={() => setOpen(false)} maxWidth="md" fullWidth>
-          <DialogTitle>Add New Teacher</DialogTitle>
-
-          <DialogContent dividers>
-            <Stack spacing={2}>
-              <Stack direction="row" spacing={2}>
-                <TextField label="English Name" fullWidth />
-                <TextField label="Hebrew Name" fullWidth />
-              </Stack>
-
-              <Stack direction="row" spacing={2}>
-                <TextField label="Email" fullWidth />
-                <TextField label="Phone" fullWidth />
-              </Stack>
-
-              <Stack direction="row" spacing={2}>
-                <TextField label="Grade" select fullWidth>
-                  {["1st", "2nd", "3rd", "4th", "5th", "6th"].map((g) => (
-                    <MenuItem key={g} value={g}>
-                      {g} Grade
-                    </MenuItem>
-                  ))}
-                </TextField>
-
-                <TextField label="Subject" select fullWidth>
-                  <MenuItem value="general">General Studies</MenuItem>
-                  <MenuItem value="kodesh">Limudei Kodesh</MenuItem>
-                  <MenuItem value="both">Both</MenuItem>
-                </TextField>
-              </Stack>
-            </Stack>
-          </DialogContent>
-
-          <DialogActions>
-            <Button onClick={() => setOpen(false)}>Cancel</Button>
-            <Button variant="contained">Add Teacher</Button>
-          </DialogActions>
-        </Dialog>
-      </Box>
-    </>
+        </DialogActions>
+      </Dialog>
+    </Box>
   );
 }
+

@@ -28,7 +28,8 @@ export const getAllAssignments = async (req, res) => {
     res.json({ assignments });
   } catch (error) {
     console.error("Error getting assignments:", error);
-    res.status(500).json({ message: "Error fetching assignments", error: error.message });
+    const { sendErrorResponse } = await import("../utils/errorHandler.js");
+    sendErrorResponse(res, 500, "Error fetching assignments", error);
   }
 };
 
@@ -58,7 +59,8 @@ export const getAllPrincipals = async (req, res) => {
     res.json({ principals });
   } catch (error) {
     console.error("Error getting principals:", error);
-    res.status(500).json({ message: "Error fetching principals", error: error.message });
+    const { sendErrorResponse } = await import("../utils/errorHandler.js");
+    sendErrorResponse(res, 500, "Error fetching principals", error);
   }
 };
 
@@ -97,7 +99,8 @@ export const createAssignment = async (req, res) => {
     res.status(201).json({ message: "Assignment created successfully", assignment });
   } catch (error) {
     console.error("Error creating assignment:", error);
-    res.status(500).json({ message: "Error creating assignment", error: error.message });
+    const { sendErrorResponse } = await import("../utils/errorHandler.js");
+    sendErrorResponse(res, 500, "Error creating assignment", error);
   }
 };
 
@@ -114,7 +117,8 @@ export const updateAssignment = async (req, res) => {
     res.json({ message: "Assignment updated successfully", assignment });
   } catch (error) {
     console.error("Error updating assignment:", error);
-    res.status(500).json({ message: "Error updating assignment", error: error.message });
+    const { sendErrorResponse } = await import("../utils/errorHandler.js");
+    sendErrorResponse(res, 500, "Error updating assignment", error);
   }
 };
 
@@ -125,7 +129,8 @@ export const deleteAssignment = async (req, res) => {
     res.json({ message: "Assignment deleted successfully" });
   } catch (error) {
     console.error("Error deleting assignment:", error);
-    res.status(500).json({ message: "Error deleting assignment", error: error.message });
+    const { sendErrorResponse } = await import("../utils/errorHandler.js");
+    sendErrorResponse(res, 500, "Error deleting assignment", error);
   }
 };
 
@@ -151,7 +156,8 @@ export const getAllDivisionAssignments = async (req, res) => {
     res.json({ assignments });
   } catch (error) {
     console.error("Error getting division assignments:", error);
-    res.status(500).json({ message: "Error fetching division assignments", error: error.message });
+    const { sendErrorResponse } = await import("../utils/errorHandler.js");
+    sendErrorResponse(res, 500, "Error fetching division assignments", error);
   }
 };
 
@@ -188,7 +194,8 @@ export const createDivisionAssignment = async (req, res) => {
     res.status(201).json({ message: "Division assignment created successfully", assignment });
   } catch (error) {
     console.error("Error creating division assignment:", error);
-    res.status(500).json({ message: "Error creating division assignment", error: error.message });
+    const { sendErrorResponse } = await import("../utils/errorHandler.js");
+    sendErrorResponse(res, 500, "Error creating division assignment", error);
   }
 };
 
@@ -205,7 +212,8 @@ export const updateDivisionAssignment = async (req, res) => {
     res.json({ message: "Division assignment updated successfully", assignment });
   } catch (error) {
     console.error("Error updating division assignment:", error);
-    res.status(500).json({ message: "Error updating division assignment", error: error.message });
+    const { sendErrorResponse } = await import("../utils/errorHandler.js");
+    sendErrorResponse(res, 500, "Error updating division assignment", error);
   }
 };
 
@@ -216,6 +224,7 @@ export const deleteDivisionAssignment = async (req, res) => {
     res.json({ message: "Division assignment deleted successfully" });
   } catch (error) {
     console.error("Error deleting division assignment:", error);
-    res.status(500).json({ message: "Error deleting division assignment", error: error.message });
+    const { sendErrorResponse } = await import("../utils/errorHandler.js");
+    sendErrorResponse(res, 500, "Error deleting division assignment", error);
   }
 };

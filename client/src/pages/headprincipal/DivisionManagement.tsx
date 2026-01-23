@@ -391,3 +391,4 @@ export default function DivisionManagement() {
     </Box>
   );
 }
+

@@ -40,6 +40,8 @@ const ManageGroups = lazy(() => import("../pages/communication/ManageGroups"));
 const MessageHistory = lazy(() => import("../pages/communication/MessageHistory"));
 const Students = lazy(() => import("../pages/Students"));
 const StudentProfile = lazy(() => import("../pages/StudentProfile"));
+const Families = lazy(() => import("../pages/Families"));
+const Staff = lazy(() => import("../pages/Staff"));
 const Teachers = lazy(() => import("../pages/Teachers"));
 const MyClasses = lazy(() => import("../pages/teacher/MyClasses"));
 const TeacherAttendance = lazy(() => import("../pages/teacher/TeacherAttendance"));
@@ -74,6 +76,8 @@ const TuitionManagement = lazy(() => import("../pages/business/TuitionManagement
 const Donations = lazy(() => import("../pages/business/Donations"));
 const Transportation = lazy(() => import("../pages/business/Transportation"));
 const FinancialReports = lazy(() => import("../pages/business/FinancialReports"));
+const FamilyStudentImport = lazy(() => import("../pages/business/FamilyStudentImport"));
+const ImportCenter = lazy(() => import("../pages/admin/ImportCenter"));
 
 
 function NotFound() {
@@ -178,6 +182,14 @@ const router = createBrowserRouter([
           {
             path: "students/:id",
             element: <LazyRoute Component={StudentProfile} />,
+          },
+          {
+            path: "families",
+            element: <LazyRoute Component={Families} />,
+          },
+          {
+            path: "staff",
+            element: <LazyRoute Component={Staff} />,
           },
           {
             path: "teachers",
@@ -377,6 +389,10 @@ const router = createBrowserRouter([
                 path: "reports",
                 element: <LazyRoute Component={FinancialReports} />,
               },
+              {
+                path: "import",
+                element: <LazyRoute Component={FamilyStudentImport} />,
+              },
             ],
           },
           {
@@ -437,3 +453,4 @@ const router = createBrowserRouter([
 export default function AppRouter() {
   return <RouterProvider router={router} />;
 }
+

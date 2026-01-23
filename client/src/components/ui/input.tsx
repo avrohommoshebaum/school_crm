@@ -27,3 +27,4 @@ export function Input({ className, sx, ...props }: InputProps) {
     />
   );
 }
+

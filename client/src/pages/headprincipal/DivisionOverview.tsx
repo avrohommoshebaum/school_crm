@@ -207,7 +207,7 @@ export default function DivisionOverview() {
       {/* Divisions Cards */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
         {divisions.map((division) => (
-          <Grid item xs={12} md={6} lg={4} key={division.id}>
+          <Grid xs={12} md={6} lg={4} key={division.id}>
             <Card
               sx={{
                 height: '100%',
@@ -262,7 +262,7 @@ export default function DivisionOverview() {
 
                 {/* Stats */}
                 <Grid container spacing={2} sx={{ mb: 2 }}>
-                  <Grid item xs={6}>
+                  <Grid xs={6}>
                     <Typography variant="caption" color="text.secondary">
                       Students
                     </Typography>
@@ -270,7 +270,7 @@ export default function DivisionOverview() {
                       {division.studentCount}
                     </Typography>
                   </Grid>
-                  <Grid item xs={6}>
+                  <Grid xs={6}>
                     <Typography variant="caption" color="text.secondary">
                       Performance
                     </Typography>
@@ -278,7 +278,7 @@ export default function DivisionOverview() {
                       {division.avgHebrewPerformance}
                     </Typography>
                   </Grid>
-                  <Grid item xs={6}>
+                  <Grid xs={6}>
                     <Typography variant="caption" color="text.secondary">
                       Behavior
                     </Typography>
@@ -286,7 +286,7 @@ export default function DivisionOverview() {
                       {division.avgBehavior}
                     </Typography>
                   </Grid>
-                  <Grid item xs={6}>
+                  <Grid xs={6}>
                     <Typography variant="caption" color="text.secondary">
                       Attendance
                     </Typography>
@@ -316,7 +316,7 @@ export default function DivisionOverview() {
 
       <Grid container spacing={3}>
         {/* Division Progress Chart */}
-        <Grid item xs={12} lg={8}>
+        <Grid xs={12} lg={8}>
           <Paper sx={{ p: 3 }}>
             <Typography variant="h6" sx={{ mb: 2 }}>
               Division Progress Trends
@@ -337,7 +337,7 @@ export default function DivisionOverview() {
         </Grid>
 
         {/* Division Stats */}
-        <Grid item xs={12} lg={4}>
+        <Grid xs={12} lg={4}>
           <Typography variant="h6" sx={{ mb: 2 }}>
             Division Statistics
           </Typography>
@@ -403,7 +403,7 @@ export default function DivisionOverview() {
         </Grid>
 
         {/* Grade Comparison Chart */}
-        <Grid item xs={12}>
+        <Grid xs={12}>
           <Paper sx={{ p: 3 }}>
             <Typography variant="h6" sx={{ mb: 2 }}>
               Grade-Level Comparison
@@ -476,3 +476,4 @@ export default function DivisionOverview() {
     </Box>
   );
 }
+

@@ -16,10 +16,30 @@ export const getAllClasses = async (req, res) => {
       limit: limit ? parseInt(limit) : undefined,
       offset: offset ? parseInt(offset) : undefined,
     });
-    res.json({ classes });
+    
+    // Enrich classes with student counts and teachers
+    const enrichedClasses = await Promise.all(
+      classes.map(async (cls) => {
+        const studentCount = await classService.getStudentCount(cls.id);
+        const teachers = await classService.getTeachers(cls.id);
+        return {
+          ...cls,
+          studentCount,
+          teachers: teachers.map(t => ({
+            id: t.id,
+            firstName: t.first_name,
+            lastName: t.last_name,
+            role: t.role,
+          })),
+        };
+      })
+    );
+    
+    res.json({ classes: enrichedClasses });
   } catch (error) {
     console.error("Error getting classes:", error);
-    res.status(500).json({ message: "Error fetching classes", error: error.message });
+    const { sendErrorResponse } = await import("../utils/errorHandler.js");
+    sendErrorResponse(res, 500, "Error fetching classes", error);
   }
 };
 

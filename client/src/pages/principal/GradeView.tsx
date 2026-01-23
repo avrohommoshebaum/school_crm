@@ -223,7 +223,7 @@ export default function GradeView() {
         {tab === 0 && (
           <Grid container spacing={2}>
             {classes.map((cls) => (
-              <Grid item xs={12} sm={6} md={4} key={cls.id}>
+              <Grid xs={12} sm={6} md={4} key={cls.id}>
                 <Card
                   sx={{
                     cursor: "pointer",
@@ -424,4 +424,5 @@ export default function GradeView() {
     </Box>
   );
 }
+
 

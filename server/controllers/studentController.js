@@ -4,6 +4,7 @@
  */
 
 import { studentService } from "../db/services/studentService.js";
+import { sendErrorResponse } from "../utils/errorHandler.js";
 
 export const getAllStudents = async (req, res) => {
   try {
@@ -32,31 +33,83 @@ export const getStudentById = async (req, res) => {
     res.json({ student });
   } catch (error) {
     console.error("Error getting student:", error);
-    res.status(500).json({ message: "Error fetching student", error: error.message });
+    sendErrorResponse(res, 500, "Error fetching student", error);
   }
 };
 
 export const createStudent = async (req, res) => {
   try {
-    const student = await studentService.create(req.body);
+    const { classId, ...studentData } = req.body;
+    const student = await studentService.create(studentData);
+    
+    // Assign to class if classId was provided
+    if (classId && student.id) {
+      const { query } = await import("../db/postgresConnect.js");
+      try {
+        await query(
+          `INSERT INTO student_classes (student_id, class_id, status, enrollment_date)
+           VALUES ($1, $2, 'active', CURRENT_DATE)
+           ON CONFLICT (student_id, class_id) 
+           DO UPDATE SET status = 'active', enrollment_date = CURRENT_DATE`,
+          [student.id, classId]
+        );
+      } catch (classError) {
+        console.warn("Student created but class assignment failed:", classError);
+        // Don't fail the entire operation if class assignment fails
+      }
+    }
+    
     res.status(201).json({ message: "Student created successfully", student });
   } catch (error) {
     console.error("Error creating student:", error);
-    res.status(500).json({ message: "Error creating student", error: error.message });
+    sendErrorResponse(res, 500, "Error creating student", error);
   }
 };
 
 export const updateStudent = async (req, res) => {
   try {
     const { id } = req.params;
-    const student = await studentService.update(id, req.body);
+    const { classId, ...studentData } = req.body;
+    
+    const student = await studentService.update(id, studentData);
     if (!student) {
       return res.status(404).json({ message: "Student not found" });
     }
+    
+    // Update class assignment if classId was provided
+    if (classId !== undefined && student.id) {
+      const { query } = await import("../db/postgresConnect.js");
+      if (classId) {
+        // Assign to new class
+        try {
+          await query(
+            `INSERT INTO student_classes (student_id, class_id, status, enrollment_date)
+             VALUES ($1, $2, 'active', CURRENT_DATE)
+             ON CONFLICT (student_id, class_id) 
+             DO UPDATE SET status = 'active', enrollment_date = CURRENT_DATE`,
+            [student.id, classId]
+          );
+        } catch (classError) {
+          console.warn("Class assignment update failed:", classError);
+        }
+      } else {
+        // Remove from all classes (set status to 'withdrawn')
+        try {
+          await query(
+            `UPDATE student_classes SET status = 'withdrawn', withdrawal_date = CURRENT_DATE
+             WHERE student_id = $1 AND status = 'active'`,
+            [student.id]
+          );
+        } catch (classError) {
+          console.warn("Class withdrawal update failed:", classError);
+        }
+      }
+    }
+    
     res.json({ message: "Student updated successfully", student });
   } catch (error) {
     console.error("Error updating student:", error);
-    res.status(500).json({ message: "Error updating student", error: error.message });
+    sendErrorResponse(res, 500, "Error updating student", error);
   }
 };
 
@@ -67,7 +120,7 @@ export const deleteStudent = async (req, res) => {
     res.json({ message: "Student deleted successfully" });
   } catch (error) {
     console.error("Error deleting student:", error);
-    res.status(500).json({ message: "Error deleting student", error: error.message });
+    sendErrorResponse(res, 500, "Error deleting student", error);
   }
 };
 

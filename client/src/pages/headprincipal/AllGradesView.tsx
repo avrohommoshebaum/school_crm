@@ -173,14 +173,14 @@ export default function AllGradesView() {
       {/* Grades Grid */}
       <Grid container spacing={3}>
         {grades.length === 0 ? (
-          <Grid item xs={12}>
+          <Grid xs={12}>
             <Alert severity="info">
               No grades found. Create grades in Grade Management to get started.
             </Alert>
           </Grid>
         ) : (
           grades.map((grade) => (
-          <Grid item xs={12} md={6} lg={4} key={grade.id}>
+          <Grid xs={12} md={6} lg={4} key={grade.id}>
             <Card
               sx={{
                 height: '100%',
@@ -218,7 +218,7 @@ export default function AllGradesView() {
 
                 {/* Metrics */}
                 <Grid container spacing={2} sx={{ mb: 2 }}>
-                  <Grid item xs={4}>
+                  <Grid xs={4}>
                     <Typography variant="caption" color="text.secondary">
                       Performance
                     </Typography>
@@ -226,7 +226,7 @@ export default function AllGradesView() {
                       {grade.avgPerformance || '—'}
                     </Typography>
                   </Grid>
-                  <Grid item xs={4}>
+                  <Grid xs={4}>
                     <Typography variant="caption" color="text.secondary">
                       Behavior
                     </Typography>
@@ -234,7 +234,7 @@ export default function AllGradesView() {
                       {grade.avgBehavior || '—'}
                     </Typography>
                   </Grid>
-                  <Grid item xs={4}>
+                  <Grid xs={4}>
                     <Typography variant="caption" color="text.secondary">
                       Attendance
                     </Typography>
@@ -272,3 +272,4 @@ export default function AllGradesView() {
     </Box>
   );
 }
+

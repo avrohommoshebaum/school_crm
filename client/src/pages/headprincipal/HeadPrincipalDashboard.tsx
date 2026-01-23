@@ -117,7 +117,7 @@ export default function HeadPrincipalDashboard() {
       {/* Stats Overview */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         {stats.map((stat, index) => (
-          <Grid item xs={12} sm={6} md={3} key={index}>
+          <Grid xs={12} sm={6} md={3} key={index}>
             <Card
               sx={{
                 background: stat.gradient,
@@ -149,7 +149,7 @@ export default function HeadPrincipalDashboard() {
       </Typography>
       <Grid container spacing={2} sx={{ mb: 4 }}>
         {quickActions.map((action, index) => (
-          <Grid item xs={12} sm={6} md={3} key={index}>
+          <Grid xs={12} sm={6} md={3} key={index}>
             <Card
               sx={{
                 cursor: 'pointer',
@@ -196,7 +196,7 @@ export default function HeadPrincipalDashboard() {
       </Typography>
       <Grid container spacing={2}>
         {recentAlerts.map((alert) => (
-          <Grid item xs={12} key={alert.id}>
+          <Grid xs={12} key={alert.id}>
             <Card sx={{ bgcolor: '#f8f9fa' }}>
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -216,3 +216,4 @@ export default function HeadPrincipalDashboard() {
     </Box>
   );
 }
+

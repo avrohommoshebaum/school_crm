@@ -94,7 +94,7 @@ export default function AllStudentsView() {
       {/* Filters */}
       <Paper sx={{ p: 2, mb: 3 }}>
         <Grid container spacing={2}>
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid xs={12} sm={6} md={4}>
             <TextField
               fullWidth
               size="small"
@@ -106,7 +106,7 @@ export default function AllStudentsView() {
               }}
             />
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid xs={12} sm={6} md={3}>
             <FormControl fullWidth size="small">
               <InputLabel>Grade</InputLabel>
               <Select value={gradeFilter} onChange={(e) => setGradeFilter(e.target.value)} label="Grade">
@@ -123,7 +123,7 @@ export default function AllStudentsView() {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid xs={12} sm={6} md={3}>
             <FormControl fullWidth size="small">
               <InputLabel>Status</InputLabel>
               <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} label="Status">
@@ -133,7 +133,7 @@ export default function AllStudentsView() {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} sm={6} md={2}>
+          <Grid xs={12} sm={6} md={2}>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
               {filteredStudents.length} student{filteredStudents.length !== 1 ? 's' : ''}
             </Typography>
